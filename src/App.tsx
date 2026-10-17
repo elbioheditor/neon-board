@@ -1197,10 +1197,10 @@ export function App() {
         </div>
       </header>
 
-      {/* FLOATING BOTTOM ACTION BAR WHEN DRAGGING A TASK: COMPLETE (GREEN) + DELETE (TRASH) */}
+      {/* FULL-WIDTH BOTTOM DROP ZONES WHEN DRAGGING A TASK: COMPLETE ZONE (LEFT/MAIN) + TRASH ZONE (RIGHT) */}
       {draggedCardId && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3">
-          {/* Green Complete Button (Left) */}
+        <div className="fixed bottom-0 left-0 right-0 z-50 h-24 flex items-stretch select-none">
+          {/* Green Complete Zone (Occupies the main bottom area) */}
           <div
             onDragOver={(e) => {
               e.preventDefault();
@@ -1212,22 +1212,22 @@ export function App() {
               }
             }}
             onDrop={handleDropCompleteCard}
-            className={`flex items-center gap-3 px-6 py-3.5 rounded-2xl border-2 transition-all duration-200 backdrop-blur-2xl shadow-2xl cursor-pointer ${
+            className={`flex-1 flex items-center justify-center gap-3.5 px-8 border-t-2 transition-all duration-200 backdrop-blur-2xl cursor-pointer ${
               dragOverBottomAction === 'complete'
-                ? 'bg-emerald-500 border-white text-slate-950 scale-110 shadow-emerald-400/60'
-                : 'bg-emerald-950/90 border-emerald-400/80 text-emerald-200 shadow-emerald-950/90 hover:bg-emerald-900/90'
+                ? 'bg-gradient-to-t from-emerald-500/95 via-emerald-500/80 to-emerald-400/50 border-emerald-200 text-slate-950 shadow-[0_-15px_50px_rgba(16,185,129,0.55)]'
+                : 'bg-gradient-to-t from-emerald-950/95 via-emerald-900/80 to-emerald-800/45 border-emerald-400/70 text-emerald-100 hover:from-emerald-900/95'
             }`}
           >
             <CheckCircle2
-              className={`w-5 h-5 flex-shrink-0 ${
+              className={`w-7 h-7 flex-shrink-0 transition-transform ${
                 dragOverBottomAction === 'complete'
-                  ? 'text-slate-950 scale-110'
+                  ? 'text-slate-950 scale-125'
                   : 'text-emerald-400 animate-pulse'
               }`}
             />
-            <div className="text-xs">
+            <div>
               <p
-                className={`font-extrabold tracking-wide ${
+                className={`text-sm font-extrabold uppercase tracking-wider ${
                   dragOverBottomAction === 'complete'
                     ? 'text-slate-950'
                     : 'text-emerald-100'
@@ -1236,18 +1236,18 @@ export function App() {
                 Solte aqui para Finalizar Tarefa
               </p>
               <p
-                className={`text-[10px] ${
+                className={`text-xs ${
                   dragOverBottomAction === 'complete'
-                    ? 'text-slate-900 font-semibold'
-                    : 'text-emerald-300/80'
+                    ? 'text-slate-900 font-bold'
+                    : 'text-emerald-300/85'
                 }`}
               >
-                Concluir e salvar no Dale
+                Concluir com confete e salvar tempo cronometrado no Dale
               </p>
             </div>
           </div>
 
-          {/* Trash Delete Button (Right) */}
+          {/* Red Trash Delete Zone (Occupies the bottom-right area) */}
           <div
             onDragOver={(e) => {
               e.preventDefault();
@@ -1259,28 +1259,28 @@ export function App() {
               }
             }}
             onDrop={handleDropDeleteCard}
-            className={`flex items-center gap-2.5 px-5 py-3.5 rounded-2xl border-2 transition-all duration-200 backdrop-blur-2xl shadow-2xl cursor-pointer ${
+            className={`w-72 sm:w-80 flex-shrink-0 flex items-center justify-center gap-3 px-6 border-t-2 border-l-2 transition-all duration-200 backdrop-blur-2xl cursor-pointer ${
               dragOverBottomAction === 'delete'
-                ? 'bg-rose-500 border-white text-white scale-110 shadow-rose-500/60'
-                : 'bg-rose-950/90 border-rose-500/70 text-rose-200 shadow-rose-950/90 hover:bg-rose-900/90'
+                ? 'bg-gradient-to-t from-rose-500/95 via-rose-500/80 to-rose-400/50 border-rose-200 text-white shadow-[0_-15px_50px_rgba(244,63,94,0.6)]'
+                : 'bg-gradient-to-t from-rose-950/95 via-rose-900/80 to-rose-800/45 border-rose-500/70 text-rose-100 hover:from-rose-900/95'
             }`}
           >
             <Trash2
-              className={`w-5 h-5 flex-shrink-0 ${
+              className={`w-6 h-6 flex-shrink-0 transition-transform ${
                 dragOverBottomAction === 'delete'
-                  ? 'text-white scale-110'
+                  ? 'text-white scale-125'
                   : 'text-rose-400'
               }`}
             />
-            <div className="text-xs">
-              <p className="font-extrabold text-white tracking-wide">
+            <div>
+              <p className="text-sm font-extrabold uppercase tracking-wider text-white">
                 Lixeira
               </p>
               <p
-                className={`text-[10px] ${
+                className={`text-xs ${
                   dragOverBottomAction === 'delete'
-                    ? 'text-rose-100 font-semibold'
-                    : 'text-rose-300/80'
+                    ? 'text-rose-100 font-bold'
+                    : 'text-rose-300/85'
                 }`}
               >
                 Jogar tarefa fora
