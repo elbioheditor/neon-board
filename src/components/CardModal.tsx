@@ -14,6 +14,7 @@ import {
   Play,
   Pause,
   RotateCcw,
+  Repeat,
 } from 'lucide-react';
 import { TaskCard, LabelColor, BoardList } from '../types';
 import { LABEL_CONFIG } from '../data/initialData';
@@ -160,19 +161,30 @@ export const CardModal: React.FC<CardModalProps> = ({
               className="w-full text-xl font-bold font-display bg-transparent border-b border-transparent focus:border-cyan-400 focus:outline-none pb-1 text-white"
               placeholder="Título da tarefa..."
             />
-            <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-400">
-              <span>Coluna no Board:</span>
-              <select
-                value={card.listId}
-                onChange={(e) => saveField({ listId: e.target.value })}
-                className="bg-[#191130] text-cyan-300 border border-purple-500/30 rounded-md px-2 py-0.5 text-xs focus:outline-none focus:border-cyan-400"
-              >
-                {lists.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.title}
-                  </option>
-                ))}
-              </select>
+            <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-slate-400">
+              <div className="flex items-center gap-1.5">
+                <span>Coluna no Board:</span>
+                <select
+                  value={card.listId}
+                  onChange={(e) => saveField({ listId: e.target.value })}
+                  className="bg-[#191130] text-cyan-300 border border-purple-500/30 rounded-md px-2 py-0.5 text-xs focus:outline-none focus:border-cyan-400"
+                >
+                  {lists.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {card.recurrence && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-cyan-500/20 border border-cyan-400/40 text-[10px] font-bold text-cyan-200">
+                  <Repeat className="w-3 h-3 text-cyan-300" />
+                  {card.recurrence.mode === 'days_count'
+                    ? `Dia ${card.recurrence.dayIndex} de ${card.recurrence.daysCount}`
+                    : 'Tarefa de Rotina'}
+                </span>
+              )}
             </div>
           </div>
 

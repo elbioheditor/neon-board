@@ -28,7 +28,7 @@ function setupAutoUpdater() {
 
     autoUpdater.on('update-downloaded', (info) => {
       if (!mainWindow) {
-        autoUpdater.quitAndInstall(false, true);
+        autoUpdater.quitAndInstall(true, true);
         return;
       }
       dialog
@@ -43,7 +43,7 @@ function setupAutoUpdater() {
         })
         .then((result) => {
           if (result.response === 0) {
-            autoUpdater.quitAndInstall(false, true);
+            autoUpdater.quitAndInstall(true, true);
           }
         });
     });

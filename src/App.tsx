@@ -25,6 +25,7 @@ import {
   TaskCard,
   ActiveTab,
   LabelColor,
+  RecurrenceConfig,
 } from './types';
 import { INITIAL_STATE, LABEL_CONFIG } from './data/initialData';
 import { NeonParticles } from './components/NeonParticles';
@@ -34,6 +35,11 @@ import { MonthlyHistoryView } from './components/MonthlyHistoryView';
 import { CalendarView } from './components/CalendarView';
 import { CloudSyncModal } from './components/CloudSyncModal';
 import { TimeInput24h } from './components/TimeInput24h';
+import {
+  DEFAULT_RECURRENCE_CONFIG,
+  RecurrenceButton,
+  RecurrencePanel,
+} from './components/RecurrenceControl';
 import {
   getSavedCloudConfig,
   saveCloudConfig,
@@ -63,6 +69,7 @@ import {
   getDayPeriodKey,
   PERIOD_ZONE_STYLES,
   DayPeriodKey,
+  buildRecurringTaskCards,
 } from './utils/timeUtils';
 
 const LOCAL_STORAGE_KEY = 'neon_board_state_v1';
@@ -129,6 +136,9 @@ export function App() {
   const [newCardDate, setNewCardDate] = useState(() => getTodayIsoDate());
   const [newCardLabel, setNewCardLabel] = useState<LabelColor>('purple');
   const [newCardTag, setNewCardTag] = useState('');
+  const [newCardRecurrence, setNewCardRecurrence] = useState<RecurrenceConfig>(
+    DEFAULT_RECURRENCE_CONFIG
+  );
 
   // Adding new list or board
   const [isAddingList, setIsAddingList] = useState(false);
@@ -530,6 +540,7 @@ export function App() {
 
   const handleOpenAddInline = (listId: string, listTitle: string) => {
     setAddingToListId(listId);
+    setNewCardRecurrence(DEFAULT_RECURRENCE_CONFIG);
     if (isYesterdayListTitle(listTitle)) {
       setNewCardDate(getYesterdayIsoDate());
     } else if (isTodayListTitle(listTitle)) {
@@ -546,40 +557,34 @@ export function App() {
     if (!newCardTitle.trim()) return;
 
     const defaultList = boardLists.find((l) => l.id === defaultListId);
-    const isCustomList =
-      defaultList && !isStandardDateSyncedList(defaultList.title);
+    const isCustomList = Boolean(
+      defaultList && !isStandardDateSyncedList(defaultList.title)
+    );
 
-    const targetListId = isCustomList
-      ? defaultListId
-      : resolveSyncedListIdForDate(newCardDate, boardLists) || defaultListId;
-
-    const listCards = activeBoardCards.filter((c) => c.listId === targetListId);
-    const newCard: TaskCard = {
-      id: 'card-' + Date.now(),
-      boardId: activeBoard.id,
-      listId: targetListId,
+    const newCards = buildRecurringTaskCards({
       title: newCardTitle.trim(),
-      description: '',
-      status: 'todo',
+      boardId: activeBoard.id,
+      defaultListId,
+      isCustomList,
+      boardLists,
+      baseScheduledDate: newCardDate || getTodayIsoDate(),
       startTime: newCardStart || undefined,
       endTime: newCardEnd || undefined,
-      scheduledDate: newCardDate || getTodayIsoDate(),
-      elapsedSeconds: 0,
-      labels: [newCardLabel],
+      label: newCardLabel,
       categoryTag: newCardTag.trim() || undefined,
-      checklist: [],
       assignee: activeBoard.owner,
-      createdAt: new Date().toISOString(),
-      order: listCards.length,
-    };
+      baseOrder: activeBoardCards.length,
+      recurrence: newCardRecurrence,
+    });
 
     updateState((prev) => ({
       ...prev,
-      cards: [...prev.cards, newCard],
+      cards: [...prev.cards, ...newCards],
     }));
 
     setNewCardTitle('');
     setNewCardTag('');
+    setNewCardRecurrence(DEFAULT_RECURRENCE_CONFIG);
     setAddingToListId(null);
   };
 
@@ -589,33 +594,31 @@ export function App() {
     startTime: string,
     endTime: string,
     label: LabelColor,
-    categoryTag: string
+    categoryTag: string,
+    recurrence?: RecurrenceConfig
   ) => {
     const syncedListId = resolveSyncedListIdForDate(scheduledDate, boardLists);
     if (!syncedListId) return;
 
-    const newCard: TaskCard = {
-      id: 'card-' + Date.now(),
-      boardId: activeBoard.id,
-      listId: syncedListId,
+    const newCards = buildRecurringTaskCards({
       title,
-      description: '',
-      status: 'todo',
+      boardId: activeBoard.id,
+      defaultListId: syncedListId,
+      isCustomList: false,
+      boardLists,
+      baseScheduledDate: scheduledDate,
       startTime,
       endTime,
-      scheduledDate,
-      elapsedSeconds: 0,
-      labels: [label],
+      label,
       categoryTag: categoryTag.trim() || undefined,
-      checklist: [],
       assignee: activeBoard.owner,
-      createdAt: new Date().toISOString(),
-      order: 0,
-    };
+      baseOrder: activeBoardCards.length,
+      recurrence,
+    });
 
     updateState((prev) => ({
       ...prev,
-      cards: [newCard, ...prev.cards],
+      cards: [...newCards, ...prev.cards],
     }));
   };
 
@@ -988,7 +991,7 @@ export function App() {
 
   const isDraggingAnything = Boolean(draggedCardId || draggedListId);
   const appBrandName = window.neonDesktop?.brandName || 'NEON';
-  const appVersion = window.neonDesktop?.version || '1.0.3';
+  const appVersion = window.neonDesktop?.version || '1.0.5';
 
   return (
     <div className="relative w-screen h-screen flex flex-col bg-[#07050d] text-slate-100 overflow-hidden select-none">
@@ -1596,50 +1599,64 @@ export function App() {
                             />
                           </div>
 
-                          {/* Color Dots */}
-                          <div className="flex items-center justify-between pt-1">
-                            <div className="flex items-center gap-1">
-                              {(
-                                [
-                                  'purple',
-                                  'cyan',
-                                  'pink',
-                                  'green',
-                                  'yellow',
-                                  'orange',
-                                ] as LabelColor[]
-                              ).map((col) => (
-                                <button
-                                  key={col}
-                                  type="button"
-                                  onClick={() => setNewCardLabel(col)}
-                                  className={`w-3.5 h-3.5 rounded-full ${
-                                    LABEL_CONFIG[col].bg
-                                  } ${
-                                    newCardLabel === col
-                                      ? 'ring-2 ring-white scale-110'
-                                      : 'opacity-45'
-                                  }`}
-                                />
-                              ))}
+                          {/* Color Dots + Rotina Button + Action Buttons */}
+                          <div className="flex items-center justify-between gap-1.5 pt-1">
+                            <div className="flex items-center gap-1.5">
+                              <div className="flex items-center gap-1">
+                                {(
+                                  [
+                                    'purple',
+                                    'cyan',
+                                    'pink',
+                                    'green',
+                                    'yellow',
+                                    'orange',
+                                  ] as LabelColor[]
+                                ).map((col) => (
+                                  <button
+                                    key={col}
+                                    type="button"
+                                    onClick={() => setNewCardLabel(col)}
+                                    className={`w-3.5 h-3.5 rounded-full ${
+                                      LABEL_CONFIG[col].bg
+                                    } ${
+                                      newCardLabel === col
+                                        ? 'ring-2 ring-white scale-110'
+                                        : 'opacity-45'
+                                    }`}
+                                  />
+                                ))}
+                              </div>
+
+                              <RecurrenceButton
+                                config={newCardRecurrence}
+                                onChange={setNewCardRecurrence}
+                                compact
+                              />
                             </div>
 
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1">
                               <button
                                 type="button"
                                 onClick={() => setAddingToListId(null)}
-                                className="px-2 py-1 rounded-lg text-xs text-slate-400 hover:text-white"
+                                className="px-1.5 py-1 rounded-lg text-[11px] text-slate-400 hover:text-white cursor-pointer"
                               >
                                 Cancelar
                               </button>
                               <button
                                 type="submit"
-                                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-gradient-to-r from-fuchsia-600 to-cyan-500 text-white shadow-md shadow-cyan-500/20 cursor-pointer"
+                                className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-gradient-to-r from-fuchsia-600 to-cyan-500 text-white shadow-md shadow-cyan-500/20 cursor-pointer"
                               >
                                 Adicionar
                               </button>
                             </div>
                           </div>
+
+                          {/* Recurrence Options Panel (when Rotina is toggled) */}
+                          <RecurrencePanel
+                            config={newCardRecurrence}
+                            onChange={setNewCardRecurrence}
+                          />
                         </form>
                       </div>
                     )}

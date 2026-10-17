@@ -8,6 +8,21 @@ export interface ChecklistItem {
   completed: boolean;
 }
 
+export interface TaskRecurrence {
+  mode: 'weekdays' | 'days_count';
+  weekdays?: number[]; // 0 = Dom, 1 = Seg, 2 = Ter, 3 = Qua, 4 = Qui, 5 = Sex, 6 = Sáb
+  daysCount?: number;  // Total consecutive days (e.g. 4)
+  dayIndex?: number;   // Current day index (1..daysCount)
+  groupId: string;
+}
+
+export interface RecurrenceConfig {
+  enabled: boolean;
+  mode: 'weekdays' | 'days_count';
+  weekdays: number[];
+  daysCount: number;
+}
+
 export interface TaskCard {
   id: string;
   boardId: string;
@@ -27,6 +42,7 @@ export interface TaskCard {
   createdAt: string;
   completedAt?: string; // ISO timestamp when marked as completed
   completedFromListTitle?: string;
+  recurrence?: TaskRecurrence;
   order: number;
 }
 

@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   Timer,
   Calendar,
+  Repeat,
 } from 'lucide-react';
 import { TaskCard } from '../types';
 import { LABEL_CONFIG } from '../data/initialData';
@@ -149,6 +150,18 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
             <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-black/35 text-purple-200 border border-purple-400/30">
               <Calendar className="w-2.5 h-2.5 text-fuchsia-400" />
               <span>{formatShortDatePt(card.scheduledDate)}</span>
+            </div>
+          )}
+
+          {/* Recurrence Badge (Rotina or Dia X/Y) */}
+          {card.recurrence && (
+            <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-cyan-500/20 text-cyan-200 border border-cyan-400/35">
+              <Repeat className="w-2.5 h-2.5 text-cyan-300" />
+              <span>
+                {card.recurrence.mode === 'days_count'
+                  ? `Dia ${card.recurrence.dayIndex}/${card.recurrence.daysCount}`
+                  : 'Rotina'}
+              </span>
             </div>
           )}
 

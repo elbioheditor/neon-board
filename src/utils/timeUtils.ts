@@ -1,4 +1,10 @@
-import { BoardList, NeonStoreState, TaskCard } from '../types';
+import {
+  BoardList,
+  LabelColor,
+  NeonStoreState,
+  RecurrenceConfig,
+  TaskCard,
+} from '../types';
 
 export const BRASILIA_TIMEZONE = 'America/Sao_Paulo';
 
@@ -451,6 +457,77 @@ export function reconcileStateWithBrasiliaTime(
     return card;
   });
 
+  // Automatically extend active weekday-based recurring tasks for the next 7 days (when date > maxScheduledDate of the group)
+  const todayStr = getTodayIsoDate();
+  const weekdayGroups = new Map<
+    string,
+    { template: TaskCard; maxDate: string; weekdays: number[] }
+  >();
+
+  for (const c of updatedCards) {
+    if (
+      c.recurrence?.mode === 'weekdays' &&
+      c.recurrence.weekdays &&
+      c.recurrence.weekdays.length > 0 &&
+      c.recurrence.groupId
+    ) {
+      const gid = c.recurrence.groupId;
+      const d = c.scheduledDate || todayStr;
+      const existing = weekdayGroups.get(gid);
+      if (!existing) {
+        weekdayGroups.set(gid, {
+          template: c,
+          maxDate: d,
+          weekdays: c.recurrence.weekdays,
+        });
+      } else if (d > existing.maxDate) {
+        existing.maxDate = d;
+        existing.template = c;
+      }
+    }
+  }
+
+  weekdayGroups.forEach(({ template, maxDate, weekdays }, gid) => {
+    const bLists = updatedLists.filter((l) => l.boardId === template.boardId);
+    for (let offset = 0; offset < 7; offset++) {
+      const targetIso = addDaysToIsoDate(todayStr, offset);
+      if (targetIso > maxDate) {
+        const wDay = getWeekdayFromIsoDate(targetIso);
+        if (weekdays.includes(wDay)) {
+          const targetListId =
+            resolveSyncedListIdForDate(targetIso, bLists) || template.listId;
+          updatedCards.push({
+            id: `card-${Date.now()}-${gid.slice(-4)}-${offset}`,
+            boardId: template.boardId,
+            listId: targetListId,
+            title: template.title,
+            description: template.description,
+            status: 'todo',
+            startTime: template.startTime,
+            endTime: template.endTime,
+            scheduledDate: targetIso,
+            elapsedSeconds: 0,
+            labels: [...template.labels],
+            categoryTag: template.categoryTag,
+            checklist: template.checklist.map((item) => ({
+              ...item,
+              completed: false,
+            })),
+            assignee: template.assignee,
+            createdAt: new Date().toISOString(),
+            recurrence: {
+              mode: 'weekdays',
+              weekdays: [...weekdays],
+              groupId: gid,
+            },
+            order: updatedCards.length,
+          });
+          cardsChanged = true;
+        }
+      }
+    }
+  });
+
   if (!listsChanged && !cardsChanged) {
     return state;
   }
@@ -460,4 +537,173 @@ export function reconcileStateWithBrasiliaTime(
     lists: updatedLists,
     cards: updatedCards,
   };
+}
+
+/**
+ * Adds `offsetDays` to an ISO date string "YYYY-MM-DD" and returns the resulting "YYYY-MM-DD".
+ */
+export function addDaysToIsoDate(baseIso: string, offsetDays: number): string {
+  const parts = baseIso.split('-').map(Number);
+  if (parts.length !== 3) return baseIso;
+  const dt = new Date(parts[0], parts[1] - 1, parts[2]);
+  dt.setDate(dt.getDate() + offsetDays);
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, '0');
+  const d = String(dt.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Returns the weekday index (0 = Dom, 1 = Seg, ..., 6 = Sáb) for a "YYYY-MM-DD" string.
+ */
+export function getWeekdayFromIsoDate(isoDate: string): number {
+  const parts = isoDate.split('-').map(Number);
+  if (parts.length !== 3) return 0;
+  const dt = new Date(parts[0], parts[1] - 1, parts[2]);
+  return dt.getDay();
+}
+
+/**
+ * Builds one or multiple TaskCards according to the user's RecurrenceConfig ("Rotina").
+ * - If recurrence is disabled: creates 1 card on `baseScheduledDate`.
+ * - If recurrence.mode === 'days_count': creates `daysCount` cards for consecutive days starting on `baseScheduledDate`.
+ * - If recurrence.mode === 'weekdays': creates cards for all matching weekdays across the next 7 days starting on `baseScheduledDate`
+ *   (and `reconcileStateWithBrasiliaTime` automatically keeps rolling future weeks forward).
+ */
+export function buildRecurringTaskCards(params: {
+  title: string;
+  boardId: string;
+  defaultListId: string;
+  isCustomList?: boolean;
+  boardLists: BoardList[];
+  baseScheduledDate: string;
+  startTime?: string;
+  endTime?: string;
+  label: LabelColor;
+  categoryTag?: string;
+  assignee: 'Elbioh' | 'Didi';
+  baseOrder: number;
+  recurrence?: RecurrenceConfig;
+}): TaskCard[] {
+  const {
+    title,
+    boardId,
+    defaultListId,
+    isCustomList = false,
+    boardLists,
+    baseScheduledDate,
+    startTime,
+    endTime,
+    label,
+    categoryTag,
+    assignee,
+    baseOrder,
+    recurrence,
+  } = params;
+
+  const nowTs = Date.now();
+  const nowIso = new Date().toISOString();
+
+  const resolveListId = (dateIso: string) =>
+    isCustomList
+      ? defaultListId
+      : resolveSyncedListIdForDate(dateIso, boardLists) || defaultListId;
+
+  if (!recurrence || !recurrence.enabled) {
+    return [
+      {
+        id: `card-${nowTs}`,
+        boardId,
+        listId: resolveListId(baseScheduledDate),
+        title,
+        description: '',
+        status: 'todo',
+        startTime: startTime || undefined,
+        endTime: endTime || undefined,
+        scheduledDate: baseScheduledDate,
+        elapsedSeconds: 0,
+        labels: [label],
+        categoryTag: categoryTag || undefined,
+        checklist: [],
+        assignee,
+        createdAt: nowIso,
+        order: baseOrder,
+      },
+    ];
+  }
+
+  const groupId = `rec-${nowTs}`;
+
+  // Mode 1: Consecutive days count (e.g. "4 dias" starting from baseScheduledDate)
+  if (recurrence.mode === 'days_count') {
+    const count = Math.max(1, Math.min(60, recurrence.daysCount || 1));
+    const result: TaskCard[] = [];
+    for (let i = 0; i < count; i++) {
+      const dateIso = addDaysToIsoDate(baseScheduledDate, i);
+      result.push({
+        id: `card-${nowTs}-${i}`,
+        boardId,
+        listId: resolveListId(dateIso),
+        title,
+        description: '',
+        status: 'todo',
+        startTime: startTime || undefined,
+        endTime: endTime || undefined,
+        scheduledDate: dateIso,
+        elapsedSeconds: 0,
+        labels: [label],
+        categoryTag: categoryTag || undefined,
+        checklist: [],
+        assignee,
+        createdAt: nowIso,
+        recurrence: {
+          mode: 'days_count',
+          daysCount: count,
+          dayIndex: i + 1,
+          groupId,
+        },
+        order: baseOrder + i,
+      });
+    }
+    return result;
+  }
+
+  // Mode 2: Specific days of the week (0 = Dom .. 6 = Sáb)
+  const selectedWeekdays =
+    recurrence.weekdays && recurrence.weekdays.length > 0
+      ? [...recurrence.weekdays].sort((a, b) => a - b)
+      : [getWeekdayFromIsoDate(baseScheduledDate)];
+
+  const result: TaskCard[] = [];
+  for (let offset = 0; offset < 7; offset++) {
+    const dateIso = addDaysToIsoDate(baseScheduledDate, offset);
+    const wDay = getWeekdayFromIsoDate(dateIso);
+    if (selectedWeekdays.includes(wDay)) {
+      result.push({
+        id: `card-${nowTs}-w${offset}`,
+        boardId,
+        listId: resolveListId(dateIso),
+        title,
+        description: '',
+        status: 'todo',
+        startTime: startTime || undefined,
+        endTime: endTime || undefined,
+        scheduledDate: dateIso,
+        elapsedSeconds: 0,
+        labels: [label],
+        categoryTag: categoryTag || undefined,
+        checklist: [],
+        assignee,
+        createdAt: nowIso,
+        recurrence: {
+          mode: 'weekdays',
+          weekdays: selectedWeekdays,
+          groupId,
+        },
+        order: baseOrder + result.length,
+      });
+    }
+  }
+
+  return result;
 }

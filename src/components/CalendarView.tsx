@@ -10,8 +10,15 @@ import {
   CheckCircle2,
   Timer,
   LayoutGrid,
+  Repeat,
 } from 'lucide-react';
-import { Board, BoardList, LabelColor, TaskCard } from '../types';
+import {
+  Board,
+  BoardList,
+  LabelColor,
+  RecurrenceConfig,
+  TaskCard,
+} from '../types';
 import { LABEL_CONFIG } from '../data/initialData';
 import {
   getBrasiliaNow,
@@ -26,6 +33,11 @@ import {
   PERIOD_ZONE_STYLES,
 } from '../utils/timeUtils';
 import { TimeInput24h } from './TimeInput24h';
+import {
+  DEFAULT_RECURRENCE_CONFIG,
+  RecurrenceButton,
+  RecurrencePanel,
+} from './RecurrenceControl';
 
 interface CalendarViewProps {
   board: Board;
@@ -41,7 +53,8 @@ interface CalendarViewProps {
     startTime: string,
     endTime: string,
     label: LabelColor,
-    categoryTag: string
+    categoryTag: string,
+    recurrence?: RecurrenceConfig
   ) => void;
 }
 
@@ -99,6 +112,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   const [newEnd, setNewEnd] = useState('10:00');
   const [newLabel, setNewLabel] = useState<LabelColor>('purple');
   const [newTag, setNewTag] = useState('');
+  const [newRecurrence, setNewRecurrence] = useState<RecurrenceConfig>(
+    DEFAULT_RECURRENCE_CONFIG
+  );
 
   const handleStartChange = (val: string) => {
     setNewStart(val);
@@ -195,9 +211,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       newStart,
       newEnd,
       newLabel,
-      newTag
+      newTag,
+      newRecurrence
     );
     setNewTitle('');
+    setNewRecurrence(DEFAULT_RECURRENCE_CONFIG);
   };
 
   const formatSelectedDateFull = (iso: string) => {
@@ -426,22 +444,29 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               />
             </div>
 
-            <div className="flex items-center justify-between pt-1">
-              <div className="flex items-center gap-1.5">
-                {(
-                  ['purple', 'cyan', 'pink', 'green', 'yellow', 'orange'] as LabelColor[]
-                ).map((col) => (
-                  <button
-                    key={col}
-                    type="button"
-                    onClick={() => setNewLabel(col)}
-                    className={`w-4 h-4 rounded-full ${LABEL_CONFIG[col].bg} ${
-                      newLabel === col
-                        ? 'ring-2 ring-white scale-110'
-                        : 'opacity-45'
-                    }`}
-                  />
-                ))}
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-1.5">
+                  {(
+                    ['purple', 'cyan', 'pink', 'green', 'yellow', 'orange'] as LabelColor[]
+                  ).map((col) => (
+                    <button
+                      key={col}
+                      type="button"
+                      onClick={() => setNewLabel(col)}
+                      className={`w-4 h-4 rounded-full ${LABEL_CONFIG[col].bg} ${
+                        newLabel === col
+                          ? 'ring-2 ring-white scale-110'
+                          : 'opacity-45'
+                      }`}
+                    />
+                  ))}
+                </div>
+
+                <RecurrenceButton
+                  config={newRecurrence}
+                  onChange={setNewRecurrence}
+                />
               </div>
 
               <button
@@ -452,6 +477,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 <span>Adicionar</span>
               </button>
             </div>
+
+            <RecurrencePanel
+              config={newRecurrence}
+              onChange={setNewRecurrence}
+            />
           </form>
 
           {/* List of Tasks on the Selected Day */}
@@ -490,6 +520,15 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                           {card.title}
                         </span>
                       </div>
+
+                      {card.recurrence && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-cyan-500/20 border border-cyan-400/35 text-[10px] font-bold text-cyan-200 flex-shrink-0">
+                          <Repeat className="w-2.5 h-2.5 text-cyan-300" />
+                          {card.recurrence.mode === 'days_count'
+                            ? `Dia ${card.recurrence.dayIndex}/${card.recurrence.daysCount}`
+                            : 'Rotina'}
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex flex-wrap items-center justify-between gap-2">
