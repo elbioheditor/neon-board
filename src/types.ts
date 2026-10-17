@@ -2,12 +2,6 @@ export type TaskStatus = 'todo' | 'in_progress' | 'paused' | 'completed';
 
 export type LabelColor = 'purple' | 'cyan' | 'pink' | 'green' | 'yellow' | 'orange';
 
-export interface TaskLabel {
-  id: string;
-  color: LabelColor;
-  text?: string;
-}
-
 export interface ChecklistItem {
   id: string;
   text: string;
@@ -59,11 +53,5 @@ export interface NeonStoreState {
   activeBoardId: string;
   lists: BoardList[];
   cards: TaskCard[];
-  inboxNotes?: {
-    id: string;
-    boardId: string;
-    text: string;
-    createdAt: string;
-  }[];
   lastUpdated: string;
 }

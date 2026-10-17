@@ -15,7 +15,6 @@ import {
   Zap,
   Timer,
   GripVertical,
-  ArrowRightLeft,
   Send,
   ChevronRight,
   ChevronLeft,
@@ -146,6 +145,9 @@ export function App() {
   const [draggedListId, setDraggedListId] = useState<string | null>(null);
   const [dragOverListId, setDragOverListId] = useState<string | null>(null);
   const [dragOverBoardId, setDragOverBoardId] = useState<string | null>(null);
+  const [dragOverBottomAction, setDragOverBottomAction] = useState<
+    'complete' | 'delete' | null
+  >(null);
 
   // Cross-board transfer animation & slot-in highlight state
   const [transferAnim, setTransferAnim] = useState<{
@@ -673,6 +675,29 @@ export function App() {
     setDraggedListId(null);
     setDragOverListId(null);
     setDragOverBoardId(null);
+    setDragOverBottomAction(null);
+  };
+
+  const handleDropCompleteCard = (e: React.DragEvent) => {
+    e.preventDefault();
+    const rawData = e.dataTransfer.getData('text/plain') || '';
+    const activeCardId =
+      draggedCardId ||
+      (rawData.startsWith('card:') ? rawData.replace('card:', '') : '');
+    handleClearDragState();
+    if (!activeCardId) return;
+    handleCompleteCard(null, activeCardId);
+  };
+
+  const handleDropDeleteCard = (e: React.DragEvent) => {
+    e.preventDefault();
+    const rawData = e.dataTransfer.getData('text/plain') || '';
+    const activeCardId =
+      draggedCardId ||
+      (rawData.startsWith('card:') ? rawData.replace('card:', '') : '');
+    handleClearDragState();
+    if (!activeCardId) return;
+    handleDeleteCard(activeCardId);
   };
 
   const handleDragOverList = (e: React.DragEvent, listId: string) => {
@@ -1172,30 +1197,95 @@ export function App() {
         </div>
       </header>
 
-      {/* FLOATING PORTAL DROPZONE WHEN DRAGGING A CARD OR LIST */}
-      {isDraggingAnything && otherBoard && (
-        <div
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragOverBoardId(otherBoard.id);
-          }}
-          onDragLeave={() => setDragOverBoardId(null)}
-          onDrop={(e) => handleDropOnBoard(e, otherBoard.id)}
-          className={`fixed bottom-20 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-6 py-3 rounded-2xl border-2 border-dashed transition-all duration-200 backdrop-blur-2xl shadow-2xl ${
-            dragOverBoardId === otherBoard.id
-              ? 'bg-gradient-to-r from-fuchsia-600/90 via-purple-600/90 to-cyan-500/90 border-white text-white scale-110 shadow-cyan-400/50'
-              : 'bg-[#120b24]/95 border-cyan-400/80 text-cyan-200 shadow-purple-950/90'
-          }`}
-        >
-          <ArrowRightLeft className="w-5 h-5 text-cyan-300 animate-pulse" />
-          <div className="text-xs">
-            <p className="font-extrabold text-white tracking-wide">
-              Solte aqui para jogar {draggedListId ? 'esta Lista' : 'esta Tarefa'}{' '}
-              para <span className="text-cyan-300">{otherBoard.name}</span>
-            </p>
-            <p className="text-[10px] text-slate-300">
-              Ou solte direto na aba "{otherBoard.name}" no topo
-            </p>
+      {/* FLOATING BOTTOM ACTION BAR WHEN DRAGGING A TASK: COMPLETE (GREEN) + DELETE (TRASH) */}
+      {draggedCardId && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3">
+          {/* Green Complete Button (Left) */}
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOverBottomAction('complete');
+            }}
+            onDragLeave={() => {
+              if (dragOverBottomAction === 'complete') {
+                setDragOverBottomAction(null);
+              }
+            }}
+            onDrop={handleDropCompleteCard}
+            className={`flex items-center gap-3 px-6 py-3.5 rounded-2xl border-2 transition-all duration-200 backdrop-blur-2xl shadow-2xl cursor-pointer ${
+              dragOverBottomAction === 'complete'
+                ? 'bg-emerald-500 border-white text-slate-950 scale-110 shadow-emerald-400/60'
+                : 'bg-emerald-950/90 border-emerald-400/80 text-emerald-200 shadow-emerald-950/90 hover:bg-emerald-900/90'
+            }`}
+          >
+            <CheckCircle2
+              className={`w-5 h-5 flex-shrink-0 ${
+                dragOverBottomAction === 'complete'
+                  ? 'text-slate-950 scale-110'
+                  : 'text-emerald-400 animate-pulse'
+              }`}
+            />
+            <div className="text-xs">
+              <p
+                className={`font-extrabold tracking-wide ${
+                  dragOverBottomAction === 'complete'
+                    ? 'text-slate-950'
+                    : 'text-emerald-100'
+                }`}
+              >
+                Solte aqui para Finalizar Tarefa
+              </p>
+              <p
+                className={`text-[10px] ${
+                  dragOverBottomAction === 'complete'
+                    ? 'text-slate-900 font-semibold'
+                    : 'text-emerald-300/80'
+                }`}
+              >
+                Concluir e salvar no Dale
+              </p>
+            </div>
+          </div>
+
+          {/* Trash Delete Button (Right) */}
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOverBottomAction('delete');
+            }}
+            onDragLeave={() => {
+              if (dragOverBottomAction === 'delete') {
+                setDragOverBottomAction(null);
+              }
+            }}
+            onDrop={handleDropDeleteCard}
+            className={`flex items-center gap-2.5 px-5 py-3.5 rounded-2xl border-2 transition-all duration-200 backdrop-blur-2xl shadow-2xl cursor-pointer ${
+              dragOverBottomAction === 'delete'
+                ? 'bg-rose-500 border-white text-white scale-110 shadow-rose-500/60'
+                : 'bg-rose-950/90 border-rose-500/70 text-rose-200 shadow-rose-950/90 hover:bg-rose-900/90'
+            }`}
+          >
+            <Trash2
+              className={`w-5 h-5 flex-shrink-0 ${
+                dragOverBottomAction === 'delete'
+                  ? 'text-white scale-110'
+                  : 'text-rose-400'
+              }`}
+            />
+            <div className="text-xs">
+              <p className="font-extrabold text-white tracking-wide">
+                Lixeira
+              </p>
+              <p
+                className={`text-[10px] ${
+                  dragOverBottomAction === 'delete'
+                    ? 'text-rose-100 font-semibold'
+                    : 'text-rose-300/80'
+                }`}
+              >
+                Jogar tarefa fora
+              </p>
+            </div>
           </div>
         </div>
       )}

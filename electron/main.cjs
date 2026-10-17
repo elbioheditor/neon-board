@@ -37,11 +37,22 @@ function setupAutoUpdater() {
       console.error('AutoUpdater error:', err?.message || err);
     });
 
-    // Check immediately on startup and every 10 minutes
+    // Check immediately on startup, every 2 minutes, and on window focus
+    let lastCheckMs = Date.now();
     autoUpdater.checkForUpdatesAndNotify().catch(() => {});
     setInterval(() => {
+      lastCheckMs = Date.now();
       autoUpdater.checkForUpdatesAndNotify().catch(() => {});
-    }, 10 * 60 * 1000);
+    }, 2 * 60 * 1000);
+
+    if (mainWindow) {
+      mainWindow.on('focus', () => {
+        if (Date.now() - lastCheckMs > 30 * 1000) {
+          lastCheckMs = Date.now();
+          autoUpdater.checkForUpdatesAndNotify().catch(() => {});
+        }
+      });
+    }
   } catch (e) {
     console.error('Failed to initialize autoUpdater:', e);
   }
