@@ -1,13 +1,28 @@
 const { app, BrowserWindow, shell, dialog } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
+const os = require('os');
 
 let mainWindow = null;
+
+function getLocalBrandName() {
+  try {
+    const username = (
+      process.env.USERNAME ||
+      os.userInfo().username ||
+      ''
+    ).toLowerCase();
+    return username.includes('elbioh') ? 'NEON' : 'SHADOWJOKER';
+  } catch {
+    return 'NEON';
+  }
+}
 
 function setupAutoUpdater() {
   if (!app.isPackaged) return;
 
   try {
+    const brandName = getLocalBrandName();
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = true;
 
@@ -21,8 +36,8 @@ function setupAutoUpdater() {
           type: 'info',
           buttons: ['Atualizar e Reiniciar Agora', 'Depois'],
           defaultId: 0,
-          title: 'Nova Atualização do NEON Disponível!',
-          message: `A versão ${info.version} do NEON foi baixada automaticamente.`,
+          title: `Nova Atualização do ${brandName} Disponível!`,
+          message: `A versão ${info.version} do ${brandName} foi baixada automaticamente.`,
           detail:
             'Suas tarefas, listas e cronômetros estão 100% salvos. Deseja reiniciar o app agora para aplicar a atualização?',
         })
@@ -59,13 +74,16 @@ function setupAutoUpdater() {
 }
 
 function createWindow() {
+  const brandName = getLocalBrandName();
+  const appVersion = app.getVersion();
+
   mainWindow = new BrowserWindow({
     width: 1480,
     height: 920,
     minWidth: 1024,
     minHeight: 680,
     backgroundColor: '#07050d',
-    title: 'NEON — Routine & Kanban Board',
+    title: `${brandName} — Routine & Kanban Board`,
     autoHideMenuBar: true,
     titleBarStyle: 'hidden',
     titleBarOverlay: {
@@ -76,6 +94,11 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: false,
+      additionalArguments: [
+        `--app-brand=${brandName}`,
+        `--app-version=${appVersion}`,
+      ],
       preload: path.join(__dirname, 'preload.cjs'),
     },
   });

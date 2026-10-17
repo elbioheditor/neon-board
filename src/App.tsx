@@ -987,6 +987,8 @@ export function App() {
   };
 
   const isDraggingAnything = Boolean(draggedCardId || draggedListId);
+  const appBrandName = window.neonDesktop?.brandName || 'NEON';
+  const appVersion = window.neonDesktop?.version || '1.0.3';
 
   return (
     <div className="relative w-screen h-screen flex flex-col bg-[#07050d] text-slate-100 overflow-hidden select-none">
@@ -995,7 +997,7 @@ export function App() {
 
       {/* TOP HEADER / DRAGGABLE TITLEBAR */}
       <header className="relative z-20 flex flex-wrap items-center justify-between gap-3 px-5 py-2.5 bg-[#090612]/95 border-b border-purple-500/25 backdrop-blur-xl app-drag-region pr-36">
-        {/* Left: NEON Brand + Board Switcher Tabs (Also Drop Targets for Cross-Board Transfer!) */}
+        {/* Left: Brand (NEON on Elbioh's PC / SHADOWJOKER on Brother's PC) + Board Switcher Tabs */}
         <div className="flex items-center gap-5 app-no-drag">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-fuchsia-500 via-purple-600 to-cyan-400 p-[1.5px] shadow-lg shadow-fuchsia-500/25">
@@ -1004,7 +1006,7 @@ export function App() {
               </div>
             </div>
             <span className="text-lg font-extrabold font-display tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 via-purple-300 to-cyan-300">
-              NEON
+              {appBrandName}
             </span>
           </div>
 
@@ -1194,6 +1196,13 @@ export function App() {
             <Cloud className="w-3.5 h-3.5" />
             <span>Sync / Backup</span>
           </button>
+
+          <span
+            title={`Versão instalada: v${appVersion}`}
+            className="px-2 py-1 rounded-lg bg-[#130d26]/90 border border-purple-500/30 text-[10px] font-mono font-bold text-purple-300/90 tracking-tight"
+          >
+            v{appVersion}
+          </span>
         </div>
       </header>
 
