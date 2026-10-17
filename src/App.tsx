@@ -131,9 +131,11 @@ export function App() {
   const [newCardLabel, setNewCardLabel] = useState<LabelColor>('purple');
   const [newCardTag, setNewCardTag] = useState('');
 
-  // Adding new list
+  // Adding new list or board
   const [isAddingList, setIsAddingList] = useState(false);
   const [newListTitle, setNewListTitle] = useState('');
+  const [isAddingBoard, setIsAddingBoard] = useState(false);
+  const [newBoardName, setNewBoardName] = useState('');
 
   // Editing list title
   const [editingListId, setEditingListId] = useState<string | null>(null);
@@ -190,6 +192,7 @@ export function App() {
       };
       try {
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(next));
+        localStorage.setItem('neon_has_user_edits_v1', 'true');
       } catch (e) {
         console.error('Failed to save to localStorage', e);
       }
@@ -206,9 +209,14 @@ export function App() {
       cloudConfig,
       (remoteState) => {
         setState((prev) => {
+          const validBoardId = remoteState.boards.some(
+            (b) => b.id === prev.activeBoardId
+          )
+            ? prev.activeBoardId
+            : remoteState.boards[0]?.id || prev.activeBoardId;
           const reconciled = reconcileStateWithBrasiliaTime({
             ...remoteState,
-            activeBoardId: prev.activeBoardId,
+            activeBoardId: validBoardId,
           });
           try {
             localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(reconciled));
@@ -222,11 +230,21 @@ export function App() {
         setSyncStatus(status);
         if (status === 'connected') {
           pullCloudState().then((remote) => {
-            if (remote && remote.lastUpdated > state.lastUpdated) {
+            const hasLocalEdits =
+              localStorage.getItem('neon_has_user_edits_v1') === 'true';
+            if (
+              remote &&
+              (!hasLocalEdits || remote.lastUpdated > state.lastUpdated)
+            ) {
               setState((prev) => {
+                const validBoardId = remote.boards.some(
+                  (b) => b.id === prev.activeBoardId
+                )
+                  ? prev.activeBoardId
+                  : remote.boards[0]?.id || prev.activeBoardId;
                 const reconciled = reconcileStateWithBrasiliaTime({
                   ...remote,
-                  activeBoardId: prev.activeBoardId,
+                  activeBoardId: validBoardId,
                 });
                 try {
                   localStorage.setItem(
@@ -307,7 +325,67 @@ export function App() {
 
   // Handlers
   const handleSelectBoard = (boardId: string) => {
-    updateState((prev) => ({ ...prev, activeBoardId: boardId }));
+    setState((prev) => {
+      const next = { ...prev, activeBoardId: boardId };
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  const handleAddBoard = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const trimmed = newBoardName.trim();
+    if (!trimmed) return;
+    const ts = Date.now();
+    const newId = 'board-' + ts;
+    const isDidi = trimmed.toLowerCase().includes('didi');
+    updateState((prev) => ({
+      ...prev,
+      activeBoardId: newId,
+      boards: [
+        ...prev.boards,
+        {
+          id: newId,
+          name: trimmed,
+          owner: isDidi ? 'Didi' : 'Elbioh',
+          subtitle: 'Board Sincronizado',
+          accentFrom: '#a855f7',
+          accentTo: '#06b6d4',
+        },
+      ],
+      lists: [
+        ...prev.lists,
+        { id: `${newId}-yesterday`, boardId: newId, title: 'Yesterday', order: 0 },
+        { id: `${newId}-today`, boardId: newId, title: 'Today', order: 1 },
+        { id: `${newId}-tomorrow`, boardId: newId, title: 'Tomorrow', order: 2 },
+        { id: `${newId}-week`, boardId: newId, title: 'This Week', order: 3 },
+      ],
+    }));
+    setNewBoardName('');
+    setIsAddingBoard(false);
+  };
+
+  const handleDeleteBoard = (e: React.MouseEvent, boardId: string) => {
+    e.stopPropagation();
+    if (boardId === 'elbioh-board' || boardId === 'didi-board') return;
+    if (state.boards.length <= 1) return;
+    updateState((prev) => {
+      const remaining = prev.boards.filter((b) => b.id !== boardId);
+      return {
+        ...prev,
+        activeBoardId:
+          prev.activeBoardId === boardId
+            ? remaining[0].id
+            : prev.activeBoardId,
+        boards: remaining,
+        lists: prev.lists.filter((l) => l.boardId !== boardId),
+        cards: prev.cards.filter((c) => c.boardId !== boardId),
+      };
+    });
   };
 
   const handleSwitchNextBoard = () => {
@@ -905,7 +983,7 @@ export function App() {
             </span>
           </div>
 
-          {/* Board Selector: Elbioh's Board vs Didi's Board (Drag & Drop a Card or List here!) */}
+          {/* Board Selector: Elbioh's Board, Didi's Board, and custom boards (Drag & Drop a Card or List here!) */}
           <div className="flex items-center gap-1.5 bg-[#120b24] p-1 rounded-xl border border-purple-500/30">
             {state.boards.map((b) => {
               const isSelected = b.id === activeBoard.id;
@@ -913,52 +991,111 @@ export function App() {
                 isDraggingAnything &&
                 b.id !== activeBoard.id &&
                 dragOverBoardId === b.id;
+              const isCustomBoard = b.id !== 'elbioh-board' && b.id !== 'didi-board';
 
               return (
-                <button
-                  key={b.id}
-                  type="button"
-                  onClick={() => handleSelectBoard(b.id)}
-                  onDragOver={(e) => {
-                    if (b.id !== activeBoard.id) {
-                      e.preventDefault();
-                      setDragOverBoardId(b.id);
-                    }
-                  }}
-                  onDragLeave={() => {
-                    if (dragOverBoardId === b.id) setDragOverBoardId(null);
-                  }}
-                  onDrop={(e) => handleDropOnBoard(e, b.id)}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    isDropTarget
-                      ? 'bg-gradient-to-r from-cyan-400 to-fuchsia-500 text-white ring-2 ring-cyan-300 scale-105 shadow-lg shadow-cyan-400/50'
-                      : isSelected
-                      ? b.owner === 'Elbioh'
-                        ? 'bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white shadow-md shadow-fuchsia-500/30'
-                        : 'bg-gradient-to-r from-cyan-500 to-purple-600 text-white shadow-md shadow-cyan-500/30'
-                      : isDraggingAnything
-                      ? 'text-cyan-200 bg-cyan-500/15 border border-dashed border-cyan-400/60 animate-pulse'
-                      : 'text-slate-400 hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  <span
-                    className={`w-4 h-4 rounded-full text-[9px] flex items-center justify-center font-extrabold ${
-                      b.owner === 'Elbioh'
-                        ? 'bg-fuchsia-400/30 text-fuchsia-200'
-                        : 'bg-cyan-400/30 text-cyan-200'
+                <div key={b.id} className="relative group/board flex items-center">
+                  <button
+                    type="button"
+                    onClick={() => handleSelectBoard(b.id)}
+                    onDragOver={(e) => {
+                      if (b.id !== activeBoard.id) {
+                        e.preventDefault();
+                        setDragOverBoardId(b.id);
+                      }
+                    }}
+                    onDragLeave={() => {
+                      if (dragOverBoardId === b.id) setDragOverBoardId(null);
+                    }}
+                    onDrop={(e) => handleDropOnBoard(e, b.id)}
+                    className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      isDropTarget
+                        ? 'bg-gradient-to-r from-cyan-400 to-fuchsia-500 text-white ring-2 ring-cyan-300 scale-105 shadow-lg shadow-cyan-400/50'
+                        : isSelected
+                        ? b.owner === 'Elbioh'
+                          ? 'bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white shadow-md shadow-fuchsia-500/30'
+                          : 'bg-gradient-to-r from-cyan-500 to-purple-600 text-white shadow-md shadow-cyan-500/30'
+                        : isDraggingAnything
+                        ? 'text-cyan-200 bg-cyan-500/15 border border-dashed border-cyan-400/60 animate-pulse'
+                        : 'text-slate-400 hover:text-white hover:bg-white/5'
                     }`}
                   >
-                    {b.owner === 'Elbioh' ? 'EL' : 'DI'}
-                  </span>
-                  <span>{b.name}</span>
-                  {isDraggingAnything && !isSelected && (
-                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-cyan-400/25 text-cyan-200 font-extrabold">
-                      Soltar aqui ↗
+                    <span
+                      className={`w-4 h-4 rounded-full text-[9px] flex items-center justify-center font-extrabold ${
+                        b.owner === 'Elbioh'
+                          ? 'bg-fuchsia-400/30 text-fuchsia-200'
+                          : 'bg-cyan-400/30 text-cyan-200'
+                      }`}
+                    >
+                      {b.name.slice(0, 2).toUpperCase()}
                     </span>
+                    <span>{b.name}</span>
+                    {isDraggingAnything && !isSelected && (
+                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-cyan-400/25 text-cyan-200 font-extrabold">
+                        Soltar aqui ↗
+                      </span>
+                    )}
+                  </button>
+                  {isCustomBoard && state.boards.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={(e) => handleDeleteBoard(e, b.id)}
+                      title="Excluir este Board"
+                      className="opacity-0 group-hover/board:opacity-100 -ml-1.5 mr-0.5 p-0.5 rounded-full bg-rose-500/20 text-rose-300 hover:bg-rose-500 hover:text-white transition-all cursor-pointer"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
                   )}
-                </button>
+                </div>
               );
             })}
+
+            {/* Add New Board inline button/form */}
+            {isAddingBoard ? (
+              <div className="flex items-center gap-1 pl-1 pr-1">
+                <input
+                  type="text"
+                  autoFocus
+                  value={newBoardName}
+                  onChange={(e) => setNewBoardName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleAddBoard();
+                    if (e.key === 'Escape') {
+                      setIsAddingBoard(false);
+                      setNewBoardName('');
+                    }
+                  }}
+                  placeholder="Nome do Board..."
+                  className="w-28 bg-[#0b0716] border border-cyan-400/60 rounded-lg px-2 py-1 text-xs text-white placeholder-slate-500 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddBoard}
+                  className="px-2 py-1 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-[#090514] text-[10px] font-extrabold cursor-pointer"
+                >
+                  Criar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddingBoard(false);
+                    setNewBoardName('');
+                  }}
+                  className="p-1 text-slate-400 hover:text-white cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsAddingBoard(true)}
+                title="Criar novo Board compartilhado"
+                className="flex items-center justify-center w-7 h-7 rounded-lg text-slate-400 hover:text-cyan-300 hover:bg-cyan-500/15 border border-transparent hover:border-cyan-500/30 transition-all cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
 

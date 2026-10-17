@@ -54,7 +54,7 @@ export const LABEL_CONFIG: Record<
 
 export const INITIAL_STATE: NeonStoreState = {
   activeBoardId: 'elbioh-board',
-  lastUpdated: new Date().toISOString(),
+  lastUpdated: '1970-01-01T00:00:00.000Z',
   boards: [
     {
       id: 'elbioh-board',
