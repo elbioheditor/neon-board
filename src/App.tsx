@@ -1275,7 +1275,7 @@ export function App() {
 
   const isDraggingAnything = Boolean(draggedCardId || draggedListId);
   const appBrandName = window.neonDesktop?.brandName || 'NEON';
-  const appVersion = window.neonDesktop?.version || '1.2.1';
+  const appVersion = window.neonDesktop?.version || '1.2.2';
 
   return (
     <div className="relative w-screen h-screen flex flex-col bg-[#07050d] text-slate-100 overflow-hidden select-none">
@@ -1911,51 +1911,33 @@ export function App() {
                             />
                           </div>
 
-                          {/* Date Row */}
-                          <div>
+                          {/* Date + Category Tag Row */}
+                          <div className="grid grid-cols-2 gap-2">
                             <input
                               type="date"
                               value={newCardDate}
                               onChange={(e) => setNewCardDate(e.target.value)}
-                              className="w-full bg-[#070412] border border-purple-900/60 rounded-xl px-2.5 py-1.5 text-[11px] text-slate-200 focus:outline-none focus:border-purple-500"
+                              className="bg-[#070412] border border-purple-900/60 rounded-xl px-2.5 py-1.5 text-[11px] text-slate-200 focus:outline-none focus:border-purple-500"
                               title="Dia da tarefa (Sincroniza com o Calendário)"
+                            />
+                            <input
+                              type="text"
+                              value={newCardTag}
+                              onChange={(e) =>
+                                setNewCardTag(e.target.value.toUpperCase())
+                              }
+                              placeholder="TAG (EX: EDIÇÃO)"
+                              style={{
+                                color: newCardTagColor,
+                                borderColor: `${newCardTagColor}70`,
+                              }}
+                              className="bg-[#070412] border border-purple-900/60 rounded-xl px-2.5 py-1.5 text-[11px] font-bold uppercase focus:outline-none focus:border-purple-500"
                             />
                           </div>
 
-                          {/* Tag & Colors Unified Container */}
-                          <div className="p-2 rounded-xl bg-[#070412] border border-purple-900/60 space-y-1.5">
+                          {/* Cores da Tag coladas logo abaixo */}
+                          <div className="space-y-1">
                             <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-bold text-slate-300">
-                                Tag & Cor da Tag:
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setShowInlineAddTagColor(!showInlineAddTagColor)
-                                }
-                                className="text-[9px] text-cyan-300 hover:text-white font-bold flex items-center gap-0.5 cursor-pointer"
-                              >
-                                <Plus className="w-2.5 h-2.5" />
-                                <span>Nova Cor</span>
-                              </button>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="text"
-                                value={newCardTag}
-                                onChange={(e) =>
-                                  setNewCardTag(e.target.value.toUpperCase())
-                                }
-                                placeholder="TAG (EX: EDIÇÃO)"
-                                style={{
-                                  color: newCardTagColor,
-                                  borderColor: `${newCardTagColor}70`,
-                                }}
-                                className="w-28 flex-shrink-0 bg-[#0b0717] border border-purple-900/60 rounded-lg px-2 py-1 text-[11px] font-bold uppercase focus:outline-none"
-                              />
-
-                              {/* Cores da Tag coladas diretamente com o input da Tag */}
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 {(state.tagColors || DEFAULT_TAG_COLORS).map(
                                   (tc) => (
@@ -1992,6 +1974,18 @@ export function App() {
                                   )
                                 )}
                               </div>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setShowInlineAddTagColor(!showInlineAddTagColor)
+                                }
+                                className="text-[9px] text-cyan-300 hover:text-white font-bold flex items-center gap-0.5 cursor-pointer px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10"
+                                title="Adicionar nova cor de tag"
+                              >
+                                <Plus className="w-2.5 h-2.5" />
+                                <span>Cor</span>
+                              </button>
                             </div>
 
                             {showInlineAddTagColor && (

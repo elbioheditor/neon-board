@@ -383,11 +383,9 @@ export const CardModal: React.FC<CardModalProps> = ({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="p-2.5 rounded-xl bg-[#090612]/90 border border-purple-500/25 space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">
-                    Tag & Cor da Tag:
-                  </label>
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] text-slate-400">Tag (Ex: EDIÇÃO)</label>
                   <button
                     type="button"
                     onClick={() => setShowAddColor(!showAddColor)}
@@ -397,55 +395,52 @@ export const CardModal: React.FC<CardModalProps> = ({
                     <span>Nova Cor</span>
                   </button>
                 </div>
+                <input
+                  type="text"
+                  value={categoryTag}
+                  onChange={(e) => setCategoryTag(e.target.value.toUpperCase())}
+                  onBlur={() => saveField({ categoryTag: categoryTag.trim() })}
+                  placeholder="EX: PROSPECÇÃO"
+                  className="w-full bg-[#090612] border border-purple-500/30 rounded-lg px-2.5 py-1.5 text-xs font-bold uppercase focus:outline-none focus:border-fuchsia-400"
+                  style={selectedTagColor ? { color: selectedTagColor, borderColor: `${selectedTagColor}80` } : undefined}
+                />
 
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={categoryTag}
-                    onChange={(e) => setCategoryTag(e.target.value.toUpperCase())}
-                    onBlur={() => saveField({ categoryTag: categoryTag.trim() })}
-                    placeholder="EX: PROSPECÇÃO"
-                    className="w-28 sm:w-32 flex-shrink-0 bg-black/60 border border-purple-500/30 rounded-lg px-2.5 py-1.5 text-xs font-bold uppercase focus:outline-none focus:border-fuchsia-400"
-                    style={selectedTagColor ? { color: selectedTagColor, borderColor: `${selectedTagColor}70` } : undefined}
-                  />
-
-                  {/* Cores das Tags coladas ao lado */}
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {tagColors.map((tc) => (
-                      <div key={tc.id} className="relative group/col">
+                {/* Cores das Tags diretamente abaixo do input da Tag */}
+                <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                  {tagColors.map((tc) => (
+                    <div key={tc.id} className="relative group/col">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedTagColor(tc.hex);
+                          saveField({ tagColor: tc.hex });
+                        }}
+                        className={`w-4 h-4 rounded-full cursor-pointer transition-all ${
+                          selectedTagColor === tc.hex
+                            ? 'ring-2 ring-white scale-125'
+                            : 'opacity-55 hover:opacity-100 hover:scale-110'
+                        }`}
+                        style={{ backgroundColor: tc.hex }}
+                        title={tc.name}
+                      />
+                      {onDeleteTagColor && !['purple', 'yellow', 'red', 'green', 'cyan'].includes(tc.id) && (
                         <button
                           type="button"
-                          onClick={() => {
-                            setSelectedTagColor(tc.hex);
-                            saveField({ tagColor: tc.hex });
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteTagColor(tc.id);
                           }}
-                          className={`w-4 h-4 rounded-full cursor-pointer transition-all ${
-                            selectedTagColor === tc.hex
-                              ? 'ring-2 ring-white scale-125'
-                              : 'opacity-55 hover:opacity-100'
-                          }`}
-                          style={{ backgroundColor: tc.hex }}
-                          title={tc.name}
-                        />
-                        {onDeleteTagColor && !['purple', 'yellow', 'red', 'green', 'cyan'].includes(tc.id) && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onDeleteTagColor(tc.id);
-                            }}
-                            className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-600 text-white text-[8px] flex items-center justify-center opacity-0 group-hover/col:opacity-100 transition-opacity"
-                          >
-                            ×
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                          className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-600 text-white text-[8px] flex items-center justify-center opacity-0 group-hover/col:opacity-100 transition-opacity"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  ))}
                 </div>
 
                 {showAddColor && (
-                  <div className="flex items-center gap-1.5 p-1.5 bg-[#090612] rounded-lg border border-cyan-400/30">
+                  <div className="flex items-center gap-1.5 p-1.5 mt-2 bg-[#090612] rounded-lg border border-cyan-400/30">
                     <input
                       type="color"
                       value={newCustomColor}

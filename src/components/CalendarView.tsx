@@ -498,34 +498,19 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               <TimeInput24h value={newEnd} onChange={handleEndChange} />
             </div>
 
-            {/* Tag & Colors Unified Container */}
-            <div className="p-2.5 rounded-xl bg-[#090612]/90 border border-purple-500/30 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] text-slate-300 font-bold uppercase tracking-wider">
-                  Tag & Cor da Tag:
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setShowAddColor(!showAddColor)}
-                  className="text-[9px] text-cyan-300 hover:text-white font-bold flex items-center gap-0.5 cursor-pointer"
-                >
-                  <Plus className="w-2.5 h-2.5" />
-                  <span>Nova Cor</span>
-                </button>
-              </div>
-
-              {/* Tag Input + Cores colados lado a lado */}
-              <div className="flex items-center gap-2">
+            {/* Tag & Cores lado a lado sem box nem texto redundante */}
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 flex-wrap">
                 <input
                   type="text"
                   value={newTag}
                   onChange={(e) => setNewTag(e.target.value.toUpperCase())}
-                  placeholder="EX: EDIÇÃO"
+                  placeholder="TAG (EX: EDIÇÃO)"
                   style={{
                     color: newTagColor,
                     borderColor: `${newTagColor}70`,
                   }}
-                  className="w-28 sm:w-32 flex-shrink-0 bg-black/60 border border-purple-500/40 rounded-lg px-2.5 py-1.5 text-xs font-bold uppercase focus:outline-none"
+                  className="w-28 sm:w-32 flex-shrink-0 bg-[#090612] border border-purple-500/40 rounded-lg px-2.5 py-1.5 text-xs font-bold uppercase focus:outline-none"
                 />
 
                 <div className="flex items-center gap-1.5 flex-wrap">
@@ -556,11 +541,21 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                       )}
                     </div>
                   ))}
+
+                  <button
+                    type="button"
+                    onClick={() => setShowAddColor(!showAddColor)}
+                    className="text-[9px] text-cyan-300 hover:text-white font-bold flex items-center gap-0.5 cursor-pointer px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10"
+                    title="Adicionar nova cor de tag"
+                  >
+                    <Plus className="w-2.5 h-2.5" />
+                    <span>Cor</span>
+                  </button>
                 </div>
               </div>
 
               {showAddColor && (
-                <div className="flex items-center gap-1.5 p-1.5 bg-black/60 rounded-lg border border-cyan-400/40">
+                <div className="flex items-center gap-1.5 p-1.5 bg-[#090612] rounded-lg border border-cyan-400/40">
                   <input
                     type="color"
                     value={customColorInput}
