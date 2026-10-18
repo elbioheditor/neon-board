@@ -60,6 +60,8 @@ import {
   fetchFriendships,
   fetchUserAndFriendsBoards,
   saveUserBoardToCloud,
+  createNewUserBoardState,
+  UserBoardPayload,
 } from './lib/neonAuth';
 import {
   getSavedCloudConfig,
@@ -242,12 +244,13 @@ export function App() {
   >('disconnected');
 
   // User Authentication & Friends state
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isFriendsModalOpen, setIsFriendsModalOpen] = useState(false);
   const [pendingFriendCount, setPendingFriendCount] = useState(0);
 
-  const loadFriendsAndSyncBoards = async (profile: UserProfile) => {
+  const loadFriendsAndSyncBoards = async (profile: UserProfile, isNewSignup: boolean = false) => {
     try {
       const fList = await fetchFriendships(profile.id);
       const pending = fList.filter((f) => f.status === 'pending' && f.friendId === profile.id);
@@ -260,8 +263,10 @@ export function App() {
       const { ownerBoard, friendsBoards } = await fetchUserAndFriendsBoards(profile.id, acceptedIds);
 
       if (ownerBoard) {
+        // User already has their cloud board in Supabase! Restore it.
         setState((prev) => {
-          const allBoards = [ownerBoard.board, ...friendsBoards.map((fb) => fb.board)];
+          const myBoards = ownerBoard.boards && ownerBoard.boards.length > 0 ? ownerBoard.boards : [ownerBoard.board];
+          const allBoards = [...myBoards, ...friendsBoards.map((fb) => fb.board)];
           const allLists = [...ownerBoard.lists, ...friendsBoards.flatMap((fb) => fb.lists)];
           const allCards = [...ownerBoard.cards, ...friendsBoards.flatMap((fb) => fb.cards)];
           return {
@@ -269,20 +274,49 @@ export function App() {
             boards: allBoards,
             lists: allLists,
             cards: allCards,
+            customLabels: ownerBoard.customLabels || prev.customLabels,
+            tagColors: ownerBoard.tagColors || prev.tagColors,
             activeBoardId: allBoards.some((b) => b.id === prev.activeBoardId) ? prev.activeBoardId : allBoards[0].id,
           };
         });
       } else {
-        // Upload initial board to user_boards for this user
-        const currentBoard = state.boards.find((b) => b.owner.toLowerCase() === profile.username.toLowerCase()) || state.boards[0];
-        if (currentBoard) {
-          await saveUserBoardToCloud(profile.id, {
-            board: { ...currentBoard, name: `${profile.username}'s Board`, owner: profile.username },
-            lists: state.lists.filter((l) => l.boardId === currentBoard.id),
-            cards: state.cards.filter((c) => c.boardId === currentBoard.id),
+        const isElbioh = profile.username.toLowerCase().includes('elbioh');
+        const hasExistingCards = state.cards.length > 0;
+
+        if (isElbioh && hasExistingCards) {
+          // Elbioh's account: save ALL current local state (boards, cards, routines, history) to his Supabase account!
+          const elbiohBoard = state.boards.find((b) => b.owner.toLowerCase().includes('elbioh')) || state.boards[0];
+          const payload: UserBoardPayload = {
+            board: { ...elbiohBoard, name: `${profile.username}'s Board`, owner: profile.username },
+            boards: state.boards,
+            lists: state.lists,
+            cards: state.cards,
             customLabels: state.customLabels,
             tagColors: state.tagColors,
-          });
+          };
+          await saveUserBoardToCloud(profile.id, payload);
+          setState((prev) => ({
+            ...prev,
+            boards: payload.boards || [payload.board],
+            lists: payload.lists,
+            cards: payload.cards,
+            customLabels: payload.customLabels,
+            tagColors: payload.tagColors,
+            activeBoardId: payload.board.id,
+          }));
+        } else {
+          // New user: Create fresh personalized board with the 3 welcome tasks!
+          const freshPayload = createNewUserBoardState(profile.username);
+          await saveUserBoardToCloud(profile.id, freshPayload);
+          setState((prev) => ({
+            ...prev,
+            boards: [freshPayload.board],
+            lists: freshPayload.lists,
+            cards: freshPayload.cards,
+            customLabels: freshPayload.customLabels,
+            tagColors: freshPayload.tagColors,
+            activeBoardId: freshPayload.board.id,
+          }));
         }
       }
     } catch (err) {
@@ -291,15 +325,18 @@ export function App() {
   };
 
   useEffect(() => {
-    getCurrentUser().then(async (user) => {
-      if (user) {
-        const profile = await fetchUserProfile(user.id);
-        if (profile) {
-          setCurrentUserProfile(profile);
-          loadFriendsAndSyncBoards(profile);
+    getCurrentUser()
+      .then(async (user) => {
+        if (user) {
+          const profile = await fetchUserProfile(user.id);
+          if (profile) {
+            setCurrentUserProfile(profile);
+            await loadFriendsAndSyncBoards(profile);
+          }
         }
-      }
-    });
+      })
+      .catch((e) => console.error(e))
+      .finally(() => setIsCheckingAuth(false));
   }, []);
 
   const handleSignOut = async () => {
@@ -356,12 +393,15 @@ export function App() {
         pushCloudState(next);
       }
       if (currentUserProfile) {
-        const myBoard = next.boards.find((b) => b.owner.toLowerCase() === currentUserProfile.username.toLowerCase()) || next.boards[0];
-        if (myBoard) {
+        const isElbioh = currentUserProfile.username.toLowerCase().includes('elbioh');
+        const myBoards = next.boards.filter((b) => b.owner.toLowerCase() === currentUserProfile.username.toLowerCase());
+        const primaryBoard = myBoards[0] || next.boards[0];
+        if (primaryBoard) {
           saveUserBoardToCloud(currentUserProfile.id, {
-            board: myBoard,
-            lists: next.lists.filter((l) => l.boardId === myBoard.id),
-            cards: next.cards.filter((c) => c.boardId === myBoard.id),
+            board: primaryBoard,
+            boards: isElbioh ? next.boards : (myBoards.length > 0 ? myBoards : [primaryBoard]),
+            lists: isElbioh ? next.lists : next.lists.filter((l) => l.boardId === primaryBoard.id),
+            cards: isElbioh ? next.cards : next.cards.filter((c) => c.boardId === primaryBoard.id),
             customLabels: next.customLabels,
             tagColors: next.tagColors,
           });
@@ -1377,7 +1417,40 @@ export function App() {
 
   const isDraggingAnything = Boolean(draggedCardId || draggedListId);
   const appBrandName = window.neonDesktop?.brandName || 'NEON';
-  const appVersion = window.neonDesktop?.version || '1.2.5';
+  const appVersion = window.neonDesktop?.version || '1.2.6';
+
+  if (isCheckingAuth) {
+    return (
+      <div className="w-screen h-screen flex flex-col items-center justify-center bg-[#07050d] text-white select-none">
+        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-fuchsia-500 via-purple-600 to-cyan-400 p-[2px] shadow-2xl shadow-cyan-500/30 animate-pulse mb-4">
+          <div className="w-full h-full bg-[#090612] rounded-[14px] flex items-center justify-center">
+            <Zap className="w-6 h-6 text-cyan-300 fill-cyan-300/40" />
+          </div>
+        </div>
+        <h1 className="text-xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 via-purple-300 to-cyan-300 tracking-wider">
+          {appBrandName}
+        </h1>
+        <span className="text-xs text-slate-400 mt-2 font-mono">Carregando ambiente seguro...</span>
+      </div>
+    );
+  }
+
+  if (!currentUserProfile) {
+    return (
+      <div className="relative w-screen h-screen flex flex-col items-center justify-center bg-[#07050d] text-slate-100 overflow-hidden select-none">
+        <NeonParticles enabled={true} />
+        <AuthModal
+          isOpen={true}
+          isMandatory={true}
+          onClose={() => {}}
+          onAuthSuccess={async (profile, isNewSignup) => {
+            setCurrentUserProfile(profile);
+            await loadFriendsAndSyncBoards(profile, isNewSignup);
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="relative w-screen h-screen flex flex-col bg-[#07050d] text-slate-100 overflow-hidden select-none">

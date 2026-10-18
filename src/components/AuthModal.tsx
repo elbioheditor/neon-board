@@ -6,13 +6,15 @@ import { UserProfile } from '../types';
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAuthSuccess: (profile: UserProfile) => void;
+  onAuthSuccess: (profile: UserProfile, isNewSignup?: boolean) => void;
+  isMandatory?: boolean;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   onClose,
   onAuthSuccess,
+  isMandatory = false,
 }) => {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
@@ -45,7 +47,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         if (res.error) {
           setErrorMessage(res.error);
         } else if (res.profile) {
-          onAuthSuccess(res.profile);
+          onAuthSuccess(res.profile, true);
           onClose();
         } else {
           setSuccessInfo('Conta criada com sucesso! Você já pode entrar.');
@@ -56,7 +58,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         if (res.error) {
           setErrorMessage(res.error);
         } else if (res.profile) {
-          onAuthSuccess(res.profile);
+          onAuthSuccess(res.profile, false);
           onClose();
         } else {
           setErrorMessage('Perfil não encontrado para este usuário.');
@@ -94,12 +96,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          {!isMandatory && (
+            <button
+              onClick={onClose}
+              className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </div>
 
         {/* Tab switch: Entrar / Criar Conta */}
@@ -228,15 +232,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </form>
 
         {/* Footer */}
-        <div className="mt-4 pt-3 border-t border-white/10 text-center relative z-10">
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-[11px] text-slate-400 hover:text-cyan-300 underline cursor-pointer"
-          >
-            Continuar no Modo Offline (sem login)
-          </button>
-        </div>
+        {!isMandatory && (
+          <div className="mt-4 pt-3 border-t border-white/10 text-center relative z-10">
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-[11px] text-slate-400 hover:text-cyan-300 underline cursor-pointer"
+            >
+              Continuar no Modo Offline (sem login)
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

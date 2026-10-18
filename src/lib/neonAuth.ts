@@ -1,6 +1,8 @@
 import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
 import { DEFAULT_SUPABASE_URL, DEFAULT_SUPABASE_ANON_KEY, getSavedCloudConfig } from './cloudSync';
 import { UserProfile, Friendship, Board, BoardList, TaskCard, CustomLabel, TagColorItem } from '../types';
+import { DEFAULT_CUSTOM_LABELS, DEFAULT_TAG_COLORS } from '../data/initialData';
+import { getYesterdayIsoDate, getTodayIsoDate, addDaysToIsoDate } from '../utils/timeUtils';
 
 let authClient: SupabaseClient | null = null;
 
@@ -240,6 +242,7 @@ export async function respondToFriendRequest(
 
 export interface UserBoardPayload {
   board: Board;
+  boards?: Board[];
   lists: BoardList[];
   cards: TaskCard[];
   customLabels?: CustomLabel[];
@@ -299,4 +302,93 @@ export async function saveUserBoardToCloud(
     return false;
   }
   return true;
+}
+
+export function createNewUserBoardState(username: string): UserBoardPayload {
+  const boardId = `board-${Date.now()}`;
+  const yesterdayListId = `list-${boardId}-yesterday`;
+  const todayListId = `list-${boardId}-today`;
+  const tomorrowListId = `list-${boardId}-tomorrow`;
+  const weekListId = `list-${boardId}-week`;
+  const futureListId = `list-${boardId}-future`;
+
+  const lists: BoardList[] = [
+    { id: yesterdayListId, boardId, title: 'Yesterday', order: 0 },
+    { id: todayListId, boardId, title: 'Today', order: 1 },
+    { id: tomorrowListId, boardId, title: 'Tomorrow', order: 2 },
+    { id: weekListId, boardId, title: 'This Week', order: 3 },
+    { id: futureListId, boardId, title: 'Future', order: 4 },
+  ];
+
+  const cards: TaskCard[] = [
+    {
+      id: `card-${Date.now()}-1`,
+      boardId,
+      listId: yesterdayListId,
+      title: 'tarefa atrasada teste',
+      description: 'Tarefa de exemplo atrasada.',
+      status: 'todo',
+      startTime: '09:00',
+      endTime: '10:00',
+      scheduledDate: getYesterdayIsoDate(),
+      labels: ['lbl-red'],
+      categoryTag: 'ATRASADA',
+      tagColor: '#ef4444',
+      checklist: [],
+      assignee: username,
+      createdAt: new Date().toISOString(),
+      order: 0,
+    },
+    {
+      id: `card-${Date.now()}-2`,
+      boardId,
+      listId: todayListId,
+      title: 'aprenda a usar o app caraio',
+      description: 'Comece organizando suas prioridades de hoje e inicie o cronômetro!',
+      status: 'todo',
+      startTime: '10:00',
+      endTime: '11:00',
+      scheduledDate: getTodayIsoDate(),
+      labels: ['lbl-yellow'],
+      categoryTag: 'TUTORIAL',
+      tagColor: '#06b6d4',
+      checklist: [],
+      assignee: username,
+      createdAt: new Date().toISOString(),
+      order: 0,
+    },
+    {
+      id: `card-${Date.now()}-3`,
+      boardId,
+      listId: weekListId,
+      title: 'se bobera chega',
+      description: 'Planejamento para os próximos dias.',
+      status: 'todo',
+      startTime: '14:00',
+      endTime: '15:00',
+      scheduledDate: addDaysToIsoDate(getTodayIsoDate(), 4),
+      labels: ['lbl-blue'],
+      categoryTag: 'PLANEJAMENTO',
+      tagColor: '#a855f7',
+      checklist: [],
+      assignee: username,
+      createdAt: new Date().toISOString(),
+      order: 0,
+    },
+  ];
+
+  return {
+    board: {
+      id: boardId,
+      name: `${username}'s Board`,
+      owner: username,
+      subtitle: 'Board Pessoal',
+      accentFrom: 'from-cyan-500',
+      accentTo: 'to-purple-600',
+    },
+    lists,
+    cards,
+    customLabels: DEFAULT_CUSTOM_LABELS,
+    tagColors: DEFAULT_TAG_COLORS,
+  };
 }
