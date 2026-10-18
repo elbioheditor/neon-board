@@ -5,6 +5,40 @@ import { DEFAULT_CUSTOM_LABELS, DEFAULT_TAG_COLORS } from '../data/initialData';
 import { getYesterdayIsoDate, getTodayIsoDate, addDaysToIsoDate } from '../utils/timeUtils';
 import backupState from '../data/backup_neon_sync_state.json';
 
+const REMEMBER_ME_STORAGE_KEY = 'neon_remember_me_until';
+
+export function setRememberMePreference(remember60Days: boolean) {
+  try {
+    if (remember60Days) {
+      const expireAt = Date.now() + 60 * 24 * 60 * 60 * 1000; // 60 days
+      localStorage.setItem(REMEMBER_ME_STORAGE_KEY, expireAt.toString());
+    } else {
+      localStorage.setItem(REMEMBER_ME_STORAGE_KEY, 'session');
+    }
+  } catch (e) {
+    console.error('Failed to save remember me preference', e);
+  }
+}
+
+export function isRememberMeExpired(): boolean {
+  try {
+    const val = localStorage.getItem(REMEMBER_ME_STORAGE_KEY);
+    if (!val) {
+      return false; // Default to keeping logged in
+    }
+    if (val === 'session') {
+      return false;
+    }
+    const expireMs = Number(val);
+    if (!isNaN(expireMs) && Date.now() > expireMs) {
+      return true; // 60 days expired
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+
 let authClient: SupabaseClient | null = null;
 
 export function getSupabaseAuthClient(): SupabaseClient {
@@ -12,7 +46,15 @@ export function getSupabaseAuthClient(): SupabaseClient {
     const cfg = getSavedCloudConfig();
     const url = (cfg.supabaseUrl || DEFAULT_SUPABASE_URL).trim();
     const key = (cfg.supabaseAnonKey || DEFAULT_SUPABASE_ANON_KEY).trim();
-    authClient = createClient(url, key);
+    authClient = createClient(url, key, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: false,
+        storageKey: 'neon_supabase_auth_token_v1',
+        storage: window.localStorage,
+      },
+    });
   }
   return authClient;
 }
@@ -92,12 +134,29 @@ export async function signInUser(
 }
 
 export async function signOutUser(): Promise<void> {
+  try {
+    localStorage.removeItem(REMEMBER_ME_STORAGE_KEY);
+  } catch (e) {
+    // ignore
+  }
   const client = getSupabaseAuthClient();
   await client.auth.signOut();
 }
 
 export async function getCurrentUser(): Promise<User | null> {
+  if (isRememberMeExpired()) {
+    await signOutUser();
+    return null;
+  }
   const client = getSupabaseAuthClient();
+  try {
+    const { data: sessionData } = await client.auth.getSession();
+    if (sessionData?.session?.user) {
+      return sessionData.session.user;
+    }
+  } catch {
+    // ignore
+  }
   const { data } = await client.auth.getUser();
   return data.user || null;
 }

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Lock, Mail, User, Sparkles, AlertCircle, LogIn, UserPlus } from 'lucide-react';
-import { signInUser, signUpUser } from '../lib/neonAuth';
+import { signInUser, signUpUser, setRememberMePreference } from '../lib/neonAuth';
 import { UserProfile } from '../types';
 
 interface AuthModalProps {
@@ -21,6 +21,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
   const [avatarColor, setAvatarColor] = useState('#a855f7');
+  const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successInfo, setSuccessInfo] = useState<string | null>(null);
@@ -47,6 +48,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         if (res.error) {
           setErrorMessage(res.error);
         } else if (res.profile) {
+          setRememberMePreference(rememberMe);
           onAuthSuccess(res.profile, true);
           onClose();
         } else {
@@ -58,6 +60,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         if (res.error) {
           setErrorMessage(res.error);
         } else if (res.profile) {
+          setRememberMePreference(rememberMe);
           onAuthSuccess(res.profile, false);
           onClose();
         } else {
@@ -220,6 +223,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 className="w-full pl-9 pr-3 py-2 bg-[#05030a] border border-white/15 focus:border-cyan-400 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none transition-colors"
               />
             </div>
+          </div>
+
+          {/* Remember me for 60 days */}
+          <div className="flex items-center justify-between pt-1 pb-1">
+            <label className="flex items-center gap-2 cursor-pointer select-none group">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="w-4 h-4 rounded border-white/20 bg-black/60 text-cyan-400 focus:ring-cyan-400/30 focus:ring-offset-0 transition-colors accent-cyan-400 cursor-pointer"
+              />
+              <span className="text-xs text-slate-300 group-hover:text-white transition-colors">
+                Lembrar neste computador por 60 dias
+              </span>
+            </label>
           </div>
 
           <button
