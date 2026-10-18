@@ -237,7 +237,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   };
 
   return (
-    <div className="h-full overflow-y-auto px-6 pt-4 pb-28 bg-gradient-to-r from-purple-950/35 via-[#0b0618]/80 to-pink-950/35">
+    <div className="h-full overflow-y-auto px-6 pt-4 pb-28 bg-gradient-to-r from-purple-950/35 via-[#0b0618]/80 to-pink-950/35 animate-board-switch">
       <div className="max-w-7xl mx-auto">
         {/* Top Month Navigation Bar with Purple (Left) -> Pink (Right) Gradient */}
         <div className="rounded-2xl bg-gradient-to-r from-purple-900/55 via-purple-950/85 to-pink-600/45 border border-pink-500/35 p-4 mb-5 shadow-2xl">
@@ -255,7 +255,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               <button
                 type="button"
                 onClick={handleJumpToToday}
-                className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-600/30 to-pink-500/30 hover:from-purple-600/50 hover:to-pink-500/50 text-pink-200 border border-pink-400/35 text-xs font-bold transition-all cursor-pointer"
+                className="apple-bounce px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-600/30 to-pink-500/30 hover:from-purple-600/50 hover:to-pink-500/50 text-pink-200 border border-pink-400/35 text-xs font-bold transition-all cursor-pointer"
               >
                 Ir para Hoje
               </button>
@@ -368,7 +368,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                       onCardDragEnd();
                     }
                   }}
-                  className={`h-24 rounded-xl p-2 flex flex-col justify-between cursor-pointer transition-all border overflow-hidden ${
+                  className={`h-24 rounded-xl p-2 flex flex-col justify-between cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] border overflow-hidden ${
                     dragOverCellIso === cell.iso
                       ? 'bg-[#1f1545] border-cyan-400 ring-2 ring-cyan-400/60 shadow-lg shadow-cyan-400/40 scale-[1.02]'
                       : isSelected
@@ -445,7 +445,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         </div>
 
         {/* RIGHT: Selected Day Details + Synchronized Task Creator */}
-        <div className="lg:col-span-5 rounded-2xl bg-gradient-to-r from-purple-950/65 via-[#120924]/95 to-pink-950/55 border border-pink-500/35 p-5 shadow-2xl backdrop-blur-xl">
+        <div className="lg:col-span-5 rounded-2xl bg-gradient-to-r from-purple-950/65 via-[#120924]/95 to-pink-950/55 border border-pink-500/35 p-5 shadow-2xl backdrop-blur-xl animate-spring-pop">
           <div className="flex items-start justify-between gap-2 pb-3 mb-4 border-b border-white/10">
             <div>
               <h3 className="text-base font-bold font-display text-white capitalize">

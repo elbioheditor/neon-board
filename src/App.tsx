@@ -1056,7 +1056,7 @@ export function App() {
 
   const isDraggingAnything = Boolean(draggedCardId || draggedListId);
   const appBrandName = window.neonDesktop?.brandName || 'NEON';
-  const appVersion = window.neonDesktop?.version || '1.0.8';
+  const appVersion = window.neonDesktop?.version || '1.0.9';
 
   return (
     <div className="relative w-screen h-screen flex flex-col bg-[#07050d] text-slate-100 overflow-hidden select-none">
@@ -1130,7 +1130,7 @@ export function App() {
                       setHoverSwitchingBoardId(null);
                       handleDropOnBoard(e, b.id);
                     }}
-                    className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    className={`apple-bounce flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                       hoverSwitchingBoardId === b.id
                         ? 'bg-gradient-to-r from-cyan-400 via-fuchsia-500 to-purple-600 text-white ring-2 ring-cyan-300 scale-105 shadow-xl shadow-cyan-400/60 animate-pulse'
                         : isDropTarget
@@ -1829,29 +1829,33 @@ export function App() {
         )}
 
         {activeTab === 'calendar' && (
-          <CalendarView
-            board={activeBoard}
-            lists={boardLists}
-            cards={activeBoardCards}
-            nowMs={nowMs}
-            onOpenModal={(c) => setSelectedCardId(c.id)}
-            onToggleTimer={handleToggleTimer}
-            onCompleteCard={handleCompleteCard}
-            onAddCardForDate={handleAddCardFromCalendar}
-            onCardDragStart={handleCardDragStart}
-            onCardDragEnd={handleClearDragState}
-            onMoveCardToDate={handleMoveCardToDate}
-          />
+          <div key={activeBoard.id} className="w-full h-full animate-board-switch">
+            <CalendarView
+              board={activeBoard}
+              lists={boardLists}
+              cards={activeBoardCards}
+              nowMs={nowMs}
+              onOpenModal={(c) => setSelectedCardId(c.id)}
+              onToggleTimer={handleToggleTimer}
+              onCompleteCard={handleCompleteCard}
+              onAddCardForDate={handleAddCardFromCalendar}
+              onCardDragStart={handleCardDragStart}
+              onCardDragEnd={handleClearDragState}
+              onMoveCardToDate={handleMoveCardToDate}
+            />
+          </div>
         )}
 
         {activeTab === 'history' && (
-          <MonthlyHistoryView
-            boards={state.boards}
-            activeBoardId={activeBoard.id}
-            completedCards={completedCards}
-            onRestoreCard={handleRestoreCard}
-            onDeleteCard={handleDeleteCard}
-          />
+          <div key={activeBoard.id} className="w-full h-full animate-board-switch">
+            <MonthlyHistoryView
+              boards={state.boards}
+              activeBoardId={activeBoard.id}
+              completedCards={completedCards}
+              onRestoreCard={handleRestoreCard}
+              onDeleteCard={handleDeleteCard}
+            />
+          </div>
         )}
         </div>
       </main>

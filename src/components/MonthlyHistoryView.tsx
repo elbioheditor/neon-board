@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Trophy,
   Calendar,
@@ -49,6 +49,10 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
 
   const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthKey);
   const [boardFilter, setBoardFilter] = useState<string>(activeBoardId);
+
+  useEffect(() => {
+    setBoardFilter(activeBoardId);
+  }, [activeBoardId]);
 
   const availableMonths = useMemo(() => {
     const set = new Set<string>([currentMonthKey]);
@@ -132,7 +136,7 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
   };
 
   return (
-    <div className="h-full overflow-y-auto px-6 pt-4 pb-28 max-w-6xl mx-auto">
+    <div className="h-full overflow-y-auto px-6 pt-4 pb-28 max-w-6xl mx-auto animate-board-switch">
       {/* Top Banner */}
       <div className="rounded-2xl bg-[#110b22]/95 border border-purple-500/35 p-6 mb-6 shadow-2xl">
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -169,9 +173,9 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
                   key={b.id}
                   type="button"
                   onClick={() => setBoardFilter(b.id)}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  className={`apple-bounce px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     boardFilter === b.id
-                      ? 'bg-gradient-to-r from-fuchsia-600 to-cyan-500 text-white'
+                      ? 'bg-gradient-to-r from-fuchsia-600 to-cyan-500 text-white shadow-md shadow-fuchsia-500/25'
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
@@ -181,9 +185,9 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
               <button
                 type="button"
                 onClick={() => setBoardFilter('all')}
-                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                className={`apple-bounce px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                   boardFilter === 'all'
-                    ? 'bg-gradient-to-r from-fuchsia-600 to-cyan-500 text-white'
+                    ? 'bg-gradient-to-r from-fuchsia-600 to-cyan-500 text-white shadow-md shadow-fuchsia-500/25'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -194,7 +198,7 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
             <button
               type="button"
               onClick={handleExportReport}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-400/30 text-xs font-bold transition-colors cursor-pointer"
+              className="apple-bounce inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-400/30 text-xs font-bold transition-colors cursor-pointer"
             >
               <Download className="w-4 h-4" />
               <span>Exportar Relatório</span>
@@ -204,7 +208,10 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
 
         {/* KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
-          <div className="p-4 rounded-xl bg-[#090612]/80 border border-purple-500/25">
+          <div
+            style={{ animationDelay: '0ms' }}
+            className="p-4 rounded-xl bg-[#090612]/80 border border-purple-500/25 animate-spring-pop shadow-lg hover:border-purple-400/40 transition-all duration-300"
+          >
             <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold">
               Tarefas Concluídas em {formatMonthLabel(selectedMonth)}
             </span>
@@ -213,7 +220,10 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
             </div>
           </div>
 
-          <div className="p-4 rounded-xl bg-[#090612]/80 border border-cyan-500/25">
+          <div
+            style={{ animationDelay: '80ms' }}
+            className="p-4 rounded-xl bg-[#090612]/80 border border-cyan-500/25 animate-spring-pop shadow-lg hover:border-cyan-400/40 transition-all duration-300"
+          >
             <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold">
               Tempo Total Cronometrado
             </span>
@@ -223,7 +233,10 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
             </div>
           </div>
 
-          <div className="p-4 rounded-xl bg-[#090612]/80 border border-fuchsia-500/25">
+          <div
+            style={{ animationDelay: '160ms' }}
+            className="p-4 rounded-xl bg-[#090612]/80 border border-fuchsia-500/25 animate-spring-pop shadow-lg hover:border-fuchsia-400/40 transition-all duration-300"
+          >
             <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold">
               Dias Produtivos no Mês
             </span>
