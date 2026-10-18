@@ -1,0 +1,616 @@
+{
+  "cards": [
+    {
+      "id": "card-1792350592374-w1",
+      "order": 7,
+      "title": "daocu",
+      "labels": [
+        "purple"
+      ],
+      "listId": "elbioh-tomorrow",
+      "status": "todo",
+      "boardId": "elbioh-board",
+      "endTime": "10:00",
+      "assignee": "Elbioh",
+      "checklist": [],
+      "createdAt": "2026-10-18T19:09:52.374Z",
+      "startTime": "09:00",
+      "recurrence": {
+        "mode": "weekdays",
+        "groupId": "rec-1792350592374",
+        "weekdays": [
+          1
+        ]
+      },
+      "description": "",
+      "scheduledDate": "2026-10-19",
+      "elapsedSeconds": 0
+    },
+    {
+      "id": "card-1792350196553-1",
+      "order": 4,
+      "title": "trasdasdgf",
+      "labels": [
+        "purple"
+      ],
+      "listId": "elbioh-tomorrow",
+      "status": "todo",
+      "boardId": "elbioh-board",
+      "endTime": "10:00",
+      "assignee": "Elbioh",
+      "checklist": [],
+      "createdAt": "2026-10-18T19:03:16.553Z",
+      "startTime": "09:00",
+      "recurrence": {
+        "mode": "days_count",
+        "groupId": "rec-1792350196553",
+        "dayIndex": 2,
+        "daysCount": 5
+      },
+      "description": "",
+      "scheduledDate": "2026-10-19",
+      "elapsedSeconds": 0
+    },
+    {
+      "id": "card-1792350196553-2",
+      "order": 5,
+      "title": "trasdasdgf",
+      "labels": [
+        "purple"
+      ],
+      "listId": "elbioh-board-future",
+      "status": "todo",
+      "boardId": "elbioh-board",
+      "endTime": "10:00",
+      "assignee": "Elbioh",
+      "checklist": [],
+      "createdAt": "2026-10-18T19:03:16.553Z",
+      "startTime": "09:00",
+      "recurrence": {
+        "mode": "days_count",
+        "groupId": "rec-1792350196553",
+        "dayIndex": 3,
+        "daysCount": 5
+      },
+      "description": "",
+      "scheduledDate": "2026-10-20",
+      "elapsedSeconds": 0
+    },
+    {
+      "id": "card-1792350196553-3",
+      "order": 6,
+      "title": "trasdasdgf",
+      "labels": [
+        "purple"
+      ],
+      "listId": "elbioh-board-future",
+      "status": "todo",
+      "boardId": "elbioh-board",
+      "endTime": "10:00",
+      "assignee": "Elbioh",
+      "checklist": [],
+      "createdAt": "2026-10-18T19:03:16.553Z",
+      "startTime": "09:00",
+      "recurrence": {
+        "mode": "days_count",
+        "groupId": "rec-1792350196553",
+        "dayIndex": 4,
+        "daysCount": 5
+      },
+      "description": "",
+      "scheduledDate": "2026-10-21",
+      "elapsedSeconds": 0
+    },
+    {
+      "id": "card-1792350196553-4",
+      "order": 7,
+      "title": "trasdasdgf",
+      "labels": [
+        "purple"
+      ],
+      "listId": "elbioh-board-future",
+      "status": "todo",
+      "boardId": "elbioh-board",
+      "endTime": "10:00",
+      "assignee": "Elbioh",
+      "checklist": [],
+      "createdAt": "2026-10-18T19:03:16.553Z",
+      "startTime": "09:00",
+      "recurrence": {
+        "mode": "days_count",
+        "groupId": "rec-1792350196553",
+        "dayIndex": 5,
+        "daysCount": 5
+      },
+      "description": "",
+      "scheduledDate": "2026-10-22",
+      "elapsedSeconds": 0
+    },
+    {
+      "id": "card-1792283333307",
+      "order": 8,
+      "title": "asdafsad",
+      "labels": [
+        "pink"
+      ],
+      "listId": "didi-tomorrow",
+      "status": "todo",
+      "boardId": "didi-board",
+      "endTime": "10:00",
+      "assignee": "Didi",
+      "checklist": [],
+      "createdAt": "2026-10-18T00:28:53.307Z",
+      "startTime": "09:00",
+      "categoryTag": "FFF",
+      "description": "",
+      "scheduledDate": "2026-10-19",
+      "elapsedSeconds": 0
+    },
+    {
+      "id": "card-1792283326520",
+      "order": 7,
+      "title": "asdasf",
+      "labels": [
+        "purple"
+      ],
+      "listId": "didi-today",
+      "status": "todo",
+      "boardId": "didi-board",
+      "endTime": "10:00",
+      "assignee": "Didi",
+      "checklist": [],
+      "createdAt": "2026-10-18T00:28:46.520Z",
+      "startTime": "09:00",
+      "categoryTag": "ASD",
+      "description": "",
+      "scheduledDate": "2026-10-18",
+      "elapsedSeconds": 0
+    },
+    {
+      "id": "card-el-1",
+      "order": 1,
+      "title": "ver as 4 lives do sobral",
+      "labels": [
+        "yellow",
+        "purple"
+      ],
+      "listId": "didi-board-yesterday",
+      "status": "paused",
+      "boardId": "didi-board",
+      "endTime": "11:00",
+      "assignee": "Didi",
+      "checklist": [
+        {
+          "id": "chk-1",
+          "text": "Assistir Live 1 e 2 com anotações",
+          "completed": true
+        },
+        {
+          "id": "chk-2",
+          "text": "Assistir Live 3 e 4 e resumir",
+          "completed": false
+        }
+      ],
+      "createdAt": "2026-10-17T01:12:35.231Z",
+      "startTime": "09:00",
+      "categoryTag": "ESTUDO",
+      "description": "Anotar os principais pontos de tráfego e prospecção para aplicar na rotina.",
+      "scheduledDate": "2026-10-16",
+      "elapsedSeconds": 4
+    },
+    {
+      "id": "card-el-2",
+      "order": 1,
+      "title": "ad 20 ids per day",
+      "labels": [
+        "green"
+      ],
+      "listId": "didi-board-future",
+      "status": "todo",
+      "boardId": "didi-board",
+      "endTime": "12:00",
+      "assignee": "Didi",
+      "checklist": [],
+      "createdAt": "2026-10-17T01:12:35.231Z",
+      "startTime": "11:00",
+      "categoryTag": "PROSPECÇÃO",
+      "description": "Bloco da manhã de mapeamento e adição de 20 novos IDs qualificados.",
+      "scheduledDate": "2026-10-20"
+    },
+    {
+      "id": "card-el-3",
+      "order": 0,
+      "title": "Ajustar mensagens de e-mail, para nao ter links. Twitter também.",
+      "labels": [
+        "green",
+        "cyan"
+      ],
+      "listId": "elbioh-board-yesterday",
+      "status": "completed",
+      "boardId": "elbioh-board",
+      "endTime": "14:30",
+      "assignee": "Elbioh",
+      "checklist": [
+        {
+          "id": "chk-3",
+          "text": "Revisar template de E-mail",
+          "completed": false
+        },
+        {
+          "id": "chk-4",
+          "text": "Revisar script de DM do Twitter/X",
+          "completed": false
+        }
+      ],
+      "createdAt": "2026-10-17T01:12:35.231Z",
+      "startTime": "13:30",
+      "categoryTag": "OUTREACH",
+      "completedAt": "2026-10-17T22:43:57.655Z",
+      "description": "Remover links diretos no primeiro contato para melhorar entregabilidade e taxa de resposta.",
+      "scheduledDate": "2026-10-16",
+      "elapsedSeconds": 0,
+      "completedFromListTitle": "Yesterday"
+    },
+    {
+      "id": "card-el-6",
+      "order": 2,
+      "title": "Adicionar novos vídeos no portfólio",
+      "labels": [
+        "orange",
+        "pink"
+      ],
+      "listId": "elbioh-today",
+      "status": "paused",
+      "boardId": "elbioh-board",
+      "endTime": "20:00",
+      "assignee": "Elbioh",
+      "checklist": [],
+      "createdAt": "2026-10-17T01:12:35.231Z",
+      "startTime": "19:00",
+      "categoryTag": "PORTFÓLIO",
+      "description": "Atualizar a seção Selected Projects do site com os cortes mais recentes.",
+      "scheduledDate": "2026-10-18",
+      "elapsedSeconds": 1
+    },
+    {
+      "id": "card-el-7",
+      "order": 6,
+      "title": "Aprender as regras do futebol americano",
+      "labels": [
+        "orange",
+        "cyan"
+      ],
+      "listId": "didi-board-yesterday",
+      "status": "todo",
+      "boardId": "didi-board",
+      "endTime": "21:30",
+      "assignee": "Didi",
+      "checklist": [],
+      "createdAt": "2026-10-17T01:12:35.231Z",
+      "startTime": "20:30",
+      "categoryTag": "NFL / EDIT",
+      "description": "Estudar descidas (downs), pontuação e jogadas principais para dominar edições de NFL / Madden.",
+      "scheduledDate": "2026-10-17"
+    },
+    {
+      "id": "card-el-8",
+      "order": 6,
+      "title": "ad 120 ids per week",
+      "labels": [
+        "yellow",
+        "green"
+      ],
+      "listId": "didi-board-yesterday",
+      "status": "paused",
+      "boardId": "didi-board",
+      "endTime": "11:30",
+      "assignee": "Didi",
+      "checklist": [
+        {
+          "id": "chk-w1",
+          "text": "Seg-Qua: 60 IDs",
+          "completed": true
+        },
+        {
+          "id": "chk-w2",
+          "text": "Qui-Sáb: 60 IDs",
+          "completed": false
+        }
+      ],
+      "createdAt": "2026-10-17T01:12:35.231Z",
+      "startTime": "10:00",
+      "categoryTag": "META SEMANAL",
+      "description": "Meta semanal acumulada de prospecção ativa.",
+      "scheduledDate": "2026-10-17",
+      "elapsedSeconds": 7,
+      "completedFromListTitle": "Today"
+    },
+    {
+      "id": "card-el-9",
+      "order": 2,
+      "title": "Fazer 1 post no twitter",
+      "labels": [
+        "orange"
+      ],
+      "listId": "didi-today",
+      "status": "todo",
+      "boardId": "didi-board",
+      "endTime": "15:00",
+      "assignee": "Didi",
+      "checklist": [],
+      "createdAt": "2026-10-17T01:12:35.231Z",
+      "startTime": "14:00",
+      "categoryTag": "",
+      "description": "Postar breakdown ou antes/depois de edição mostrando sound design e retenção.",
+      "scheduledDate": "2026-10-18"
+    },
+    {
+      "id": "card-el-10",
+      "order": 9,
+      "title": "ter um método para prospectar",
+      "labels": [
+        "yellow",
+        "cyan"
+      ],
+      "listId": "didi-board-yesterday",
+      "status": "todo",
+      "boardId": "didi-board",
+      "endTime": "17:30",
+      "assignee": "Didi",
+      "checklist": [],
+      "createdAt": "2026-10-17T01:12:35.231Z",
+      "startTime": "16:00",
+      "categoryTag": "PROCESSO",
+      "description": "Estruturar funil diário entre Elbioh e Didi para organizar leads e follow-ups.",
+      "scheduledDate": "2026-10-17"
+    },
+    {
+      "id": "card-el-11",
+      "order": 0,
+      "title": "Fazer o teste para o Wheel of MUT",
+      "labels": [],
+      "listId": "elbioh-tomorrow",
+      "status": "todo",
+      "boardId": "elbioh-board",
+      "endTime": "20:30",
+      "assignee": "Elbioh",
+      "checklist": [
+        {
+          "id": "chk-1792350082694",
+          "text": "vaidaocu",
+          "completed": true
+        }
+      ],
+      "createdAt": "2026-10-17T01:12:35.231Z",
+      "startTime": "18:00",
+      "categoryTag": "EDIÇÃO",
+      "description": "High-energy NFL Madden gameplay edit featuring fast-paced cuts & dynamic tracking.",
+      "scheduledDate": "2026-10-19"
+    },
+    {
+      "id": "card-di-1",
+      "order": 1,
+      "title": "Organizar prioridades do dia no Neon",
+      "labels": [
+        "cyan",
+        "purple"
+      ],
+      "listId": "elbioh-tomorrow",
+      "status": "paused",
+      "boardId": "elbioh-board",
+      "endTime": "10:00",
+      "assignee": "Elbioh",
+      "checklist": [
+        {
+          "id": "chk-d1",
+          "text": "Revisar metas da semana",
+          "completed": true
+        },
+        {
+          "id": "chk-d2",
+          "text": "Alinhar prospecção com Elbioh",
+          "completed": false
+        }
+      ],
+      "createdAt": "2026-10-17T01:12:35.231Z",
+      "startTime": "09:00",
+      "categoryTag": "",
+      "description": "Definir os horários das tarefas principais de hoje no Didi's Board.",
+      "scheduledDate": "2026-10-19",
+      "elapsedSeconds": 6
+    },
+    {
+      "id": "card-di-2",
+      "order": 6,
+      "title": "Mapear novos canais e clientes potenciais",
+      "labels": [
+        "green",
+        "cyan"
+      ],
+      "listId": "didi-board-yesterday",
+      "status": "todo",
+      "boardId": "didi-board",
+      "endTime": "16:00",
+      "assignee": "Didi",
+      "checklist": [],
+      "createdAt": "2026-10-17T01:12:35.231Z",
+      "startTime": "14:00",
+      "categoryTag": "PROSPECÇÃO",
+      "description": "Separar lista de criadores para outreach.",
+      "scheduledDate": "2026-10-17"
+    },
+    {
+      "id": "card-di-3",
+      "order": 4,
+      "title": "Revisar método de prospecção conjunto",
+      "labels": [
+        "purple",
+        "yellow"
+      ],
+      "listId": "didi-board-yesterday",
+      "status": "todo",
+      "boardId": "didi-board",
+      "endTime": "17:30",
+      "assignee": "Didi",
+      "checklist": [],
+      "createdAt": "2026-10-17T01:12:35.231Z",
+      "startTime": "16:00",
+      "categoryTag": "ESTRATÉGIA",
+      "description": "Testar abordagens e validar quais geram mais respostas na semana.",
+      "scheduledDate": "2026-10-17"
+    },
+    {
+      "id": "card-1792275522088",
+      "order": 2,
+      "title": "diego tem q dar o c",
+      "labels": [
+        "purple"
+      ],
+      "listId": "didi-today",
+      "status": "todo",
+      "boardId": "didi-board",
+      "endTime": "10:00",
+      "assignee": "Didi",
+      "checklist": [],
+      "createdAt": "2026-10-17T22:18:42.088Z",
+      "startTime": "09:00",
+      "description": "",
+      "scheduledDate": "2026-10-18",
+      "elapsedSeconds": 0
+    }
+  ],
+  "lists": [
+    {
+      "id": "elbioh-today",
+      "order": 1,
+      "title": "Today",
+      "boardId": "elbioh-board"
+    },
+    {
+      "id": "elbioh-tomorrow",
+      "order": 2,
+      "title": "Tomorrow",
+      "boardId": "elbioh-board"
+    },
+    {
+      "id": "elbioh-week",
+      "order": 3,
+      "title": "This Week",
+      "boardId": "elbioh-board"
+    },
+    {
+      "id": "didi-today",
+      "order": 1,
+      "title": "Today",
+      "boardId": "didi-board"
+    },
+    {
+      "id": "didi-tomorrow",
+      "order": 2,
+      "title": "Tomorrow",
+      "boardId": "didi-board"
+    },
+    {
+      "id": "didi-week",
+      "order": 3,
+      "title": "This Week",
+      "boardId": "didi-board"
+    },
+    {
+      "id": "elbioh-board-yesterday",
+      "order": 0,
+      "title": "Yesterday",
+      "boardId": "elbioh-board"
+    },
+    {
+      "id": "didi-board-yesterday",
+      "order": 0,
+      "title": "Yesterday",
+      "boardId": "didi-board"
+    },
+    {
+      "id": "elbioh-board-future",
+      "order": 4,
+      "title": "Future",
+      "boardId": "elbioh-board"
+    },
+    {
+      "id": "didi-board-future",
+      "order": 4,
+      "title": "Future",
+      "boardId": "didi-board"
+    }
+  ],
+  "boards": [
+    {
+      "id": "elbioh-board",
+      "name": "Elbioh's Board",
+      "owner": "Elbioh",
+      "accentTo": "#06b6d4",
+      "subtitle": "Rotina Diária, Edição & Prospecção",
+      "accentFrom": "#c026d3"
+    },
+    {
+      "id": "didi-board",
+      "name": "Didi's Board",
+      "owner": "Didi",
+      "accentTo": "#a855f7",
+      "subtitle": "Organização de Rotina & Projetos",
+      "accentFrom": "#06b6d4"
+    }
+  ],
+  "tagColors": [
+    {
+      "id": "purple",
+      "hex": "#a855f7",
+      "name": "Roxo"
+    },
+    {
+      "id": "yellow",
+      "hex": "#eab308",
+      "name": "Amarelo"
+    },
+    {
+      "id": "red",
+      "hex": "#ef4444",
+      "name": "Vermelho"
+    },
+    {
+      "id": "green",
+      "hex": "#10b981",
+      "name": "Verde"
+    },
+    {
+      "id": "cyan",
+      "hex": "#06b6d4",
+      "name": "Ciano"
+    }
+  ],
+  "inboxNotes": [
+    {
+      "id": "note-1",
+      "text": "Ideia: Criar preset de sound design estilo Minecraft / Roblox Rivals para acelerar edições.",
+      "boardId": "elbioh-board",
+      "createdAt": "2026-10-17T01:12:35.231Z"
+    }
+  ],
+  "lastUpdated": "2026-10-18T20:43:06.817Z",
+  "customLabels": [
+    {
+      "id": "lbl-blue",
+      "name": "Prioridade baixa",
+      "color": "#3b82f6"
+    },
+    {
+      "id": "lbl-yellow",
+      "name": "Prioridade média",
+      "color": "#eab308"
+    },
+    {
+      "id": "lbl-red",
+      "name": "Prioridade máxima",
+      "color": "#ef4444"
+    }
+  ],
+  "activeBoardId": "elbioh-board"
+}

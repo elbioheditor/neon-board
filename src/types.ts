@@ -54,7 +54,7 @@ export interface TaskCard {
   categoryTag?: string;
   tagColor?: string; // Hex or identifier for tag color
   checklist: ChecklistItem[];
-  assignee: 'Elbioh' | 'Didi';
+  assignee: string;
   createdAt: string;
   completedAt?: string; // ISO timestamp when marked as completed
   completedFromListTitle?: string;
@@ -72,13 +72,30 @@ export interface BoardList {
 export interface Board {
   id: string;
   name: string;
-  owner: 'Elbioh' | 'Didi';
+  owner: string;
   subtitle: string;
   accentFrom: string;
   accentTo: string;
 }
 
 export type ActiveTab = 'board' | 'calendar' | 'history';
+
+export interface UserProfile {
+  id: string;
+  username: string;
+  friendCode: string;
+  avatarColor: string;
+  createdAt?: string;
+}
+
+export interface Friendship {
+  id: string;
+  userId: string;
+  friendId: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  createdAt?: string;
+  friendProfile?: UserProfile;
+}
 
 export interface NeonStoreState {
   boards: Board[];

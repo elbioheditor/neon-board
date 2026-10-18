@@ -18,6 +18,9 @@ import {
   ChevronRight,
   ChevronLeft,
   AlertCircle,
+  Users,
+  LogIn,
+  LogOut,
 } from 'lucide-react';
 import {
   NeonStoreState,
@@ -27,6 +30,7 @@ import {
   RecurrenceConfig,
   CustomLabel,
   TagColorItem,
+  UserProfile,
 } from './types';
 import {
   INITIAL_STATE,
@@ -41,12 +45,22 @@ import { CardModal } from './components/CardModal';
 import { MonthlyHistoryView } from './components/MonthlyHistoryView';
 import { CalendarView } from './components/CalendarView';
 import { CloudSyncModal } from './components/CloudSyncModal';
+import { AuthModal } from './components/AuthModal';
+import { FriendsModal } from './components/FriendsModal';
 import { TimeInput24h } from './components/TimeInput24h';
 import {
   DEFAULT_RECURRENCE_CONFIG,
   RecurrenceButton,
   RecurrencePanel,
 } from './components/RecurrenceControl';
+import {
+  getCurrentUser,
+  fetchUserProfile,
+  signOutUser,
+  fetchFriendships,
+  fetchUserAndFriendsBoards,
+  saveUserBoardToCloud,
+} from './lib/neonAuth';
 import {
   getSavedCloudConfig,
   saveCloudConfig,
@@ -206,7 +220,7 @@ export function App() {
     itemTitle: string;
     itemType: 'card' | 'list';
     targetBoardName: string;
-    targetOwner: 'Elbioh' | 'Didi';
+    targetOwner: string;
   } | null>(null);
   const [recentlyTransferredIds, setRecentlyTransferredIds] = useState<
     string[]
@@ -226,6 +240,82 @@ export function App() {
   const [syncStatus, setSyncStatus] = useState<
     'disconnected' | 'connecting' | 'connected' | 'error'
   >('disconnected');
+
+  // User Authentication & Friends state
+  const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isFriendsModalOpen, setIsFriendsModalOpen] = useState(false);
+  const [pendingFriendCount, setPendingFriendCount] = useState(0);
+
+  const loadFriendsAndSyncBoards = async (profile: UserProfile) => {
+    try {
+      const fList = await fetchFriendships(profile.id);
+      const pending = fList.filter((f) => f.status === 'pending' && f.friendId === profile.id);
+      setPendingFriendCount(pending.length);
+
+      const acceptedIds = fList
+        .filter((f) => f.status === 'accepted')
+        .map((f) => (f.userId === profile.id ? f.friendId : f.userId));
+
+      const { ownerBoard, friendsBoards } = await fetchUserAndFriendsBoards(profile.id, acceptedIds);
+
+      if (ownerBoard) {
+        setState((prev) => {
+          const allBoards = [ownerBoard.board, ...friendsBoards.map((fb) => fb.board)];
+          const allLists = [...ownerBoard.lists, ...friendsBoards.flatMap((fb) => fb.lists)];
+          const allCards = [...ownerBoard.cards, ...friendsBoards.flatMap((fb) => fb.cards)];
+          return {
+            ...prev,
+            boards: allBoards,
+            lists: allLists,
+            cards: allCards,
+            activeBoardId: allBoards.some((b) => b.id === prev.activeBoardId) ? prev.activeBoardId : allBoards[0].id,
+          };
+        });
+      } else {
+        // Upload initial board to user_boards for this user
+        const currentBoard = state.boards.find((b) => b.owner.toLowerCase() === profile.username.toLowerCase()) || state.boards[0];
+        if (currentBoard) {
+          await saveUserBoardToCloud(profile.id, {
+            board: { ...currentBoard, name: `${profile.username}'s Board`, owner: profile.username },
+            lists: state.lists.filter((l) => l.boardId === currentBoard.id),
+            cards: state.cards.filter((c) => c.boardId === currentBoard.id),
+            customLabels: state.customLabels,
+            tagColors: state.tagColors,
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load friends boards:', err);
+    }
+  };
+
+  useEffect(() => {
+    getCurrentUser().then(async (user) => {
+      if (user) {
+        const profile = await fetchUserProfile(user.id);
+        if (profile) {
+          setCurrentUserProfile(profile);
+          loadFriendsAndSyncBoards(profile);
+        }
+      }
+    });
+  }, []);
+
+  const handleSignOut = async () => {
+    await signOutUser();
+    setCurrentUserProfile(null);
+    setPendingFriendCount(0);
+  };
+
+  const handleSwitchToFriendBoard = (friendName: string) => {
+    const target = state.boards.find(
+      (b) => b.owner.toLowerCase() === friendName.toLowerCase() || b.name.toLowerCase().includes(friendName.toLowerCase())
+    );
+    if (target) {
+      handleSelectBoard(target.id);
+    }
+  };
 
   const handleInlineStartChange = (val: string) => {
     setNewCardStart(val);
@@ -264,6 +354,18 @@ export function App() {
       }
       if (cloudConfig.enabled) {
         pushCloudState(next);
+      }
+      if (currentUserProfile) {
+        const myBoard = next.boards.find((b) => b.owner.toLowerCase() === currentUserProfile.username.toLowerCase()) || next.boards[0];
+        if (myBoard) {
+          saveUserBoardToCloud(currentUserProfile.id, {
+            board: myBoard,
+            lists: next.lists.filter((l) => l.boardId === myBoard.id),
+            cards: next.cards.filter((c) => c.boardId === myBoard.id),
+            customLabels: next.customLabels,
+            tagColors: next.tagColors,
+          });
+        }
       }
       return next;
     });
@@ -1275,7 +1377,7 @@ export function App() {
 
   const isDraggingAnything = Boolean(draggedCardId || draggedListId);
   const appBrandName = window.neonDesktop?.brandName || 'NEON';
-  const appVersion = window.neonDesktop?.version || '1.2.4';
+  const appVersion = window.neonDesktop?.version || '1.2.5';
 
   return (
     <div className="relative w-screen h-screen flex flex-col bg-[#07050d] text-slate-100 overflow-hidden select-none">
@@ -1477,7 +1579,7 @@ export function App() {
           </button>
         </div>
 
-        {/* Right Controls: Neon FX & Sync */}
+        {/* Right Controls: Neon FX, Friends, User Auth & Sync */}
         <div className="flex items-center gap-2 app-no-drag">
           <button
             type="button"
@@ -1492,6 +1594,51 @@ export function App() {
             ✨ Neon FX
           </button>
 
+          {/* Amigos Button (when logged in) */}
+          {currentUserProfile && (
+            <button
+              type="button"
+              onClick={() => setIsFriendsModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-cyan-500/20 to-purple-600/20 hover:from-cyan-500/35 hover:to-purple-600/35 border border-cyan-400/40 text-cyan-200 transition-all cursor-pointer"
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Amigos</span>
+              {pendingFriendCount > 0 && (
+                <span className="w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-extrabold flex items-center justify-center animate-pulse">
+                  {pendingFriendCount}
+                </span>
+              )}
+            </button>
+          )}
+
+          {/* User Profile Pill or Login Button */}
+          {currentUserProfile ? (
+            <button
+              type="button"
+              onClick={handleSignOut}
+              title={`Conectado como ${currentUserProfile.username} (${currentUserProfile.friendCode}). Clique para Sair.`}
+              className="inline-flex items-center gap-2 px-2.5 py-1 rounded-xl bg-purple-500/15 hover:bg-rose-500/20 border border-purple-400/30 hover:border-rose-400/40 text-purple-200 hover:text-rose-200 text-xs font-bold transition-all cursor-pointer group/user"
+            >
+              <div
+                className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] text-white font-extrabold shadow-sm"
+                style={{ backgroundColor: currentUserProfile.avatarColor || '#a855f7' }}
+              >
+                {currentUserProfile.username.slice(0, 2).toUpperCase()}
+              </div>
+              <span className="max-w-[80px] truncate">{currentUserProfile.username}</span>
+              <LogOut className="w-3 h-3 opacity-0 group-hover/user:opacity-100 transition-opacity" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setIsAuthModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-fuchsia-600 to-cyan-500 text-white shadow-md shadow-cyan-500/25 hover:opacity-95 transition-all cursor-pointer"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>Entrar</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => setIsCloudModalOpen(true)}
@@ -1505,7 +1652,7 @@ export function App() {
               }`}
             />
             <Cloud className="w-3.5 h-3.5" />
-            <span>Sync / Backup</span>
+            <span>Sync</span>
           </button>
 
           <span
@@ -2389,6 +2536,29 @@ export function App() {
             pushCloudState(state);
           }}
           onClose={() => setIsCloudModalOpen(false)}
+        />
+      )}
+
+      {/* AUTH MODAL */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onAuthSuccess={(profile) => {
+          setCurrentUserProfile(profile);
+          loadFriendsAndSyncBoards(profile);
+        }}
+      />
+
+      {/* FRIENDS & SHARED BOARDS MODAL */}
+      {currentUserProfile && (
+        <FriendsModal
+          isOpen={isFriendsModalOpen}
+          onClose={() => {
+            setIsFriendsModalOpen(false);
+            if (currentUserProfile) loadFriendsAndSyncBoards(currentUserProfile);
+          }}
+          currentUser={currentUserProfile}
+          onSwitchToFriendBoard={handleSwitchToFriendBoard}
         />
       )}
     </div>

@@ -620,7 +620,7 @@ export function buildRecurringTaskCards(params: {
   label: LabelColor | string | string[];
   categoryTag?: string;
   tagColor?: string;
-  assignee: 'Elbioh' | 'Didi';
+  assignee: string;
   baseOrder: number;
   recurrence?: RecurrenceConfig;
 }): TaskCard[] {
