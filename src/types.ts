@@ -1,6 +1,19 @@
 export type TaskStatus = 'todo' | 'in_progress' | 'paused' | 'completed';
 
-export type LabelColor = 'purple' | 'cyan' | 'pink' | 'green' | 'yellow' | 'orange';
+export type LabelColor = string;
+
+export interface CustomLabel {
+  id: string;
+  name: string;
+  color: string; // Hex color (e.g. '#3b82f6')
+  textColor?: string;
+}
+
+export interface TagColorItem {
+  id: string;
+  name: string;
+  hex: string;
+}
 
 export interface ChecklistItem {
   id: string;
@@ -9,18 +22,20 @@ export interface ChecklistItem {
 }
 
 export interface TaskRecurrence {
-  mode: 'weekdays' | 'days_count';
+  mode: 'weekdays' | 'days_count' | 'specific_days';
   weekdays?: number[]; // 0 = Dom, 1 = Seg, 2 = Ter, 3 = Qua, 4 = Qui, 5 = Sex, 6 = Sáb
   daysCount?: number;  // Total consecutive days (e.g. 4)
   dayIndex?: number;   // Current day index (1..daysCount)
+  specificDays?: number[]; // Days of the month (1..31)
   groupId: string;
 }
 
 export interface RecurrenceConfig {
   enabled: boolean;
-  mode: 'weekdays' | 'days_count';
+  mode: 'weekdays' | 'days_count' | 'specific_days';
   weekdays: number[];
   daysCount: number;
+  specificDays?: number[];
 }
 
 export interface TaskCard {
@@ -35,8 +50,9 @@ export interface TaskCard {
   scheduledDate?: string; // YYYY-MM-DD
   elapsedSeconds?: number; // Accumulated tracked seconds on stopwatch
   timerStartedAt?: number; // Timestamp (ms) when current active timer started
-  labels: LabelColor[];
+  labels: string[]; // Label IDs or color names
   categoryTag?: string;
+  tagColor?: string; // Hex or identifier for tag color
   checklist: ChecklistItem[];
   assignee: 'Elbioh' | 'Didi';
   createdAt: string;
@@ -69,5 +85,7 @@ export interface NeonStoreState {
   activeBoardId: string;
   lists: BoardList[];
   cards: TaskCard[];
+  customLabels?: CustomLabel[];
+  tagColors?: TagColorItem[];
   lastUpdated: string;
 }

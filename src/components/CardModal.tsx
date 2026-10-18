@@ -16,8 +16,8 @@ import {
   RotateCcw,
   Repeat,
 } from 'lucide-react';
-import { TaskCard, LabelColor, BoardList } from '../types';
-import { LABEL_CONFIG } from '../data/initialData';
+import { TaskCard, BoardList, CustomLabel, TagColorItem } from '../types';
+import { LABEL_CONFIG, resolveLabelInfo } from '../data/initialData';
 import {
   getLiveElapsedSeconds,
   formatStopwatch,
@@ -32,36 +32,60 @@ interface CardModalProps {
   card: TaskCard;
   nowMs: number;
   lists: BoardList[];
+  customLabels?: CustomLabel[];
+  tagColors?: TagColorItem[];
   onClose: () => void;
   onUpdateCard: (updated: TaskCard) => void;
   onToggleTimer: (e: React.MouseEvent | null, cardId: string) => void;
   onResetTimer: (cardId: string) => void;
   onCompleteCard: (cardId: string) => void;
   onDeleteCard: (cardId: string) => void;
+  onDeleteRecurringGroup?: (groupId: string) => void;
+  onCreateLabel?: (name: string, color: string) => void;
+  onDeleteLabel?: (labelId: string) => void;
+  onAddTagColor?: (hex: string, name?: string) => void;
+  onDeleteTagColor?: (colorId: string) => void;
+  onAddDayToTask?: (cardId: string) => void;
 }
-
-const ALL_COLORS: LabelColor[] = ['purple', 'cyan', 'pink', 'green', 'yellow', 'orange'];
 
 export const CardModal: React.FC<CardModalProps> = ({
   card,
   nowMs,
   lists,
+  customLabels = [],
+  tagColors = [],
   onClose,
   onUpdateCard,
   onToggleTimer,
   onResetTimer,
   onCompleteCard,
   onDeleteCard,
+  onDeleteRecurringGroup,
+  onCreateLabel,
+  onDeleteLabel,
+  onAddTagColor,
+  onDeleteTagColor,
+  onAddDayToTask,
 }) => {
   const [title, setTitle] = useState(card.title);
   const [description, setDescription] = useState(card.description);
   const [categoryTag, setCategoryTag] = useState(card.categoryTag || '');
+  const [selectedTagColor, setSelectedTagColor] = useState<string>(
+    card.tagColor || '#a855f7'
+  );
   const [startTime, setStartTime] = useState(card.startTime || '09:00');
   const [endTime, setEndTime] = useState(card.endTime || '10:00');
   const [scheduledDate, setScheduledDate] = useState(
     card.scheduledDate || getTodayIsoDate()
   );
   const [newCheckText, setNewCheckText] = useState('');
+
+  // UI state for creating label and adding color
+  const [showCreateLabel, setShowCreateLabel] = useState(false);
+  const [newLabelName, setNewLabelName] = useState('');
+  const [newLabelColor, setNewLabelColor] = useState('#3b82f6');
+  const [showAddColor, setShowAddColor] = useState(false);
+  const [newCustomColor, setNewCustomColor] = useState('#06b6d4');
 
   const isInProgress = card.status === 'in_progress';
   const isPaused = card.status === 'paused';
@@ -93,11 +117,11 @@ export const CardModal: React.FC<CardModalProps> = ({
     });
   };
 
-  const toggleLabel = (color: LabelColor) => {
-    const exists = card.labels.includes(color);
+  const toggleLabel = (labelKey: string) => {
+    const exists = card.labels.includes(labelKey);
     const nextLabels = exists
-      ? card.labels.filter((c) => c !== color)
-      : [...card.labels, color];
+      ? card.labels.filter((c) => c !== labelKey)
+      : [...card.labels, labelKey];
     saveField({ labels: nextLabels });
   };
 
@@ -358,7 +382,7 @@ export const CardModal: React.FC<CardModalProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="block text-[11px] text-slate-400 mb-1">Tag (Ex: EDIÇÃO)</label>
                 <input
@@ -367,9 +391,88 @@ export const CardModal: React.FC<CardModalProps> = ({
                   onChange={(e) => setCategoryTag(e.target.value.toUpperCase())}
                   onBlur={() => saveField({ categoryTag: categoryTag.trim() })}
                   placeholder="EX: PROSPECÇÃO"
-                  className="w-full bg-[#090612] border border-purple-500/30 rounded-lg px-2.5 py-1.5 text-xs text-fuchsia-300 font-bold uppercase focus:outline-none focus:border-fuchsia-400"
+                  className="w-full bg-[#090612] border border-purple-500/30 rounded-lg px-2.5 py-1.5 text-xs font-bold uppercase focus:outline-none focus:border-fuchsia-400"
+                  style={selectedTagColor ? { color: selectedTagColor } : undefined}
                 />
+
+                {/* Cores das Tags */}
+                <div className="mt-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] text-slate-400 font-semibold">Cor da Tag:</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddColor(!showAddColor)}
+                      className="text-[9px] text-cyan-300 hover:text-white font-bold flex items-center gap-0.5 cursor-pointer"
+                    >
+                      <Plus className="w-2.5 h-2.5" />
+                      <span>Nova Cor</span>
+                    </button>
+                  </div>
+
+                  {showAddColor && (
+                    <div className="flex items-center gap-1.5 p-1.5 mb-1.5 bg-[#090612] rounded-lg border border-cyan-400/30">
+                      <input
+                        type="color"
+                        value={newCustomColor}
+                        onChange={(e) => setNewCustomColor(e.target.value)}
+                        className="w-6 h-6 rounded border-0 cursor-pointer bg-transparent"
+                      />
+                      <input
+                        type="text"
+                        value={newCustomColor}
+                        onChange={(e) => setNewCustomColor(e.target.value)}
+                        className="w-20 bg-black/40 text-[10px] font-mono px-1.5 py-0.5 rounded text-white border border-white/20"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (onAddTagColor) onAddTagColor(newCustomColor);
+                          setSelectedTagColor(newCustomColor);
+                          saveField({ tagColor: newCustomColor });
+                          setShowAddColor(false);
+                        }}
+                        className="px-2 py-0.5 text-[10px] font-bold bg-cyan-500/30 text-cyan-200 rounded border border-cyan-400/40 cursor-pointer"
+                      >
+                        Salvar
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {tagColors.map((tc) => (
+                      <div key={tc.id} className="relative group/col">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedTagColor(tc.hex);
+                            saveField({ tagColor: tc.hex });
+                          }}
+                          className={`w-4 h-4 rounded-full cursor-pointer transition-all ${
+                            selectedTagColor === tc.hex
+                              ? 'ring-2 ring-white scale-125'
+                              : 'opacity-55 hover:opacity-100'
+                          }`}
+                          style={{ backgroundColor: tc.hex }}
+                          title={tc.name}
+                        />
+                        {onDeleteTagColor && !['purple', 'yellow', 'red', 'green', 'cyan'].includes(tc.id) && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteTagColor(tc.id);
+                            }}
+                            className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-600 text-white text-[8px] flex items-center justify-center opacity-0 group-hover/col:opacity-100 transition-opacity"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
+
               <div>
                 <label className="block text-[11px] text-slate-400 mb-1">
                   <Calendar className="w-3 h-3 inline mr-1 text-cyan-400" />
@@ -381,35 +484,107 @@ export const CardModal: React.FC<CardModalProps> = ({
                   onChange={(e) => handleDateChange(e.target.value)}
                   className="w-full bg-[#090612] border border-purple-500/30 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-400"
                 />
+
+                {onAddDayToTask && (
+                  <button
+                    type="button"
+                    onClick={() => onAddDayToTask(card.id)}
+                    className="mt-2 w-full py-1.5 px-2 rounded-lg text-[10px] font-bold bg-cyan-500/20 hover:bg-cyan-500/35 text-cyan-200 border border-cyan-400/40 flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                  >
+                    <Plus className="w-3 h-3 text-cyan-400" />
+                    <span>+ Adicionar mais 1 dia para esta tarefa</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Etiquetas de Cor (Trello Style) */}
+        {/* Etiquetas de Cor / Prioridades */}
         <div className="mb-5">
-          <div className="flex items-center gap-2 text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-            <Tag className="w-3.5 h-3.5 text-fuchsia-400" />
-            <span>Etiquetas (Labels)</span>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-300 uppercase tracking-wider">
+              <Tag className="w-3.5 h-3.5 text-fuchsia-400" />
+              <span>Etiquetas (Labels / Prioridades)</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowCreateLabel(!showCreateLabel)}
+              className="text-[10px] text-cyan-300 hover:text-white font-bold flex items-center gap-1 cursor-pointer"
+            >
+              <Plus className="w-3 h-3" />
+              <span>Nova Label</span>
+            </button>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {ALL_COLORS.map((color) => {
-              const selected = card.labels.includes(color);
-              const cfg = LABEL_CONFIG[color];
-              return (
+
+          {showCreateLabel && (
+            <div className="p-3 mb-3 bg-[#110926] rounded-xl border border-cyan-400/40 space-y-2">
+              <span className="text-xs font-bold text-white">Criar Nova Etiqueta</span>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="Nome da etiqueta..."
+                  value={newLabelName}
+                  onChange={(e) => setNewLabelName(e.target.value)}
+                  className="flex-1 bg-black/40 border border-purple-500/40 rounded-lg px-2.5 py-1 text-xs text-white placeholder-slate-500 focus:outline-none"
+                />
+                <input
+                  type="color"
+                  value={newLabelColor}
+                  onChange={(e) => setNewLabelColor(e.target.value)}
+                  className="w-7 h-7 rounded border-0 cursor-pointer bg-transparent"
+                />
                 <button
-                  key={color}
                   type="button"
-                  onClick={() => toggleLabel(color)}
-                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all cursor-pointer ${
-                    selected
-                      ? `${cfg.pillBg} ${cfg.border} ${cfg.text} ring-1 ring-cyan-400/50`
-                      : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
-                  }`}
+                  onClick={() => {
+                    if (newLabelName.trim() && onCreateLabel) {
+                      onCreateLabel(newLabelName.trim(), newLabelColor);
+                      setNewLabelName('');
+                      setShowCreateLabel(false);
+                    }
+                  }}
+                  className="px-3 py-1 rounded-lg text-xs font-bold bg-cyan-500 hover:bg-cyan-400 text-slate-950 cursor-pointer"
                 >
-                  <span className={`w-3 h-3 rounded-full ${cfg.bg}`} />
-                  <span>{cfg.name}</span>
+                  Criar
                 </button>
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            {customLabels.map((lbl) => {
+              const selected = card.labels.includes(lbl.id);
+              return (
+                <div key={lbl.id} className="relative group/lbl inline-flex items-center">
+                  <button
+                    type="button"
+                    onClick={() => toggleLabel(lbl.id)}
+                    className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all cursor-pointer ${
+                      selected
+                        ? 'border-cyan-400 text-white ring-1 ring-cyan-400/50 bg-cyan-950/40'
+                        : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
+                    }`}
+                  >
+                    <span
+                      className="w-3 h-3 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: lbl.color }}
+                    />
+                    <span>{lbl.name}</span>
+                  </button>
+                  {onDeleteLabel && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteLabel(lbl.id);
+                      }}
+                      title="Excluir etiqueta"
+                      className="ml-1 p-1 rounded hover:bg-rose-500/30 text-slate-400 hover:text-rose-200 transition-colors opacity-0 group-hover/lbl:opacity-100 cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -503,18 +678,34 @@ export const CardModal: React.FC<CardModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-between pt-4 border-t border-white/10">
-          <button
-            type="button"
-            onClick={() => {
-              onDeleteCard(card.id);
-              onClose();
-            }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-rose-400 hover:bg-rose-500/15 border border-transparent hover:border-rose-500/30 transition-colors cursor-pointer"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span>Excluir Tarefa</span>
-          </button>
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-white/10">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                onDeleteCard(card.id);
+                onClose();
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-rose-400 hover:bg-rose-500/15 border border-transparent hover:border-rose-500/30 transition-colors cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>{card.recurrence?.groupId ? 'Excluir apenas esta tarefa' : 'Excluir Tarefa'}</span>
+            </button>
+
+            {card.recurrence?.groupId && onDeleteRecurringGroup && (
+              <button
+                type="button"
+                onClick={() => {
+                  onDeleteRecurringGroup(card.recurrence!.groupId);
+                  onClose();
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-rose-300 bg-rose-500/20 hover:bg-rose-500/35 border border-rose-500/40 transition-colors cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Excluir em todo o mês</span>
+              </button>
+            )}
+          </div>
 
           <button
             type="button"

@@ -11,15 +11,17 @@ import {
   Timer,
   LayoutGrid,
   Repeat,
+  RotateCcw,
 } from 'lucide-react';
 import {
   Board,
   BoardList,
-  LabelColor,
+  CustomLabel,
+  TagColorItem,
   RecurrenceConfig,
   TaskCard,
 } from '../types';
-import { LABEL_CONFIG } from '../data/initialData';
+import { LABEL_CONFIG, resolveLabelInfo } from '../data/initialData';
 import {
   getBrasiliaNow,
   getTodayIsoDate,
@@ -44,18 +46,24 @@ interface CalendarViewProps {
   lists: BoardList[];
   cards: TaskCard[];
   nowMs: number;
+  customLabels?: CustomLabel[];
+  tagColors?: TagColorItem[];
   onOpenModal: (card: TaskCard) => void;
   onToggleTimer: (e: React.MouseEvent, cardId: string) => void;
+  onResetTimer?: (cardId: string) => void;
   onCompleteCard: (e: React.MouseEvent, cardId: string) => void;
   onAddCardForDate: (
     title: string,
     scheduledDate: string,
     startTime: string,
     endTime: string,
-    label: LabelColor,
+    labels: string[],
     categoryTag: string,
+    tagColor?: string,
     recurrence?: RecurrenceConfig
   ) => void;
+  onAddTagColor?: (hex: string, name?: string) => void;
+  onDeleteTagColor?: (colorId: string) => void;
   onCardDragStart?: (e: React.DragEvent, cardId: string) => void;
   onCardDragEnd?: () => void;
   onMoveCardToDate?: (cardId: string, targetIsoDate: string) => void;
@@ -97,10 +105,15 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   lists,
   cards,
   nowMs,
+  customLabels = [],
+  tagColors = [],
   onOpenModal,
   onToggleTimer,
+  onResetTimer,
   onCompleteCard,
   onAddCardForDate,
+  onAddTagColor,
+  onDeleteTagColor,
   onCardDragStart,
   onCardDragEnd,
   onMoveCardToDate,
@@ -117,8 +130,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   const [newTitle, setNewTitle] = useState('');
   const [newStart, setNewStart] = useState('09:00');
   const [newEnd, setNewEnd] = useState('10:00');
-  const [newLabel, setNewLabel] = useState<LabelColor>('purple');
+  const [newLabels, setNewLabels] = useState<string[]>(['lbl-blue']);
   const [newTag, setNewTag] = useState('');
+  const [newTagColor, setNewTagColor] = useState<string>('#a855f7');
+  const [showAddColor, setShowAddColor] = useState(false);
+  const [customColorInput, setCustomColorInput] = useState('#06b6d4');
   const [newRecurrence, setNewRecurrence] = useState<RecurrenceConfig>(
     DEFAULT_RECURRENCE_CONFIG
   );
@@ -217,11 +233,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       selectedDateIso,
       newStart,
       newEnd,
-      newLabel,
-      newTag,
+      newLabels,
+      newTag.trim(),
+      newTagColor,
       newRecurrence
     );
     setNewTitle('');
+    setNewTag('');
     setNewRecurrence(DEFAULT_RECURRENCE_CONFIG);
   };
 
@@ -485,42 +503,130 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 value={newTag}
                 onChange={(e) => setNewTag(e.target.value.toUpperCase())}
                 placeholder="TAG"
-                className="w-24 bg-[#090612] border border-purple-500/30 rounded-lg px-2.5 py-1.5 text-xs text-pink-300 font-bold uppercase focus:outline-none"
+                style={newTagColor ? { color: newTagColor } : undefined}
+                className="w-24 bg-[#090612] border border-purple-500/30 rounded-lg px-2.5 py-1.5 text-xs font-bold uppercase focus:outline-none"
               />
             </div>
 
-            <div className="flex items-center justify-between gap-2 pt-1">
-              <div className="flex items-center gap-2.5">
-                <div className="flex items-center gap-1.5">
-                  {(
-                    ['purple', 'cyan', 'pink', 'green', 'yellow', 'orange'] as LabelColor[]
-                  ).map((col) => (
-                    <button
-                      key={col}
-                      type="button"
-                      onClick={() => setNewLabel(col)}
-                      className={`w-4 h-4 rounded-full cursor-pointer ${LABEL_CONFIG[col].bg} ${
-                        newLabel === col
-                          ? 'ring-2 ring-white scale-110'
-                          : 'opacity-45 hover:opacity-85'
-                      }`}
-                    />
-                  ))}
-                </div>
+            {/* Tag Colors Row */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-slate-400 font-semibold">Cor da Tag:</span>
+                <button
+                  type="button"
+                  onClick={() => setShowAddColor(!showAddColor)}
+                  className="text-[9px] text-cyan-300 hover:text-white font-bold flex items-center gap-0.5 cursor-pointer"
+                >
+                  <Plus className="w-2.5 h-2.5" />
+                  <span>Nova Cor</span>
+                </button>
+              </div>
 
+              {showAddColor && (
+                <div className="flex items-center gap-1.5 p-1.5 mb-1.5 bg-[#090612] rounded-lg border border-cyan-400/30">
+                  <input
+                    type="color"
+                    value={customColorInput}
+                    onChange={(e) => setCustomColorInput(e.target.value)}
+                    className="w-6 h-6 rounded border-0 cursor-pointer bg-transparent"
+                  />
+                  <input
+                    type="text"
+                    value={customColorInput}
+                    onChange={(e) => setCustomColorInput(e.target.value)}
+                    className="w-20 bg-black/40 text-[10px] font-mono px-1.5 py-0.5 rounded text-white border border-white/20"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onAddTagColor) onAddTagColor(customColorInput);
+                      setNewTagColor(customColorInput);
+                      setShowAddColor(false);
+                    }}
+                    className="px-2 py-0.5 text-[10px] font-bold bg-cyan-500/30 text-cyan-200 rounded border border-cyan-400/40 cursor-pointer"
+                  >
+                    Salvar
+                  </button>
+                </div>
+              )}
+
+              <div className="flex flex-wrap items-center gap-1.5">
+                {tagColors.map((tc) => (
+                  <div key={tc.id} className="relative group/calcol">
+                    <button
+                      type="button"
+                      onClick={() => setNewTagColor(tc.hex)}
+                      className={`w-4 h-4 rounded-full cursor-pointer transition-all ${
+                        newTagColor === tc.hex
+                          ? 'ring-2 ring-white scale-125'
+                          : 'opacity-50 hover:opacity-100'
+                      }`}
+                      style={{ backgroundColor: tc.hex }}
+                      title={tc.name}
+                    />
+                    {onDeleteTagColor && !['purple', 'yellow', 'red', 'green', 'cyan'].includes(tc.id) && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteTagColor(tc.id);
+                        }}
+                        className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-600 text-white text-[8px] flex items-center justify-center opacity-0 group-hover/calcol:opacity-100 transition-opacity"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Priority Labels Row */}
+            <div className="space-y-1.5 pt-1">
+              <span className="text-[10px] text-slate-400 font-semibold block">Prioridade:</span>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {customLabels.map((lbl) => {
+                  const active = newLabels.includes(lbl.id);
+                  return (
+                    <button
+                      key={lbl.id}
+                      type="button"
+                      onClick={() => {
+                        const next = active
+                          ? newLabels.filter((l) => l !== lbl.id)
+                          : [...newLabels, lbl.id];
+                        setNewLabels(next);
+                      }}
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-all cursor-pointer ${
+                        active
+                          ? 'border-cyan-400 text-white ring-1 ring-cyan-400/50 bg-cyan-950/40'
+                          : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <span
+                        className="w-2 h-2 rounded-full inline-block mr-1"
+                        style={{ backgroundColor: lbl.color }}
+                      />
+                      <span>{lbl.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="flex items-center justify-between gap-2 pt-1">
                 <RecurrenceButton
                   config={newRecurrence}
                   onChange={setNewRecurrence}
                 />
-              </div>
 
-              <button
-                type="submit"
-                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold bg-gradient-to-r from-purple-600 via-fuchsia-500 to-pink-500 text-white shadow-lg shadow-pink-500/25 hover:opacity-95 cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Adicionar</span>
-              </button>
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold bg-gradient-to-r from-purple-600 via-fuchsia-500 to-pink-500 text-white shadow-lg shadow-pink-500/25 hover:opacity-95 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Adicionar</span>
+                </button>
+              </div>
             </div>
 
             <RecurrencePanel
@@ -574,14 +680,39 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                         </span>
                       </div>
 
-                      {card.recurrence && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-cyan-500/20 border border-cyan-400/35 text-[10px] font-bold text-cyan-200 flex-shrink-0">
-                          <Repeat className="w-2.5 h-2.5 text-cyan-300" />
-                          {card.recurrence.mode === 'days_count'
-                            ? `Dia ${card.recurrence.dayIndex}/${card.recurrence.daysCount}`
-                            : 'Rotina'}
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {card.categoryTag && (
+                          <span
+                            className="text-[9px] font-bold tracking-wider uppercase px-1.5 py-0.5 rounded border"
+                            style={
+                              card.tagColor
+                                ? {
+                                    backgroundColor: `${card.tagColor}22`,
+                                    borderColor: `${card.tagColor}60`,
+                                    color: card.tagColor,
+                                  }
+                                : {
+                                    backgroundColor: 'rgba(236,72,153,0.2)',
+                                    borderColor: 'rgba(244,114,182,0.4)',
+                                    color: '#f472b6',
+                                  }
+                            }
+                          >
+                            {card.categoryTag}
+                          </span>
+                        )}
+
+                        {card.recurrence && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-cyan-500/20 border border-cyan-400/35 text-[10px] font-bold text-cyan-200 flex-shrink-0">
+                            <Repeat className="w-2.5 h-2.5 text-cyan-300" />
+                            {card.recurrence.mode === 'days_count'
+                              ? `Dia ${card.recurrence.dayIndex}/${card.recurrence.daysCount}`
+                              : card.recurrence.mode === 'specific_days'
+                              ? 'Específico'
+                              : 'Rotina'}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -602,32 +733,48 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                         )}
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={(e) => onToggleTimer(e, card.id)}
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold cursor-pointer ${
-                          isInProgress
-                            ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950'
-                            : 'bg-gradient-to-r from-purple-600 to-pink-500 text-white'
-                        }`}
-                      >
-                        {isInProgress ? (
-                          <>
-                            <Pause className="w-2.5 h-2.5 fill-current" />
-                            <span>PAUSAR</span>
-                          </>
-                        ) : isPaused || liveSecs > 0 ? (
-                          <>
-                            <Play className="w-2.5 h-2.5 fill-current" />
-                            <span>RETOMAR</span>
-                          </>
-                        ) : (
-                          <>
-                            <Play className="w-2.5 h-2.5 fill-current" />
-                            <span>INICIAR</span>
-                          </>
+                      <div className="flex items-center gap-1.5">
+                        {onResetTimer && (liveSecs > 0 || isPaused || isInProgress) && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onResetTimer(card.id);
+                            }}
+                            title="Zerar cronômetro"
+                            className="p-1 rounded-full bg-white/5 hover:bg-rose-500/25 text-slate-400 hover:text-rose-300 border border-white/10 transition-colors cursor-pointer"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                          </button>
                         )}
-                      </button>
+
+                        <button
+                          type="button"
+                          onClick={(e) => onToggleTimer(e, card.id)}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold cursor-pointer ${
+                            isInProgress
+                              ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950'
+                              : 'bg-gradient-to-r from-purple-600 to-pink-500 text-white'
+                          }`}
+                        >
+                          {isInProgress ? (
+                            <>
+                              <Pause className="w-2.5 h-2.5 fill-current" />
+                              <span>PAUSAR</span>
+                            </>
+                          ) : isPaused || liveSecs > 0 ? (
+                            <>
+                              <Play className="w-2.5 h-2.5 fill-current" />
+                              <span>RETOMAR</span>
+                            </>
+                          ) : (
+                            <>
+                              <Play className="w-2.5 h-2.5 fill-current" />
+                              <span>INICIAR</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );

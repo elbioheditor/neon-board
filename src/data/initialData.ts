@@ -1,11 +1,25 @@
-import { NeonStoreState, LabelColor } from '../types';
+import { NeonStoreState, LabelColor, CustomLabel, TagColorItem } from '../types';
 import { getTodayIsoDate, getTomorrowIsoDate } from '../utils/timeUtils';
 
 const todayStr = getTodayIsoDate();
 const tomorrowStr = getTomorrowIsoDate();
 
+export const DEFAULT_CUSTOM_LABELS: CustomLabel[] = [
+  { id: 'lbl-blue', name: 'Prioridade baixa', color: '#3b82f6' },
+  { id: 'lbl-yellow', name: 'Prioridade média', color: '#eab308' },
+  { id: 'lbl-red', name: 'Prioridade máxima', color: '#ef4444' },
+];
+
+export const DEFAULT_TAG_COLORS: TagColorItem[] = [
+  { id: 'purple', name: 'Roxo', hex: '#a855f7' },
+  { id: 'yellow', name: 'Amarelo', hex: '#eab308' },
+  { id: 'red', name: 'Vermelho', hex: '#ef4444' },
+  { id: 'green', name: 'Verde', hex: '#10b981' },
+  { id: 'cyan', name: 'Ciano', hex: '#06b6d4' },
+];
+
 export const LABEL_CONFIG: Record<
-  LabelColor,
+  string,
   { name: string; bg: string; border: string; text: string; pillBg: string }
 > = {
   purple: {
@@ -50,11 +64,66 @@ export const LABEL_CONFIG: Record<
     text: 'text-orange-300',
     pillBg: 'bg-orange-500/20',
   },
+  'lbl-blue': {
+    name: 'Prioridade baixa',
+    bg: 'bg-blue-500',
+    border: 'border-blue-400/50',
+    text: 'text-blue-300',
+    pillBg: 'bg-blue-500/20',
+  },
+  'lbl-yellow': {
+    name: 'Prioridade média',
+    bg: 'bg-amber-400',
+    border: 'border-amber-300/50',
+    text: 'text-amber-200',
+    pillBg: 'bg-amber-400/20',
+  },
+  'lbl-red': {
+    name: 'Prioridade máxima',
+    bg: 'bg-rose-500',
+    border: 'border-rose-400/50',
+    text: 'text-rose-300',
+    pillBg: 'bg-rose-500/20',
+  },
 };
+
+export function resolveLabelInfo(
+  labelKey: string,
+  customLabels?: CustomLabel[]
+): { name: string; color: string; bgClass: string; isHex: boolean } {
+  const custom = customLabels?.find(
+    (l) => l.id === labelKey || l.name === labelKey
+  );
+  if (custom) {
+    return {
+      name: custom.name,
+      color: custom.color,
+      bgClass: '',
+      isHex: true,
+    };
+  }
+  const predefined = LABEL_CONFIG[labelKey];
+  if (predefined) {
+    return {
+      name: predefined.name,
+      color: '',
+      bgClass: predefined.bg,
+      isHex: false,
+    };
+  }
+  return {
+    name: labelKey,
+    color: '#3b82f6',
+    bgClass: 'bg-blue-500',
+    isHex: false,
+  };
+}
 
 export const INITIAL_STATE: NeonStoreState = {
   activeBoardId: 'elbioh-board',
   lastUpdated: '1970-01-01T00:00:00.000Z',
+  customLabels: DEFAULT_CUSTOM_LABELS,
+  tagColors: DEFAULT_TAG_COLORS,
   boards: [
     {
       id: 'elbioh-board',
@@ -74,16 +143,18 @@ export const INITIAL_STATE: NeonStoreState = {
     },
   ],
   lists: [
-    // Elbioh's Lists (Yesterday before Today -> Today -> Tomorrow -> This Week)
+    // Elbioh's Lists (Yesterday -> Today -> Tomorrow -> This Week -> Future)
     { id: 'elbioh-yesterday', boardId: 'elbioh-board', title: 'Yesterday', order: 0 },
     { id: 'elbioh-today', boardId: 'elbioh-board', title: 'Today', order: 1 },
     { id: 'elbioh-tomorrow', boardId: 'elbioh-board', title: 'Tomorrow', order: 2 },
     { id: 'elbioh-week', boardId: 'elbioh-board', title: 'This Week', order: 3 },
-    // Didi's Lists (Yesterday before Today -> Today -> Tomorrow -> This Week)
+    { id: 'elbioh-future', boardId: 'elbioh-board', title: 'Future', order: 4 },
+    // Didi's Lists (Yesterday -> Today -> Tomorrow -> This Week -> Future)
     { id: 'didi-yesterday', boardId: 'didi-board', title: 'Yesterday', order: 0 },
     { id: 'didi-today', boardId: 'didi-board', title: 'Today', order: 1 },
     { id: 'didi-tomorrow', boardId: 'didi-board', title: 'Tomorrow', order: 2 },
     { id: 'didi-week', boardId: 'didi-board', title: 'This Week', order: 3 },
+    { id: 'didi-future', boardId: 'didi-board', title: 'Future', order: 4 },
   ],
   cards: [
     // ELBIOH - TODAY (Ordered from Morning 09:00 to Night 20:30)

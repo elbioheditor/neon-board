@@ -17,6 +17,7 @@ export const DEFAULT_RECURRENCE_CONFIG: RecurrenceConfig = {
   mode: 'weekdays',
   weekdays: [1, 2, 3, 4, 5],
   daysCount: 4,
+  specificDays: [1, 15],
 };
 
 interface RecurrenceButtonProps {
@@ -35,6 +36,10 @@ export const RecurrenceButton: React.FC<RecurrenceButtonProps> = ({
     if (config.mode === 'days_count') {
       return `${config.daysCount}d`;
     }
+    if (config.mode === 'specific_days') {
+      const len = config.specificDays?.length || 0;
+      return len > 0 ? `${len} dias/mês` : 'Específico';
+    }
     if (config.weekdays.length === 7) return 'Todo dia';
     if (
       config.weekdays.length === 5 &&
@@ -51,7 +56,7 @@ export const RecurrenceButton: React.FC<RecurrenceButtonProps> = ({
     <button
       type="button"
       onClick={() => onChange({ ...config, enabled: !config.enabled })}
-      title="Configurar tarefa de Rotina (dias da semana ou duração por dias)"
+      title="Configurar tarefa de Rotina (dias da semana, duração ou dias específicos do mês)"
       className={`inline-flex items-center gap-1.5 rounded-lg font-bold border transition-all cursor-pointer ${
         compact ? 'px-2 py-1 text-[10px]' : 'px-2.5 py-1.5 text-xs'
       } ${
@@ -97,14 +102,24 @@ export const RecurrencePanel: React.FC<RecurrencePanelProps> = ({
     onChange({ ...config, weekdays: nextDays });
   };
 
+  const toggleSpecificDay = (dayNum: number) => {
+    const current = config.specificDays || [];
+    const exists = current.includes(dayNum);
+    const next = exists
+      ? current.filter((d) => d !== dayNum)
+      : [...current, dayNum].sort((a, b) => a - b);
+    if (next.length === 0) return;
+    onChange({ ...config, specificDays: next });
+  };
+
   return (
     <div className="p-2.5 rounded-xl bg-[#090612]/95 border border-cyan-400/40 space-y-2.5 animate-fade-in">
-      {/* Mode Switcher Tabs: Dias da Semana vs Quantidade de Dias */}
-      <div className="grid grid-cols-2 gap-1 bg-[#140d29] p-1 rounded-lg border border-purple-500/25">
+      {/* Mode Switcher Tabs: Dias da Semana vs Por Dias vs Específico */}
+      <div className="grid grid-cols-3 gap-1 bg-[#140d29] p-1 rounded-lg border border-purple-500/25">
         <button
           type="button"
           onClick={() => onChange({ ...config, mode: 'weekdays' })}
-          className={`py-1 px-2 rounded-md text-[10px] font-extrabold transition-all cursor-pointer ${
+          className={`py-1 px-1.5 rounded-md text-[10px] font-extrabold transition-all cursor-pointer text-center ${
             config.mode === 'weekdays'
               ? 'bg-gradient-to-r from-purple-600 to-pink-500 text-white shadow'
               : 'text-slate-400 hover:text-white'
@@ -115,13 +130,33 @@ export const RecurrencePanel: React.FC<RecurrencePanelProps> = ({
         <button
           type="button"
           onClick={() => onChange({ ...config, mode: 'days_count' })}
-          className={`py-1 px-2 rounded-md text-[10px] font-extrabold transition-all cursor-pointer ${
+          className={`py-1 px-1.5 rounded-md text-[10px] font-extrabold transition-all cursor-pointer text-center ${
             config.mode === 'days_count'
               ? 'bg-gradient-to-r from-cyan-500 to-purple-600 text-white shadow'
               : 'text-slate-400 hover:text-white'
           }`}
         >
-          Por Dias (Duração)
+          Por Dias
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            onChange({
+              ...config,
+              mode: 'specific_days',
+              specificDays:
+                config.specificDays && config.specificDays.length > 0
+                  ? config.specificDays
+                  : [1, 15],
+            })
+          }
+          className={`py-1 px-1.5 rounded-md text-[10px] font-extrabold transition-all cursor-pointer text-center ${
+            config.mode === 'specific_days'
+              ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-white shadow'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          Específico
         </button>
       </div>
 
@@ -129,7 +164,7 @@ export const RecurrencePanel: React.FC<RecurrencePanelProps> = ({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[10px] text-slate-300 font-semibold">
-              Repetir nos dias:
+              Preenche o mês nos dias:
             </span>
             <div className="flex items-center gap-1">
               <button
@@ -173,11 +208,11 @@ export const RecurrencePanel: React.FC<RecurrencePanelProps> = ({
             })}
           </div>
         </div>
-      ) : (
+      ) : config.mode === 'days_count' ? (
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2">
             <span className="text-[10px] text-slate-300 font-semibold">
-              Repetir pelos próximos:
+              Duração da rotina:
             </span>
             <div className="flex items-center gap-1.5">
               <input
@@ -215,6 +250,55 @@ export const RecurrencePanel: React.FC<RecurrencePanelProps> = ({
                 {n}d
               </button>
             ))}
+          </div>
+        </div>
+      ) : (
+        /* Modo Específico: dias do mês (1 a 31) */
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-slate-300 font-semibold">
+              Escolha os dias do mês:
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() =>
+                  onChange({ ...config, specificDays: [1, 15] })
+                }
+                className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-[9px] font-bold text-cyan-300 cursor-pointer"
+              >
+                1 e 15
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  onChange({ ...config, specificDays: [5, 10, 20, 25] })
+                }
+                className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-[9px] font-bold text-pink-300 cursor-pointer"
+              >
+                5, 10, 20, 25
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-7 gap-1 max-h-36 overflow-y-auto pr-0.5">
+            {Array.from({ length: 31 }, (_, i) => i + 1).map((dNum) => {
+              const active = (config.specificDays || []).includes(dNum);
+              return (
+                <button
+                  key={dNum}
+                  type="button"
+                  onClick={() => toggleSpecificDay(dNum)}
+                  className={`py-1 rounded text-[10px] font-extrabold border transition-all cursor-pointer ${
+                    active
+                      ? 'bg-gradient-to-b from-cyan-500 to-emerald-500 border-emerald-300 text-white shadow-sm'
+                      : 'bg-[#120b24] border-white/10 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {dNum}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}

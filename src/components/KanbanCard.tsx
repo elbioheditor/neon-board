@@ -9,9 +9,10 @@ import {
   Timer,
   Calendar,
   Repeat,
+  RotateCcw,
 } from 'lucide-react';
-import { TaskCard } from '../types';
-import { LABEL_CONFIG } from '../data/initialData';
+import { TaskCard, CustomLabel } from '../types';
+import { resolveLabelInfo } from '../data/initialData';
 import {
   getLiveElapsedSeconds,
   formatStopwatch,
@@ -23,10 +24,12 @@ import {
 interface KanbanCardProps {
   card: TaskCard;
   nowMs: number;
+  customLabels?: CustomLabel[];
   isTodayList?: boolean;
   isRecentlyTransferred?: boolean;
   onOpenModal: (card: TaskCard) => void;
   onToggleTimer: (e: React.MouseEvent, cardId: string) => void;
+  onResetTimer?: (cardId: string) => void;
   onCompleteCard: (e: React.MouseEvent, cardId: string) => void;
   onDragStart: (e: React.DragEvent, cardId: string) => void;
   onDragEnd?: () => void;
@@ -35,10 +38,12 @@ interface KanbanCardProps {
 export const KanbanCard: React.FC<KanbanCardProps> = ({
   card,
   nowMs,
+  customLabels,
   isTodayList = false,
   isRecentlyTransferred = false,
   onOpenModal,
   onToggleTimer,
+  onResetTimer,
   onCompleteCard,
   onDragStart,
   onDragEnd,
@@ -71,19 +76,47 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
           : 'hover:-translate-y-0.5'
       } ${isRecentlyTransferred ? 'animate-slot-in ring-2 ring-cyan-300' : ''}`}
     >
-      {/* Top Color Labels + Category Tag */}
+      {/* Top Labels (Prioridades/Custom) + Category Tag with TagColor */}
       {(card.labels.length > 0 || card.categoryTag) && (
         <div className="flex flex-wrap items-center gap-1.5 mb-2">
-          {card.labels.map((color) => (
-            <span
-              key={color}
-              className={`h-2 w-8 rounded-full ${LABEL_CONFIG[color]?.bg || 'bg-purple-500'} shadow-sm`}
-              title={LABEL_CONFIG[color]?.name}
-            />
-          ))}
+          {card.labels.map((lblKey) => {
+            const info = resolveLabelInfo(lblKey, customLabels);
+            return (
+              <span
+                key={lblKey}
+                className={`h-4 px-2 rounded-full text-[9px] font-extrabold uppercase tracking-tight inline-flex items-center justify-center shadow-sm text-white ${
+                  info.isHex ? '' : info.bgClass || 'bg-blue-500'
+                }`}
+                style={
+                  info.isHex
+                    ? { backgroundColor: info.color, color: '#ffffff' }
+                    : undefined
+                }
+                title={info.name}
+              >
+                {info.name}
+              </span>
+            );
+          })}
 
           {card.categoryTag && (
-            <span className="ml-auto text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-md bg-fuchsia-500/20 text-fuchsia-200 border border-fuchsia-400/35">
+            <span
+              style={
+                card.tagColor
+                  ? {
+                      backgroundColor: `${card.tagColor}22`,
+                      borderColor: `${card.tagColor}60`,
+                      color: card.tagColor,
+                      boxShadow: `0 0 10px ${card.tagColor}25`,
+                    }
+                  : undefined
+              }
+              className={
+                card.tagColor
+                  ? 'ml-auto text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-md border'
+                  : 'ml-auto text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-md bg-fuchsia-500/20 text-fuchsia-200 border border-fuchsia-400/35'
+              }
+            >
               {card.categoryTag}
             </span>
           )}
@@ -106,7 +139,7 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
         </h4>
       </div>
 
-      {/* Live Stopwatch Bar */}
+      {/* Live Stopwatch Bar with quick Reset button */}
       {hasTrackedTime && (
         <div
           className={`mt-2.5 flex items-center justify-between px-2.5 py-1.5 rounded-lg border text-xs font-mono font-bold ${
@@ -123,9 +156,24 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
             />
             <span>{formatStopwatch(liveSeconds)}</span>
           </div>
-          <span className="text-[9px] font-sans uppercase tracking-wider px-1.5 py-0.5 rounded bg-black/35">
-            {isInProgress ? 'Cronometrando...' : 'Pausado'}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[9px] font-sans uppercase tracking-wider px-1.5 py-0.5 rounded bg-black/35">
+              {isInProgress ? 'Cronometrando...' : 'Pausado'}
+            </span>
+            {onResetTimer && (liveSeconds > 0 || isPaused || isInProgress) && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onResetTimer(card.id);
+                }}
+                title="Zerar cronômetro da tarefa"
+                className="p-1 rounded bg-white/10 hover:bg-rose-500/30 text-slate-300 hover:text-rose-200 transition-colors cursor-pointer"
+              >
+                <RotateCcw className="w-3 h-3" />
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -160,6 +208,8 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
               <span>
                 {card.recurrence.mode === 'days_count'
                   ? `Dia ${card.recurrence.dayIndex}/${card.recurrence.daysCount}`
+                  : card.recurrence.mode === 'specific_days'
+                  ? 'Específico'
                   : 'Rotina'}
               </span>
             </div>
@@ -190,8 +240,22 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
           )}
         </div>
 
-        {/* Right Side: Start / Pause / Resume Button + Owner Avatar */}
+        {/* Right Side: Start / Pause / Resume Button + Reset Button + Owner Avatar */}
         <div className="flex items-center gap-1.5 ml-auto">
+          {onResetTimer && (liveSeconds > 0 || isPaused || isInProgress) && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onResetTimer(card.id);
+              }}
+              title="Zerar cronômetro"
+              className="p-1 rounded-full bg-white/5 hover:bg-rose-500/25 text-slate-400 hover:text-rose-300 border border-white/10 transition-colors cursor-pointer"
+            >
+              <RotateCcw className="w-3 h-3" />
+            </button>
+          )}
+
           <button
             type="button"
             onClick={(e) => onToggleTimer(e, card.id)}

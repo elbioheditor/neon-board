@@ -18,6 +18,7 @@ interface MonthlyHistoryViewProps {
   boards: Board[];
   activeBoardId: string;
   completedCards: TaskCard[];
+  allCards?: TaskCard[];
   onRestoreCard: (cardId: string) => void;
   onDeleteCard: (cardId: string) => void;
 }
@@ -41,6 +42,7 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
   boards,
   activeBoardId,
   completedCards,
+  allCards = [],
   onRestoreCard,
   onDeleteCard,
 }) => {
@@ -73,6 +75,15 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
   const monthCards = useMemo(() => {
     return completedCards
       .filter((c) => {
+        // If it's a 'days_count' routine task, require all days of the routine to be completed
+        if (c.recurrence?.mode === 'days_count' && c.recurrence.groupId && allCards.length > 0) {
+          const groupCards = allCards.filter(
+            (item) => item.recurrence?.groupId === c.recurrence?.groupId
+          );
+          if (groupCards.length > 0 && !groupCards.every((item) => item.status === 'completed')) {
+            return false;
+          }
+        }
         const ym = (c.completedAt || c.createdAt).slice(0, 7);
         const matchesMonth = ym === selectedMonth;
         const matchesBoard = boardFilter === 'all' ? true : c.boardId === boardFilter;
@@ -81,7 +92,7 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
       .sort((a, b) =>
         (b.completedAt || b.createdAt).localeCompare(a.completedAt || a.createdAt)
       );
-  }, [completedCards, selectedMonth, boardFilter]);
+  }, [completedCards, allCards, selectedMonth, boardFilter]);
 
   const totalMonthSeconds = useMemo(
     () => monthCards.reduce((acc, c) => acc + (c.elapsedSeconds || 0), 0),

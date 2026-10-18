@@ -287,13 +287,29 @@ export function isWeekListTitle(title: string): boolean {
   return lower.includes('week') || lower.includes('semana');
 }
 
+export function isFutureListTitle(title: string): boolean {
+  const lower = title.trim().toLowerCase();
+  return lower.includes('future') || lower.includes('futuro');
+}
+
 export function isStandardDateSyncedList(title: string): boolean {
   return (
     isYesterdayListTitle(title) ||
     isTodayListTitle(title) ||
     isTomorrowListTitle(title) ||
-    isWeekListTitle(title)
+    isWeekListTitle(title) ||
+    isFutureListTitle(title)
   );
+}
+
+/**
+ * Returns the "YYYY-MM-DD" of the end of the current week (Sunday) in Brasília time.
+ */
+export function getEndOfWeekIsoDate(): string {
+  const br = getBrasiliaNow();
+  const day = br.getDay(); // 0 = Dom, 1 = Seg, ..., 6 = Sáb
+  const daysUntilSunday = day === 0 ? 0 : 7 - day;
+  return getBrasiliaIsoDateWithOffset(daysUntilSunday);
 }
 
 /**
@@ -302,7 +318,8 @@ export function isStandardDateSyncedList(title: string): boolean {
  * - If scheduledDate < today (overdue / atrasada) -> "Yesterday" list
  * - If scheduledDate === today -> "Today" list
  * - If scheduledDate === tomorrow -> "Tomorrow" list
- * - If scheduledDate > tomorrow -> "This Week" list
+ * - If scheduledDate <= end of current week (Sunday) -> "This Week" list
+ * - If scheduledDate > end of current week -> "Future" list
  */
 export function resolveSyncedListIdForDate(
   scheduledDate: string,
@@ -311,6 +328,7 @@ export function resolveSyncedListIdForDate(
   if (boardLists.length === 0) return '';
   const todayStr = getTodayIsoDate();
   const tomorrowStr = getTomorrowIsoDate();
+  const endOfWeekStr = getEndOfWeekIsoDate();
 
   const yesterdayList = boardLists.find((l) => isYesterdayListTitle(l.title));
   const todayList =
@@ -319,6 +337,7 @@ export function resolveSyncedListIdForDate(
   const weekList =
     boardLists.find((l) => isWeekListTitle(l.title)) ||
     boardLists[boardLists.length - 1];
+  const futureList = boardLists.find((l) => isFutureListTitle(l.title));
 
   if (scheduledDate < todayStr) {
     return yesterdayList ? yesterdayList.id : todayList.id;
@@ -332,15 +351,20 @@ export function resolveSyncedListIdForDate(
     return tomorrowList ? tomorrowList.id : weekList.id;
   }
 
-  return weekList.id;
+  if (scheduledDate <= endOfWeekStr) {
+    return weekList.id;
+  }
+
+  return futureList ? futureList.id : weekList.id;
 }
 
 /**
- * Ensures every board has the 4 standard date-synced lists in the exact order:
+ * Ensures every board has the 5 standard date-synced lists in the exact order:
  * 0: Yesterday (before Today, for overdue tasks)
  * 1: Today (for today's tasks in Brasília time)
  * 2: Tomorrow (for next day's tasks in Brasília time)
- * 3: This Week (for tasks after tomorrow)
+ * 3: This Week (for tasks up to the end of this current week)
+ * 4: Future (for tasks scheduled beyond the current week)
  * And automatically moves active cards in standard lists into the right list
  * according to their scheduledDate vs current Brasília date!
  */
@@ -359,6 +383,7 @@ export function reconcileStateWithBrasiliaTime(
     let todayList = bLists.find((l) => isTodayListTitle(l.title));
     let tomorrowList = bLists.find((l) => isTomorrowListTitle(l.title));
     let weekList = bLists.find((l) => isWeekListTitle(l.title));
+    let futureList = bLists.find((l) => isFutureListTitle(l.title));
 
     if (!yesterdayList) {
       yesterdayList = {
@@ -408,7 +433,19 @@ export function reconcileStateWithBrasiliaTime(
       listsChanged = true;
     }
 
-    // Ensure Yesterday is always before Today (order: Yesterday=0, Today=1, Tomorrow=2, This Week=3, custom=4+)
+    if (!futureList) {
+      futureList = {
+        id: `${board.id}-future`,
+        boardId: board.id,
+        title: 'Future',
+        order: 4,
+      };
+      updatedLists.push(futureList);
+      bLists.push(futureList);
+      listsChanged = true;
+    }
+
+    // Ensure order: Yesterday=0, Today=1, Tomorrow=2, This Week=3, Future=4, custom=5+
     const customLists = bLists
       .filter((l) => !isStandardDateSyncedList(l.title))
       .sort((a, b) => a.order - b.order);
@@ -418,6 +455,7 @@ export function reconcileStateWithBrasiliaTime(
       todayList.id,
       tomorrowList.id,
       weekList.id,
+      futureList.id,
       ...customLists.map((l) => l.id),
     ];
 
@@ -579,8 +617,9 @@ export function buildRecurringTaskCards(params: {
   baseScheduledDate: string;
   startTime?: string;
   endTime?: string;
-  label: LabelColor;
+  label: LabelColor | string | string[];
   categoryTag?: string;
+  tagColor?: string;
   assignee: 'Elbioh' | 'Didi';
   baseOrder: number;
   recurrence?: RecurrenceConfig;
@@ -596,6 +635,7 @@ export function buildRecurringTaskCards(params: {
     endTime,
     label,
     categoryTag,
+    tagColor,
     assignee,
     baseOrder,
     recurrence,
@@ -603,6 +643,7 @@ export function buildRecurringTaskCards(params: {
 
   const nowTs = Date.now();
   const nowIso = new Date().toISOString();
+  const cardLabels = Array.isArray(label) ? label : [label];
 
   const resolveListId = (dateIso: string) =>
     isCustomList
@@ -622,8 +663,9 @@ export function buildRecurringTaskCards(params: {
         endTime: endTime || undefined,
         scheduledDate: baseScheduledDate,
         elapsedSeconds: 0,
-        labels: [label],
+        labels: cardLabels,
         categoryTag: categoryTag || undefined,
+        tagColor: tagColor || undefined,
         checklist: [],
         assignee,
         createdAt: nowIso,
@@ -651,8 +693,9 @@ export function buildRecurringTaskCards(params: {
         endTime: endTime || undefined,
         scheduledDate: dateIso,
         elapsedSeconds: 0,
-        labels: [label],
+        labels: cardLabels,
         categoryTag: categoryTag || undefined,
+        tagColor: tagColor || undefined,
         checklist: [],
         assignee,
         createdAt: nowIso,
@@ -668,19 +711,63 @@ export function buildRecurringTaskCards(params: {
     return result;
   }
 
-  // Mode 2: Specific days of the week (0 = Dom .. 6 = Sáb)
+  // Mode 2: Specific days of the month ("Específico")
+  if (recurrence.mode === 'specific_days') {
+    const [y, m] = baseScheduledDate.split('-').map(Number);
+    const totalDaysInMonth = new Date(y, m, 0).getDate();
+    const days =
+      recurrence.specificDays && recurrence.specificDays.length > 0
+        ? recurrence.specificDays.filter((d) => d >= 1 && d <= totalDaysInMonth)
+        : [parseInt(baseScheduledDate.split('-')[2], 10) || 1];
+    const result: TaskCard[] = [];
+    days
+      .sort((a, b) => a - b)
+      .forEach((dayNum, idx) => {
+        const dateIso = `${y}-${String(m).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+        result.push({
+          id: `card-${nowTs}-spec${dayNum}`,
+          boardId,
+          listId: resolveListId(dateIso),
+          title,
+          description: '',
+          status: 'todo',
+          startTime: startTime || undefined,
+          endTime: endTime || undefined,
+          scheduledDate: dateIso,
+          elapsedSeconds: 0,
+          labels: cardLabels,
+          categoryTag: categoryTag || undefined,
+          tagColor: tagColor || undefined,
+          checklist: [],
+          assignee,
+          createdAt: nowIso,
+          recurrence: {
+            mode: 'specific_days',
+            specificDays: days,
+            groupId,
+          },
+          order: baseOrder + idx,
+        });
+      });
+    return result;
+  }
+
+  // Mode 3: Weekdays filling the whole month
   const selectedWeekdays =
     recurrence.weekdays && recurrence.weekdays.length > 0
       ? [...recurrence.weekdays].sort((a, b) => a - b)
       : [getWeekdayFromIsoDate(baseScheduledDate)];
 
+  const [y, m] = baseScheduledDate.split('-').map(Number);
+  const totalDaysInMonth = new Date(y, m, 0).getDate();
   const result: TaskCard[] = [];
-  for (let offset = 0; offset < 7; offset++) {
-    const dateIso = addDaysToIsoDate(baseScheduledDate, offset);
+
+  for (let dayNum = 1; dayNum <= totalDaysInMonth; dayNum++) {
+    const dateIso = `${y}-${String(m).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
     const wDay = getWeekdayFromIsoDate(dateIso);
     if (selectedWeekdays.includes(wDay)) {
       result.push({
-        id: `card-${nowTs}-w${offset}`,
+        id: `card-${nowTs}-w${dayNum}`,
         boardId,
         listId: resolveListId(dateIso),
         title,
@@ -690,8 +777,9 @@ export function buildRecurringTaskCards(params: {
         endTime: endTime || undefined,
         scheduledDate: dateIso,
         elapsedSeconds: 0,
-        labels: [label],
+        labels: cardLabels,
         categoryTag: categoryTag || undefined,
+        tagColor: tagColor || undefined,
         checklist: [],
         assignee,
         createdAt: nowIso,

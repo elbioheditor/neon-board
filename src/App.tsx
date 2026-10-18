@@ -25,8 +25,16 @@ import {
   ActiveTab,
   LabelColor,
   RecurrenceConfig,
+  CustomLabel,
+  TagColorItem,
 } from './types';
-import { INITIAL_STATE, LABEL_CONFIG } from './data/initialData';
+import {
+  INITIAL_STATE,
+  LABEL_CONFIG,
+  DEFAULT_CUSTOM_LABELS,
+  DEFAULT_TAG_COLORS,
+  resolveLabelInfo,
+} from './data/initialData';
 import { NeonParticles } from './components/NeonParticles';
 import { KanbanCard } from './components/KanbanCard';
 import { CardModal } from './components/CardModal';
@@ -69,6 +77,7 @@ import {
   PERIOD_ZONE_STYLES,
   DayPeriodKey,
   buildRecurringTaskCards,
+  addDaysToIsoDate,
 } from './utils/timeUtils';
 
 const LOCAL_STORAGE_KEY = 'neon_board_state_v1';
@@ -80,7 +89,18 @@ export function App() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.boards && parsed.lists && parsed.cards) {
-          const reconciled = reconcileStateWithBrasiliaTime(parsed);
+          const withDefaults: NeonStoreState = {
+            ...parsed,
+            customLabels:
+              parsed.customLabels && parsed.customLabels.length > 0
+                ? parsed.customLabels
+                : DEFAULT_CUSTOM_LABELS,
+            tagColors:
+              parsed.tagColors && parsed.tagColors.length > 0
+                ? parsed.tagColors
+                : DEFAULT_TAG_COLORS,
+          };
+          const reconciled = reconcileStateWithBrasiliaTime(withDefaults);
           localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(reconciled));
           return reconciled;
         }
@@ -146,8 +166,14 @@ export function App() {
   const [newCardStart, setNewCardStart] = useState('09:00');
   const [newCardEnd, setNewCardEnd] = useState('10:00');
   const [newCardDate, setNewCardDate] = useState(() => getTodayIsoDate());
-  const [newCardLabel, setNewCardLabel] = useState<LabelColor>('purple');
+  const [newCardLabels, setNewCardLabels] = useState<string[]>(['lbl-blue']);
   const [newCardTag, setNewCardTag] = useState('');
+  const [newCardTagColor, setNewCardTagColor] = useState('#a855f7');
+  const [showInlineAddTagColor, setShowInlineAddTagColor] = useState(false);
+  const [inlineTagColorHex, setInlineTagColorHex] = useState('#ec4899');
+  const [showInlineAddLabel, setShowInlineAddLabel] = useState(false);
+  const [inlineNewLabelName, setInlineNewLabelName] = useState('');
+  const [inlineNewLabelColor, setInlineNewLabelColor] = useState('#3b82f6');
   const [newCardRecurrence, setNewCardRecurrence] = useState<RecurrenceConfig>(
     DEFAULT_RECURRENCE_CONFIG
   );
@@ -213,7 +239,19 @@ export function App() {
   // Persist to localStorage & push to cloud if enabled
   const updateState = (updater: (prev: NeonStoreState) => NeonStoreState) => {
     setState((prev) => {
-      const reconciled = reconcileStateWithBrasiliaTime(updater(prev));
+      const updated = updater(prev);
+      const withDefaults: NeonStoreState = {
+        ...updated,
+        customLabels:
+          updated.customLabels && updated.customLabels.length > 0
+            ? updated.customLabels
+            : DEFAULT_CUSTOM_LABELS,
+        tagColors:
+          updated.tagColors && updated.tagColors.length > 0
+            ? updated.tagColors
+            : DEFAULT_TAG_COLORS,
+      };
+      const reconciled = reconcileStateWithBrasiliaTime(withDefaults);
       const next = {
         ...reconciled,
         lastUpdated: new Date().toISOString(),
@@ -244,6 +282,14 @@ export function App() {
             : remoteState.boards[0]?.id || prev.activeBoardId;
           const reconciled = reconcileStateWithBrasiliaTime({
             ...remoteState,
+            customLabels:
+              remoteState.customLabels && remoteState.customLabels.length > 0
+                ? remoteState.customLabels
+                : DEFAULT_CUSTOM_LABELS,
+            tagColors:
+              remoteState.tagColors && remoteState.tagColors.length > 0
+                ? remoteState.tagColors
+                : DEFAULT_TAG_COLORS,
             activeBoardId: validBoardId,
           });
           try {
@@ -272,6 +318,14 @@ export function App() {
                   : remote.boards[0]?.id || prev.activeBoardId;
                 const reconciled = reconcileStateWithBrasiliaTime({
                   ...remote,
+                  customLabels:
+                    remote.customLabels && remote.customLabels.length > 0
+                      ? remote.customLabels
+                      : DEFAULT_CUSTOM_LABELS,
+                  tagColors:
+                    remote.tagColors && remote.tagColors.length > 0
+                      ? remote.tagColors
+                      : DEFAULT_TAG_COLORS,
                   activeBoardId: validBoardId,
                 });
                 try {
@@ -548,7 +602,10 @@ export function App() {
     setNewCardTag('');
     setNewCardStart('09:00');
     setNewCardEnd('10:00');
-    setNewCardLabel('purple');
+    setNewCardLabels(['lbl-blue']);
+    setNewCardTagColor('#a855f7');
+    setShowInlineAddTagColor(false);
+    setShowInlineAddLabel(false);
     setNewCardRecurrence(DEFAULT_RECURRENCE_CONFIG);
   };
 
@@ -558,7 +615,10 @@ export function App() {
     setNewCardTag('');
     setNewCardStart('09:00');
     setNewCardEnd('10:00');
-    setNewCardLabel('purple');
+    setNewCardLabels(['lbl-blue']);
+    setNewCardTagColor('#a855f7');
+    setShowInlineAddTagColor(false);
+    setShowInlineAddLabel(false);
     setNewCardRecurrence(DEFAULT_RECURRENCE_CONFIG);
     if (isYesterdayListTitle(listTitle)) {
       setNewCardDate(getYesterdayIsoDate());
@@ -589,8 +649,9 @@ export function App() {
       baseScheduledDate: newCardDate || getTodayIsoDate(),
       startTime: newCardStart || undefined,
       endTime: newCardEnd || undefined,
-      label: newCardLabel,
+      label: newCardLabels,
       categoryTag: newCardTag.trim() || undefined,
+      tagColor: newCardTagColor || undefined,
       assignee: activeBoard.owner,
       baseOrder: activeBoardCards.length,
       recurrence: newCardRecurrence,
@@ -609,8 +670,9 @@ export function App() {
     scheduledDate: string,
     startTime: string,
     endTime: string,
-    label: LabelColor,
+    labels: string[],
     categoryTag: string,
+    tagColor?: string,
     recurrence?: RecurrenceConfig
   ) => {
     const syncedListId = resolveSyncedListIdForDate(scheduledDate, boardLists);
@@ -625,8 +687,9 @@ export function App() {
       baseScheduledDate: scheduledDate,
       startTime,
       endTime,
-      label,
+      label: labels,
       categoryTag: categoryTag.trim() || undefined,
+      tagColor: tagColor || undefined,
       assignee: activeBoard.owner,
       baseOrder: activeBoardCards.length,
       recurrence,
@@ -636,6 +699,162 @@ export function App() {
       ...prev,
       cards: [...newCards, ...prev.cards],
     }));
+  };
+
+  const handleAddTagColor = (hex: string, name?: string) => {
+    const newColor: TagColorItem = {
+      id: `tc-${Date.now()}`,
+      name: name || 'Personalizada',
+      hex,
+    };
+    updateState((prev) => ({
+      ...prev,
+      tagColors: [...(prev.tagColors || DEFAULT_TAG_COLORS), newColor],
+    }));
+  };
+
+  const handleDeleteTagColor = (colorId: string) => {
+    updateState((prev) => ({
+      ...prev,
+      tagColors: (prev.tagColors || DEFAULT_TAG_COLORS).filter(
+        (c) => c.id !== colorId
+      ),
+    }));
+  };
+
+  const handleCreateLabel = (name: string, color: string) => {
+    const newLbl: CustomLabel = {
+      id: `lbl-${Date.now()}`,
+      name,
+      color,
+    };
+    updateState((prev) => ({
+      ...prev,
+      customLabels: [...(prev.customLabels || DEFAULT_CUSTOM_LABELS), newLbl],
+    }));
+  };
+
+  const handleDeleteLabel = (labelId: string) => {
+    updateState((prev) => ({
+      ...prev,
+      customLabels: (prev.customLabels || DEFAULT_CUSTOM_LABELS).filter(
+        (l) => l.id !== labelId
+      ),
+      cards: prev.cards.map((c) => ({
+        ...c,
+        labels: c.labels.filter((lbl) => lbl !== labelId),
+      })),
+    }));
+  };
+
+  const handleAddDayToTask = (cardId: string) => {
+    const target = state.cards.find((c) => c.id === cardId);
+    if (!target) return;
+
+    const bLists = state.lists.filter((l) => l.boardId === target.boardId);
+    const existingGroupId = target.recurrence?.groupId;
+
+    let nextDate: string;
+    let groupId: string;
+    let updatedCards = [...state.cards];
+
+    if (existingGroupId) {
+      groupId = existingGroupId;
+      const groupCards = updatedCards.filter(
+        (c) => c.recurrence?.groupId === groupId
+      );
+      const maxDate = groupCards.reduce((acc, c) => {
+        const d = c.scheduledDate || getTodayIsoDate();
+        return d > acc ? d : acc;
+      }, '0000-00-00');
+      nextDate = addDaysToIsoDate(
+        maxDate === '0000-00-00'
+          ? target.scheduledDate || getTodayIsoDate()
+          : maxDate,
+        1
+      );
+      const newDaysCount = groupCards.length + 1;
+      updatedCards = updatedCards.map((c) =>
+        c.recurrence?.groupId === groupId && c.recurrence.mode === 'days_count'
+          ? {
+              ...c,
+              recurrence: {
+                ...c.recurrence,
+                daysCount: newDaysCount,
+              },
+            }
+          : c
+      );
+    } else {
+      groupId = `group-${Date.now()}`;
+      nextDate = addDaysToIsoDate(target.scheduledDate || getTodayIsoDate(), 1);
+      updatedCards = updatedCards.map((c) =>
+        c.id === target.id
+          ? {
+              ...c,
+              recurrence: {
+                mode: 'days_count',
+                daysCount: 2,
+                groupId,
+              },
+            }
+          : c
+      );
+    }
+
+    const targetListId =
+      resolveSyncedListIdForDate(nextDate, bLists) || target.listId;
+
+    const newCard: TaskCard = {
+      id: `card-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      boardId: target.boardId,
+      listId: targetListId,
+      title: target.title,
+      description: target.description,
+      status: 'todo',
+      startTime: target.startTime,
+      endTime: target.endTime,
+      scheduledDate: nextDate,
+      elapsedSeconds: 0,
+      labels: [...target.labels],
+      categoryTag: target.categoryTag,
+      tagColor: target.tagColor,
+      checklist: target.checklist.map((item) => ({
+        ...item,
+        completed: false,
+      })),
+      assignee: target.assignee,
+      createdAt: new Date().toISOString(),
+      recurrence: {
+        mode: target.recurrence?.mode || 'days_count',
+        daysCount: target.recurrence?.daysCount
+          ? target.recurrence.daysCount + 1
+          : 2,
+        weekdays: target.recurrence?.weekdays
+          ? [...target.recurrence.weekdays]
+          : undefined,
+        specificDays: target.recurrence?.specificDays
+          ? [...target.recurrence.specificDays]
+          : undefined,
+        groupId,
+      },
+      order: updatedCards.length,
+    };
+
+    updatedCards.push(newCard);
+
+    updateState((prev) => ({
+      ...prev,
+      cards: updatedCards,
+    }));
+  };
+
+  const handleDeleteRecurringGroup = (groupId: string) => {
+    updateState((prev) => ({
+      ...prev,
+      cards: prev.cards.filter((c) => c.recurrence?.groupId !== groupId),
+    }));
+    setSelectedCardId(null);
   };
 
   const handleMoveCardToDate = (cardId: string, targetIsoDate: string) => {
@@ -1056,7 +1275,7 @@ export function App() {
 
   const isDraggingAnything = Boolean(draggedCardId || draggedListId);
   const appBrandName = window.neonDesktop?.brandName || 'NEON';
-  const appVersion = window.neonDesktop?.version || '1.1.0';
+  const appVersion = window.neonDesktop?.version || '1.2.0';
 
   return (
     <div className="relative w-screen h-screen flex flex-col bg-[#07050d] text-slate-100 overflow-hidden select-none">
@@ -1640,8 +1859,10 @@ export function App() {
                               isRecentlyTransferred={recentlyTransferredIds.includes(
                                 card.id
                               )}
+                              customLabels={state.customLabels}
                               onOpenModal={(c) => setSelectedCardId(c.id)}
                               onToggleTimer={handleToggleTimer}
+                              onResetTimer={handleResetTimer}
                               onCompleteCard={handleCompleteCard}
                               onDragStart={handleCardDragStart}
                               onDragEnd={handleClearDragState}
@@ -1706,38 +1927,218 @@ export function App() {
                                 setNewCardTag(e.target.value.toUpperCase())
                               }
                               placeholder="TAG (EX: EDIÇÃO)"
-                              className="bg-[#070412] border border-purple-900/60 rounded-xl px-2.5 py-1.5 text-[11px] font-bold text-fuchsia-300 uppercase focus:outline-none focus:border-purple-500"
+                              style={{ color: newCardTagColor }}
+                              className="bg-[#070412] border border-purple-900/60 rounded-xl px-2.5 py-1.5 text-[11px] font-bold uppercase focus:outline-none focus:border-purple-500"
                             />
                           </div>
 
-                          {/* Colors (2 rows on left) + Rotina Button (Right) */}
-                          <div className="flex items-center justify-between gap-2 pt-1">
-                            <div className="grid grid-cols-4 gap-2 w-max">
-                              {(
-                                [
-                                  'purple',
-                                  'cyan',
-                                  'pink',
-                                  'green',
-                                  'yellow',
-                                  'orange',
-                                ] as LabelColor[]
-                              ).map((col) => (
-                                <button
-                                  key={col}
-                                  type="button"
-                                  onClick={() => setNewCardLabel(col)}
-                                  className={`w-4 h-4 rounded-full cursor-pointer transition-all ${
-                                    LABEL_CONFIG[col].bg
-                                  } ${
-                                    newCardLabel === col
-                                      ? 'ring-2 ring-white scale-110'
-                                      : 'opacity-45 hover:opacity-85'
-                                  }`}
-                                />
-                              ))}
+                          {/* Tag Color Picker */}
+                          <div className="space-y-1 pt-0.5">
+                            <div className="flex items-center justify-between text-[10px] text-slate-400">
+                              <span className="font-semibold">Cor da Tag:</span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setShowInlineAddTagColor(!showInlineAddTagColor)
+                                }
+                                className="text-[9px] text-cyan-300 hover:text-white font-bold flex items-center gap-0.5 cursor-pointer"
+                              >
+                                <Plus className="w-2.5 h-2.5" />
+                                <span>Nova Cor</span>
+                              </button>
                             </div>
 
+                            {showInlineAddTagColor && (
+                              <div className="flex items-center gap-1.5 p-1.5 bg-[#070412] rounded-lg border border-cyan-400/30">
+                                <input
+                                  type="color"
+                                  value={inlineTagColorHex}
+                                  onChange={(e) =>
+                                    setInlineTagColorHex(e.target.value)
+                                  }
+                                  className="w-5 h-5 rounded border-0 cursor-pointer bg-transparent"
+                                />
+                                <input
+                                  type="text"
+                                  value={inlineTagColorHex}
+                                  onChange={(e) =>
+                                    setInlineTagColorHex(e.target.value)
+                                  }
+                                  className="w-16 bg-black/40 text-[10px] font-mono px-1.5 py-0.5 rounded text-white border border-white/20"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleAddTagColor(inlineTagColorHex);
+                                    setNewCardTagColor(inlineTagColorHex);
+                                    setShowInlineAddTagColor(false);
+                                  }}
+                                  className="px-2 py-0.5 text-[9px] font-bold bg-cyan-500/30 text-cyan-200 rounded border border-cyan-400/40 cursor-pointer"
+                                >
+                                  Salvar
+                                </button>
+                              </div>
+                            )}
+
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {(state.tagColors || DEFAULT_TAG_COLORS).map(
+                                (tc) => (
+                                  <div
+                                    key={tc.id}
+                                    className="relative group/tagcol"
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() => setNewCardTagColor(tc.hex)}
+                                      className={`w-4 h-4 rounded-full cursor-pointer transition-all ${
+                                        newCardTagColor === tc.hex
+                                          ? 'ring-2 ring-white scale-125'
+                                          : 'opacity-50 hover:opacity-100'
+                                      }`}
+                                      style={{ backgroundColor: tc.hex }}
+                                      title={tc.name}
+                                    />
+                                    {!['purple', 'yellow', 'red', 'green', 'cyan'].includes(
+                                      tc.id
+                                    ) && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteTagColor(tc.id);
+                                        }}
+                                        className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-600 text-white text-[8px] flex items-center justify-center opacity-0 group-hover/tagcol:opacity-100 transition-opacity"
+                                      >
+                                        ×
+                                      </button>
+                                    )}
+                                  </div>
+                                )
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Priority Labels Row */}
+                          <div className="space-y-1 pt-0.5">
+                            <div className="flex items-center justify-between text-[10px] text-slate-400">
+                              <span className="font-semibold">Labels:</span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setShowInlineAddLabel(!showInlineAddLabel)
+                                }
+                                className="text-[9px] text-cyan-300 hover:text-white font-bold flex items-center gap-0.5 cursor-pointer"
+                              >
+                                <Plus className="w-2.5 h-2.5" />
+                                <span>Nova Label</span>
+                              </button>
+                            </div>
+
+                            {showInlineAddLabel && (
+                              <div className="flex items-center gap-1.5 p-1.5 bg-[#070412] rounded-lg border border-purple-400/30">
+                                <input
+                                  type="text"
+                                  placeholder="Nome"
+                                  value={inlineNewLabelName}
+                                  onChange={(e) =>
+                                    setInlineNewLabelName(e.target.value)
+                                  }
+                                  className="flex-1 min-w-0 bg-black/40 text-[10px] px-1.5 py-0.5 rounded text-white border border-white/20"
+                                />
+                                <input
+                                  type="color"
+                                  value={inlineNewLabelColor}
+                                  onChange={(e) =>
+                                    setInlineNewLabelColor(e.target.value)
+                                  }
+                                  className="w-5 h-5 rounded border-0 cursor-pointer bg-transparent"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (!inlineNewLabelName.trim()) return;
+                                    handleCreateLabel(
+                                      inlineNewLabelName.trim(),
+                                      inlineNewLabelColor
+                                    );
+                                    setInlineNewLabelName('');
+                                    setShowInlineAddLabel(false);
+                                  }}
+                                  className="px-2 py-0.5 text-[9px] font-bold bg-purple-500/30 text-purple-200 rounded border border-purple-400/40 cursor-pointer"
+                                >
+                                  Salvar
+                                </button>
+                              </div>
+                            )}
+
+                            <div className="flex flex-wrap gap-1">
+                              {(state.customLabels || DEFAULT_CUSTOM_LABELS).map(
+                                (lbl) => {
+                                  const isSelected = newCardLabels.includes(
+                                    lbl.id
+                                  );
+                                  const isDefault = [
+                                    'lbl-blue',
+                                    'lbl-yellow',
+                                    'lbl-red',
+                                  ].includes(lbl.id);
+                                  return (
+                                    <div
+                                      key={lbl.id}
+                                      className="relative group/lbl"
+                                    >
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setNewCardLabels((prev) =>
+                                            prev.includes(lbl.id)
+                                              ? prev.filter((id) => id !== lbl.id)
+                                              : [...prev, lbl.id]
+                                          );
+                                        }}
+                                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer border ${
+                                          isSelected
+                                            ? 'text-white border-white/40 shadow-sm'
+                                            : 'text-slate-400 border-transparent hover:text-white bg-white/5'
+                                        }`}
+                                        style={
+                                          isSelected
+                                            ? {
+                                                backgroundColor: `${lbl.color}40`,
+                                                borderColor: lbl.color,
+                                              }
+                                            : undefined
+                                        }
+                                      >
+                                        <span
+                                          className="w-1.5 h-1.5 rounded-full"
+                                          style={{
+                                            backgroundColor: lbl.color,
+                                          }}
+                                        />
+                                        <span>{lbl.name}</span>
+                                      </button>
+                                      {!isDefault && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeleteLabel(lbl.id);
+                                          }}
+                                          className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-600 text-white text-[8px] flex items-center justify-center opacity-0 group-hover/lbl:opacity-100 transition-opacity"
+                                        >
+                                          ×
+                                        </button>
+                                      )}
+                                    </div>
+                                  );
+                                }
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Recurrence Button Row */}
+                          <div className="flex items-center justify-between gap-2 pt-1">
                             <RecurrenceButton
                               config={newCardRecurrence}
                               onChange={setNewCardRecurrence}
@@ -1841,10 +2242,15 @@ export function App() {
               lists={boardLists}
               cards={activeBoardCards}
               nowMs={nowMs}
+              customLabels={state.customLabels}
+              tagColors={state.tagColors}
               onOpenModal={(c) => setSelectedCardId(c.id)}
               onToggleTimer={handleToggleTimer}
+              onResetTimer={handleResetTimer}
               onCompleteCard={handleCompleteCard}
               onAddCardForDate={handleAddCardFromCalendar}
+              onAddTagColor={handleAddTagColor}
+              onDeleteTagColor={handleDeleteTagColor}
               onCardDragStart={handleCardDragStart}
               onCardDragEnd={handleClearDragState}
               onMoveCardToDate={handleMoveCardToDate}
@@ -1858,6 +2264,7 @@ export function App() {
               boards={state.boards}
               activeBoardId={activeBoard.id}
               completedCards={completedCards}
+              allCards={state.cards}
               onRestoreCard={handleRestoreCard}
               onDeleteCard={handleDeleteCard}
             />
@@ -1946,12 +2353,20 @@ export function App() {
           card={selectedCard}
           nowMs={nowMs}
           lists={boardLists}
+          customLabels={state.customLabels}
+          tagColors={state.tagColors}
           onClose={() => setSelectedCardId(null)}
           onUpdateCard={handleUpdateCard}
           onToggleTimer={handleToggleTimer}
           onResetTimer={handleResetTimer}
           onCompleteCard={(id) => handleCompleteCard(null, id)}
           onDeleteCard={handleDeleteCard}
+          onDeleteRecurringGroup={handleDeleteRecurringGroup}
+          onCreateLabel={handleCreateLabel}
+          onDeleteLabel={handleDeleteLabel}
+          onAddTagColor={handleAddTagColor}
+          onDeleteTagColor={handleDeleteTagColor}
+          onAddDayToTask={handleAddDayToTask}
         />
       )}
 
