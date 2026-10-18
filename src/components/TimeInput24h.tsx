@@ -98,7 +98,7 @@ export const TimeInput24h: React.FC<TimeInput24hProps> = ({
     <div ref={containerRef} className={`relative inline-block ${className}`}>
       <div
         onClick={() => setOpen(true)}
-        className="flex items-center gap-1.5 bg-[#090612] border border-cyan-500/35 hover:border-cyan-400 focus-within:border-cyan-400 rounded-lg px-2 py-1 text-xs text-cyan-200 font-mono transition-colors cursor-pointer"
+        className="flex items-center gap-1.5 bg-[#090612] border border-cyan-500/35 hover:border-cyan-400 focus-within:border-cyan-400 rounded-xl px-2.5 py-1.5 text-xs text-cyan-200 font-mono transition-colors cursor-pointer"
       >
         <Clock className="w-3 h-3 text-cyan-400 flex-shrink-0" />
         <input

@@ -1056,7 +1056,7 @@ export function App() {
 
   const isDraggingAnything = Boolean(draggedCardId || draggedListId);
   const appBrandName = window.neonDesktop?.brandName || 'NEON';
-  const appVersion = window.neonDesktop?.version || '1.0.9';
+  const appVersion = window.neonDesktop?.version || '1.1.0';
 
   return (
     <div className="relative w-screen h-screen flex flex-col bg-[#07050d] text-slate-100 overflow-hidden select-none">
@@ -1309,7 +1309,10 @@ export function App() {
                 setDragOverBottomAction('complete');
               }
             }}
-            onDragLeave={() => {
+            onDragLeave={(e) => {
+              if (e.currentTarget.contains(e.relatedTarget as Node)) {
+                return;
+              }
               if (dragOverBottomAction === 'complete') {
                 setDragOverBottomAction(null);
               }
@@ -1322,13 +1325,13 @@ export function App() {
             }`}
           >
             <CheckCircle2
-              className={`w-7 h-7 flex-shrink-0 transition-transform duration-300 ${
+              className={`w-7 h-7 flex-shrink-0 transition-transform duration-300 pointer-events-none ${
                 dragOverBottomAction === 'complete'
                   ? 'text-slate-950 scale-125'
                   : 'text-emerald-400 animate-pulse'
               }`}
             />
-            <div>
+            <div className="pointer-events-none">
               <p
                 className={`text-sm font-extrabold uppercase tracking-wider ${
                   dragOverBottomAction === 'complete'
@@ -1358,7 +1361,10 @@ export function App() {
                 setDragOverBottomAction('delete');
               }
             }}
-            onDragLeave={() => {
+            onDragLeave={(e) => {
+              if (e.currentTarget.contains(e.relatedTarget as Node)) {
+                return;
+              }
               if (dragOverBottomAction === 'delete') {
                 setDragOverBottomAction(null);
               }
@@ -1371,13 +1377,13 @@ export function App() {
             }`}
           >
             <Trash2
-              className={`w-6 h-6 flex-shrink-0 ${
+              className={`w-6 h-6 flex-shrink-0 transition-transform duration-300 pointer-events-none ${
                 dragOverBottomAction === 'delete'
                   ? 'text-white scale-125'
                   : 'text-rose-400'
               }`}
             />
-            <div>
+            <div className="pointer-events-none">
               <p className="text-sm font-extrabold uppercase tracking-wider text-white">
                 Lixeira
               </p>
@@ -1658,7 +1664,7 @@ export function App() {
                       <div className="p-2.5 bg-[#0d091a] border-t border-white/10 flex-shrink-0">
                         <form
                           onSubmit={(e) => handleAddCardInline(e, list.id)}
-                          className="p-3.5 rounded-xl bg-[#0e081f] border border-cyan-400/60 space-y-2.5 shadow-xl shadow-cyan-950/40 min-w-0"
+                          className="p-3.5 rounded-2xl bg-[#0b0717] border-2 border-cyan-400 space-y-3 shadow-2xl shadow-cyan-950/60 min-w-0"
                         >
                           <input
                             type="text"
@@ -1666,7 +1672,7 @@ export function App() {
                             value={newCardTitle}
                             onChange={(e) => setNewCardTitle(e.target.value)}
                             placeholder="O que você vai fazer?"
-                            className="w-full bg-[#070412] border border-cyan-400/80 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-cyan-300 shadow-sm"
+                            className="w-full bg-[#070412] border-2 border-cyan-400 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-cyan-300 shadow-sm"
                           />
 
                           {/* 24h Schedule Hours Row with Auto-Synced End Time */}
@@ -1675,7 +1681,7 @@ export function App() {
                               value={newCardStart}
                               onChange={handleInlineStartChange}
                             />
-                            <span className="text-[10px] text-slate-400">
+                            <span className="text-xs font-semibold text-slate-400 px-1">
                               até
                             </span>
                             <TimeInput24h
@@ -1685,12 +1691,12 @@ export function App() {
                           </div>
 
                           {/* Date + Category Tag Row */}
-                          <div className="grid grid-cols-2 gap-1.5">
+                          <div className="grid grid-cols-2 gap-2">
                             <input
                               type="date"
                               value={newCardDate}
                               onChange={(e) => setNewCardDate(e.target.value)}
-                              className="bg-[#070412] border border-purple-500/30 rounded-md px-2 py-1 text-[10px] text-slate-200 focus:outline-none"
+                              className="bg-[#070412] border border-purple-900/60 rounded-xl px-2.5 py-1.5 text-[11px] text-slate-200 focus:outline-none focus:border-purple-500"
                               title="Dia da tarefa (Sincroniza com o Calendário)"
                             />
                             <input
@@ -1700,13 +1706,13 @@ export function App() {
                                 setNewCardTag(e.target.value.toUpperCase())
                               }
                               placeholder="TAG (EX: EDIÇÃO)"
-                              className="bg-[#070412] border border-purple-500/30 rounded-md px-2 py-1 text-[10px] font-bold text-fuchsia-300 uppercase focus:outline-none"
+                              className="bg-[#070412] border border-purple-900/60 rounded-xl px-2.5 py-1.5 text-[11px] font-bold text-fuchsia-300 uppercase focus:outline-none focus:border-purple-500"
                             />
                           </div>
 
                           {/* Colors (2 rows on left) + Rotina Button (Right) */}
-                          <div className="flex items-center justify-between gap-2 pt-0.5">
-                            <div className="grid grid-cols-4 gap-1.5 w-max">
+                          <div className="flex items-center justify-between gap-2 pt-1">
+                            <div className="grid grid-cols-4 gap-2 w-max">
                               {(
                                 [
                                   'purple',
@@ -1744,13 +1750,13 @@ export function App() {
                             <button
                               type="button"
                               onClick={handleCancelAddCardInline}
-                              className="px-4 py-1.5 rounded-lg text-xs font-bold bg-[#380e25] hover:bg-[#501334] border border-rose-500/40 text-rose-200 hover:text-white cursor-pointer transition-all"
+                              className="px-5 py-2 rounded-xl text-xs font-bold bg-[#380e25] hover:bg-[#501334] border border-rose-500/40 text-[#f472b6] hover:text-white cursor-pointer transition-all"
                             >
                               Cancelar
                             </button>
                             <button
                               type="submit"
-                              className="px-5 py-1.5 rounded-lg text-xs font-bold bg-gradient-to-r from-fuchsia-500 to-cyan-400 text-white shadow-md shadow-cyan-400/30 hover:opacity-95 cursor-pointer transition-all"
+                              className="px-6 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-fuchsia-500 to-cyan-400 text-white shadow-[0_0_18px_rgba(6,182,212,0.55)] hover:opacity-95 cursor-pointer transition-all"
                             >
                               Adicionar
                             </button>
