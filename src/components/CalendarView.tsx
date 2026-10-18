@@ -491,144 +491,140 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               className="w-full bg-[#090612] border border-purple-500/30 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-pink-400"
             />
 
-            {/* 24h Time Schedule Row */}
-            <div className="flex items-center gap-1.5">
-              <TimeInput24h value={newStart} onChange={handleStartChange} />
-              <span className="text-[10px] text-slate-400">até</span>
-              <TimeInput24h value={newEnd} onChange={handleEndChange} />
+            {/* Row 2: 24h Time Schedule on Left, Tag input on Right */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <TimeInput24h value={newStart} onChange={handleStartChange} />
+                <span className="text-[10px] text-slate-400">até</span>
+                <TimeInput24h value={newEnd} onChange={handleEndChange} />
+              </div>
+
+              <input
+                type="text"
+                value={newTag}
+                onChange={(e) => setNewTag(e.target.value.toUpperCase())}
+                placeholder="TAG (EX: EDIÇÃO)"
+                style={{
+                  color: newTagColor,
+                  borderColor: `${newTagColor}70`,
+                }}
+                className="w-36 bg-[#090612] border border-purple-500/40 rounded-lg px-2.5 py-1.5 text-xs font-bold uppercase focus:outline-none placeholder:text-[10px]"
+              />
             </div>
 
-            {/* Tag & Cores lado a lado sem box nem texto redundante */}
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2 flex-wrap">
+            {/* Row 3: Tag colors + Cor aligned directly under Tag input (to the right) */}
+            <div className="flex items-center justify-end gap-1.5">
+              {tagColors.map((tc) => (
+                <div key={tc.id} className="relative group/calcol">
+                  <button
+                    type="button"
+                    onClick={() => setNewTagColor(tc.hex)}
+                    className={`w-3.5 h-3.5 rounded-full cursor-pointer transition-all ${
+                      newTagColor === tc.hex
+                        ? 'ring-2 ring-white scale-125 shadow-md shadow-white/30'
+                        : 'opacity-50 hover:opacity-100 hover:scale-110'
+                    }`}
+                    style={{ backgroundColor: tc.hex }}
+                    title={tc.name}
+                  />
+                  {onDeleteTagColor && !['purple', 'yellow', 'red', 'green', 'cyan'].includes(tc.id) && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteTagColor(tc.id);
+                      }}
+                      className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-600 text-white text-[8px] flex items-center justify-center opacity-0 group-hover/calcol:opacity-100 transition-opacity"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              ))}
+
+              <button
+                type="button"
+                onClick={() => setShowAddColor(!showAddColor)}
+                className="text-[9px] text-cyan-300 hover:text-white font-bold flex items-center gap-0.5 cursor-pointer px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10"
+                title="Adicionar nova cor de tag"
+              >
+                <Plus className="w-2.5 h-2.5" />
+                <span>Cor</span>
+              </button>
+            </div>
+
+            {showAddColor && (
+              <div className="flex items-center justify-end gap-1.5 p-1.5 bg-[#090612] rounded-lg border border-cyan-400/40">
+                <input
+                  type="color"
+                  value={customColorInput}
+                  onChange={(e) => setCustomColorInput(e.target.value)}
+                  className="w-5 h-5 rounded border-0 cursor-pointer bg-transparent"
+                />
                 <input
                   type="text"
-                  value={newTag}
-                  onChange={(e) => setNewTag(e.target.value.toUpperCase())}
-                  placeholder="TAG (EX: EDIÇÃO)"
-                  style={{
-                    color: newTagColor,
-                    borderColor: `${newTagColor}70`,
-                  }}
-                  className="w-28 sm:w-32 flex-shrink-0 bg-[#090612] border border-purple-500/40 rounded-lg px-2.5 py-1.5 text-xs font-bold uppercase focus:outline-none"
+                  value={customColorInput}
+                  onChange={(e) => setCustomColorInput(e.target.value)}
+                  className="w-20 bg-black/60 text-[10px] font-mono px-1.5 py-0.5 rounded text-white border border-white/20"
                 />
-
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {tagColors.map((tc) => (
-                    <div key={tc.id} className="relative group/calcol">
-                      <button
-                        type="button"
-                        onClick={() => setNewTagColor(tc.hex)}
-                        className={`w-4 h-4 rounded-full cursor-pointer transition-all ${
-                          newTagColor === tc.hex
-                            ? 'ring-2 ring-white scale-125 shadow-md shadow-white/30'
-                            : 'opacity-50 hover:opacity-100 hover:scale-110'
-                        }`}
-                        style={{ backgroundColor: tc.hex }}
-                        title={tc.name}
-                      />
-                      {onDeleteTagColor && !['purple', 'yellow', 'red', 'green', 'cyan'].includes(tc.id) && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDeleteTagColor(tc.id);
-                          }}
-                          className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-600 text-white text-[8px] flex items-center justify-center opacity-0 group-hover/calcol:opacity-100 transition-opacity"
-                        >
-                          ×
-                        </button>
-                      )}
-                    </div>
-                  ))}
-
-                  <button
-                    type="button"
-                    onClick={() => setShowAddColor(!showAddColor)}
-                    className="text-[9px] text-cyan-300 hover:text-white font-bold flex items-center gap-0.5 cursor-pointer px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10"
-                    title="Adicionar nova cor de tag"
-                  >
-                    <Plus className="w-2.5 h-2.5" />
-                    <span>Cor</span>
-                  </button>
-                </div>
-              </div>
-
-              {showAddColor && (
-                <div className="flex items-center gap-1.5 p-1.5 bg-[#090612] rounded-lg border border-cyan-400/40">
-                  <input
-                    type="color"
-                    value={customColorInput}
-                    onChange={(e) => setCustomColorInput(e.target.value)}
-                    className="w-6 h-6 rounded border-0 cursor-pointer bg-transparent"
-                  />
-                  <input
-                    type="text"
-                    value={customColorInput}
-                    onChange={(e) => setCustomColorInput(e.target.value)}
-                    className="w-20 bg-black/60 text-[10px] font-mono px-1.5 py-0.5 rounded text-white border border-white/20"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (onAddTagColor) onAddTagColor(customColorInput);
-                      setNewTagColor(customColorInput);
-                      setShowAddColor(false);
-                    }}
-                    className="px-2.5 py-1 text-[10px] font-bold bg-cyan-500/30 text-cyan-200 rounded border border-cyan-400/40 cursor-pointer hover:bg-cyan-500/50"
-                  >
-                    Salvar
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Priority Labels Row */}
-            <div className="space-y-1.5 pt-1">
-              <span className="text-[10px] text-slate-400 font-semibold block">Prioridade:</span>
-              <div className="flex flex-wrap items-center gap-1.5">
-                {customLabels.map((lbl) => {
-                  const active = newLabels.includes(lbl.id);
-                  return (
-                    <button
-                      key={lbl.id}
-                      type="button"
-                      onClick={() => {
-                        const next = active
-                          ? newLabels.filter((l) => l !== lbl.id)
-                          : [...newLabels, lbl.id];
-                        setNewLabels(next);
-                      }}
-                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-all cursor-pointer ${
-                        active
-                          ? 'border-cyan-400 text-white ring-1 ring-cyan-400/50 bg-cyan-950/40'
-                          : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      <span
-                        className="w-2 h-2 rounded-full inline-block mr-1"
-                        style={{ backgroundColor: lbl.color }}
-                      />
-                      <span>{lbl.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="flex items-center justify-between gap-2 pt-1">
-                <RecurrenceButton
-                  config={newRecurrence}
-                  onChange={setNewRecurrence}
-                />
-
                 <button
-                  type="submit"
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold bg-gradient-to-r from-purple-600 via-fuchsia-500 to-pink-500 text-white shadow-lg shadow-pink-500/25 hover:opacity-95 cursor-pointer"
+                  type="button"
+                  onClick={() => {
+                    if (onAddTagColor) onAddTagColor(customColorInput);
+                    setNewTagColor(customColorInput);
+                    setShowAddColor(false);
+                  }}
+                  className="px-2.5 py-1 text-[10px] font-bold bg-cyan-500/30 text-cyan-200 rounded border border-cyan-400/40 cursor-pointer hover:bg-cyan-500/50"
                 >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Adicionar</span>
+                  Salvar
                 </button>
               </div>
+            )}
+
+            {/* Row 4: Priority Labels Row (matching Image 1) */}
+            <div className="flex flex-wrap items-center justify-between gap-1.5 pt-1">
+              {customLabels.map((lbl) => {
+                const active = newLabels.includes(lbl.id);
+                return (
+                  <button
+                    key={lbl.id}
+                    type="button"
+                    onClick={() => {
+                      const next = active
+                        ? newLabels.filter((l) => l !== lbl.id)
+                        : [...newLabels, lbl.id];
+                      setNewLabels(next);
+                    }}
+                    className={`flex-1 min-w-0 px-2 py-1 rounded-md text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                      active
+                        ? 'border-cyan-400 text-white ring-1 ring-cyan-400/50 bg-cyan-950/40'
+                        : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <span
+                      className="w-2 h-2 rounded-full inline-block flex-shrink-0"
+                      style={{ backgroundColor: lbl.color }}
+                    />
+                    <span className="truncate">{lbl.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Row 5: Rotina on left, + Adicionar on right */}
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <RecurrenceButton
+                config={newRecurrence}
+                onChange={setNewRecurrence}
+              />
+
+              <button
+                type="submit"
+                className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-xs font-bold bg-gradient-to-r from-purple-600 via-fuchsia-500 to-pink-500 text-white shadow-lg shadow-pink-500/25 hover:opacity-95 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Adicionar</span>
+              </button>
             </div>
 
             <RecurrencePanel

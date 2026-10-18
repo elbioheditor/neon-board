@@ -1275,7 +1275,7 @@ export function App() {
 
   const isDraggingAnything = Boolean(draggedCardId || draggedListId);
   const appBrandName = window.neonDesktop?.brandName || 'NEON';
-  const appVersion = window.neonDesktop?.version || '1.2.2';
+  const appVersion = window.neonDesktop?.version || '1.2.3';
 
   return (
     <div className="relative w-screen h-screen flex flex-col bg-[#07050d] text-slate-100 overflow-hidden select-none">
@@ -1935,91 +1935,90 @@ export function App() {
                             />
                           </div>
 
-                          {/* Cores da Tag coladas logo abaixo */}
-                          <div className="space-y-1">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                {(state.tagColors || DEFAULT_TAG_COLORS).map(
-                                  (tc) => (
-                                    <div
-                                      key={tc.id}
-                                      className="relative group/tagcol"
-                                    >
-                                      <button
-                                        type="button"
-                                        onClick={() => setNewCardTagColor(tc.hex)}
-                                        className={`w-3.5 h-3.5 rounded-full cursor-pointer transition-all ${
-                                          newCardTagColor === tc.hex
-                                            ? 'ring-2 ring-white scale-125'
-                                            : 'opacity-50 hover:opacity-100 hover:scale-110'
-                                        }`}
-                                        style={{ backgroundColor: tc.hex }}
-                                        title={tc.name}
-                                      />
-                                      {!['purple', 'yellow', 'red', 'green', 'cyan'].includes(
-                                        tc.id
-                                      ) && (
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDeleteTagColor(tc.id);
-                                          }}
-                                          className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-600 text-white text-[8px] flex items-center justify-center opacity-0 group-hover/tagcol:opacity-100 transition-opacity"
-                                        >
-                                          ×
-                                        </button>
-                                      )}
-                                    </div>
-                                  )
-                                )}
-                              </div>
-
+                          {/* Cores da Tag coladas logo abaixo no lado direito (sob a Tag) */}
+                          <div className="grid grid-cols-2 gap-2">
+                            <div />
+                            <div className="flex items-center justify-end gap-1 flex-wrap">
                               <button
                                 type="button"
                                 onClick={() =>
                                   setShowInlineAddTagColor(!showInlineAddTagColor)
                                 }
-                                className="text-[9px] text-cyan-300 hover:text-white font-bold flex items-center gap-0.5 cursor-pointer px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10"
+                                className="text-[9px] text-cyan-300 hover:text-white font-bold flex items-center gap-0.5 cursor-pointer px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 flex-shrink-0"
                                 title="Adicionar nova cor de tag"
                               >
                                 <Plus className="w-2.5 h-2.5" />
                                 <span>Cor</span>
                               </button>
-                            </div>
 
-                            {showInlineAddTagColor && (
-                              <div className="flex items-center gap-1.5 p-1 bg-[#0b0717] rounded-lg border border-cyan-400/30">
-                                <input
-                                  type="color"
-                                  value={inlineTagColorHex}
-                                  onChange={(e) =>
-                                    setInlineTagColorHex(e.target.value)
-                                  }
-                                  className="w-5 h-5 rounded border-0 cursor-pointer bg-transparent"
-                                />
-                                <input
-                                  type="text"
-                                  value={inlineTagColorHex}
-                                  onChange={(e) =>
-                                    setInlineTagColorHex(e.target.value)
-                                  }
-                                  className="w-16 bg-black/40 text-[10px] font-mono px-1.5 py-0.5 rounded text-white border border-white/20"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    handleAddTagColor(inlineTagColorHex);
-                                    setNewCardTagColor(inlineTagColorHex);
-                                    setShowInlineAddTagColor(false);
-                                  }}
-                                  className="px-2 py-0.5 text-[9px] font-bold bg-cyan-500/30 text-cyan-200 rounded border border-cyan-400/40 cursor-pointer"
-                                >
-                                  Salvar
-                                </button>
-                              </div>
-                            )}
+                              {(state.tagColors || DEFAULT_TAG_COLORS).map(
+                                (tc) => (
+                                  <div
+                                    key={tc.id}
+                                    className="relative group/tagcol flex-shrink-0"
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() => setNewCardTagColor(tc.hex)}
+                                      className={`w-3.5 h-3.5 rounded-full cursor-pointer transition-all ${
+                                        newCardTagColor === tc.hex
+                                          ? 'ring-2 ring-white scale-125 shadow-md shadow-white/30'
+                                          : 'opacity-50 hover:opacity-100 hover:scale-110'
+                                      }`}
+                                      style={{ backgroundColor: tc.hex }}
+                                      title={tc.name}
+                                    />
+                                    {!['purple', 'yellow', 'red', 'green', 'cyan'].includes(
+                                      tc.id
+                                    ) && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteTagColor(tc.id);
+                                        }}
+                                        className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-600 text-white text-[8px] flex items-center justify-center opacity-0 group-hover/tagcol:opacity-100 transition-opacity"
+                                      >
+                                        ×
+                                      </button>
+                                    )}
+                                  </div>
+                                )
+                              )}
+                            </div>
                           </div>
+
+                          {showInlineAddTagColor && (
+                            <div className="flex items-center justify-end gap-1.5 p-1 bg-[#0b0717] rounded-lg border border-cyan-400/30">
+                              <input
+                                type="color"
+                                value={inlineTagColorHex}
+                                onChange={(e) =>
+                                  setInlineTagColorHex(e.target.value)
+                                }
+                                className="w-5 h-5 rounded border-0 cursor-pointer bg-transparent"
+                              />
+                              <input
+                                type="text"
+                                value={inlineTagColorHex}
+                                onChange={(e) =>
+                                  setInlineTagColorHex(e.target.value)
+                                }
+                                className="w-16 bg-black/40 text-[10px] font-mono px-1.5 py-0.5 rounded text-white border border-white/20"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleAddTagColor(inlineTagColorHex);
+                                  setNewCardTagColor(inlineTagColorHex);
+                                  setShowInlineAddTagColor(false);
+                                }}
+                                className="px-2 py-0.5 text-[9px] font-bold bg-cyan-500/30 text-cyan-200 rounded border border-cyan-400/40 cursor-pointer"
+                              >
+                                Salvar
+                              </button>
+                            </div>
+                          )}
 
                           {/* Priority Labels Row */}
                           <div className="space-y-1 pt-0.5">
