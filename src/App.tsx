@@ -18,7 +18,6 @@ import {
   ChevronRight,
   ChevronLeft,
   AlertCircle,
-  Sparkles,
 } from 'lucide-react';
 import {
   NeonStoreState,
@@ -119,6 +118,19 @@ export function App() {
   }, [currentBrasiliaIso]);
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('board');
+  const [tabSlideDir, setTabSlideDir] = useState<'right' | 'left'>('right');
+
+  const handleTabChange = (nextTab: ActiveTab) => {
+    const tabOrder: Record<ActiveTab, number> = {
+      calendar: 0,
+      board: 1,
+      history: 2,
+    };
+    if (nextTab !== activeTab) {
+      setTabSlideDir(tabOrder[nextTab] >= tabOrder[activeTab] ? 'right' : 'left');
+      setActiveTab(nextTab);
+    }
+  };
   const [searchQuery, setSearchQuery] = useState('');
   const [onlyInProgress, setOnlyInProgress] = useState(false);
   const [particlesEnabled, setParticlesEnabled] = useState(true);
@@ -1044,7 +1056,7 @@ export function App() {
 
   const isDraggingAnything = Boolean(draggedCardId || draggedListId);
   const appBrandName = window.neonDesktop?.brandName || 'NEON';
-  const appVersion = window.neonDesktop?.version || '1.0.7';
+  const appVersion = window.neonDesktop?.version || '1.0.8';
 
   return (
     <div className="relative w-screen h-screen flex flex-col bg-[#07050d] text-slate-100 overflow-hidden select-none">
@@ -1096,7 +1108,7 @@ export function App() {
                             handleSelectBoard(b.id);
                             setHoverSwitchingBoardId(null);
                             setDragOverBoardId(null);
-                          }, 800);
+                          }, 500);
                         }
                       }
                     }}
@@ -1142,13 +1154,6 @@ export function App() {
                       {b.name.slice(0, 2).toUpperCase()}
                     </span>
                     <span>{b.name}</span>
-                    {isDraggingAnything && !isSelected && (
-                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-cyan-400/25 text-cyan-200 font-extrabold">
-                        {hoverSwitchingBoardId === b.id
-                          ? 'Trocando (0.8s)...'
-                          : 'Soltar aqui ↗'}
-                      </span>
-                    )}
                   </button>
                   {isCustomBoard && state.boards.length > 1 && (
                     <button
@@ -1259,14 +1264,13 @@ export function App() {
             type="button"
             onClick={() => setParticlesEnabled(!particlesEnabled)}
             title="Alternar partículas Neon de fundo"
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+            className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
               particlesEnabled
                 ? 'bg-purple-500/20 border-purple-400/40 text-purple-200'
                 : 'bg-white/5 border-white/10 text-slate-400'
             }`}
           >
-            <Sparkles className="w-3.5 h-3.5 text-red-500 fill-red-500" />
-            <span>Neon FX</span>
+            ✨ Neon FX
           </button>
 
           <button
@@ -1311,14 +1315,14 @@ export function App() {
               }
             }}
             onDrop={handleDropCompleteCard}
-            className={`flex-1 flex items-center justify-center gap-3.5 px-8 border-t-2 backdrop-blur-2xl cursor-pointer ${
+            className={`flex-1 flex items-center justify-center gap-3.5 px-8 border-t-2 backdrop-blur-2xl cursor-pointer transition-[box-shadow,background-color,border-color,transform] duration-300 ease-out ${
               dragOverBottomAction === 'complete'
-                ? 'bg-gradient-to-t from-emerald-500/95 via-emerald-500/80 to-emerald-400/50 border-emerald-200 text-slate-950 shadow-[0_-15px_50px_rgba(16,185,129,0.7)]'
-                : 'bg-gradient-to-t from-emerald-950/95 via-emerald-900/80 to-emerald-800/45 border-emerald-400/70 text-emerald-100 hover:from-emerald-900/95'
+                ? 'bg-gradient-to-t from-emerald-500/95 via-emerald-500/80 to-emerald-400/50 border-emerald-200 text-slate-950 shadow-[0_-18px_55px_rgba(16,185,129,0.85)]'
+                : 'bg-gradient-to-t from-emerald-950/95 via-emerald-900/80 to-emerald-800/45 border-emerald-400/70 text-emerald-100 hover:from-emerald-900/95 shadow-none'
             }`}
           >
             <CheckCircle2
-              className={`w-7 h-7 flex-shrink-0 ${
+              className={`w-7 h-7 flex-shrink-0 transition-transform duration-300 ${
                 dragOverBottomAction === 'complete'
                   ? 'text-slate-950 scale-125'
                   : 'text-emerald-400 animate-pulse'
@@ -1360,10 +1364,10 @@ export function App() {
               }
             }}
             onDrop={handleDropDeleteCard}
-            className={`w-72 sm:w-80 flex-shrink-0 flex items-center justify-center gap-3 px-6 border-t-2 border-l-2 backdrop-blur-2xl cursor-pointer ${
+            className={`w-72 sm:w-80 flex-shrink-0 flex items-center justify-center gap-3 px-6 border-t-2 border-l-2 backdrop-blur-2xl cursor-pointer transition-[box-shadow,background-color,border-color,transform] duration-300 ease-out ${
               dragOverBottomAction === 'delete'
-                ? 'bg-gradient-to-t from-rose-500/95 via-rose-500/80 to-rose-400/50 border-rose-200 text-white shadow-[0_-15px_50px_rgba(244,63,94,0.7)]'
-                : 'bg-gradient-to-t from-rose-950/95 via-rose-900/80 to-rose-800/45 border-rose-500/70 text-rose-100 hover:from-rose-900/95'
+                ? 'bg-gradient-to-t from-rose-500/95 via-rose-500/80 to-rose-400/50 border-rose-200 text-white shadow-[0_-18px_55px_rgba(244,63,94,0.85)]'
+                : 'bg-gradient-to-t from-rose-950/95 via-rose-900/80 to-rose-800/45 border-rose-500/70 text-rose-100 hover:from-rose-900/95 shadow-none'
             }`}
           >
             <Trash2
@@ -1410,9 +1414,20 @@ export function App() {
 
       {/* MAIN WORKSPACE CONTENT */}
       <main className="relative z-10 flex-1 overflow-hidden">
-        {activeTab === 'board' && (
-          <div className="h-full overflow-x-auto overflow-y-hidden px-6 pt-5 pb-24 flex items-start gap-5">
-            {boardLists.map((list) => {
+        <div
+          key={activeTab}
+          className={`w-full h-full ${
+            tabSlideDir === 'right'
+              ? 'animate-slide-in-right'
+              : 'animate-slide-in-left'
+          }`}
+        >
+          {activeTab === 'board' && (
+            <div
+              key={activeBoard.id}
+              className="h-full overflow-x-auto overflow-y-hidden px-6 pt-5 pb-24 flex items-start gap-5"
+            >
+              {boardLists.map((list, colIdx) => {
               const listCards = activeBoardCards
                 .filter((c) => c.listId === list.id)
                 .sort(compareCardsByTimeOfDay);
@@ -1497,13 +1512,14 @@ export function App() {
               return (
                 <div
                   key={list.id}
+                  style={{ animationDelay: `${colIdx * 45}ms` }}
                   draggable={editingListId !== list.id && !addingToListId}
                   onDragStart={(e) => handleListDragStart(e, list.id)}
                   onDragEnd={handleClearDragState}
                   onDragOver={(e) => handleDragOverList(e, list.id)}
                   onDragLeave={() => setDragOverListId(null)}
                   onDrop={(e) => handleDropOnList(e, list.id)}
-                  className={`w-[335px] flex-shrink-0 max-h-full flex flex-col rounded-2xl bg-[#0d091a]/95 backdrop-blur-xl border overflow-hidden transition-all shadow-2xl ${
+                  className={`w-[335px] flex-shrink-0 max-h-full flex flex-col rounded-2xl bg-[#0d091a]/95 backdrop-blur-xl border overflow-hidden transition-all shadow-2xl animate-board-column ${
                     isDragTarget
                       ? 'border-cyan-400 ring-2 ring-cyan-400/30'
                       : isYesterdayColumn && listCards.length > 0
@@ -1642,7 +1658,7 @@ export function App() {
                       <div className="p-2.5 bg-[#0d091a] border-t border-white/10 flex-shrink-0">
                         <form
                           onSubmit={(e) => handleAddCardInline(e, list.id)}
-                          className="p-3 rounded-xl bg-[#16102b] border border-cyan-400/50 space-y-2.5 shadow-lg min-w-0"
+                          className="p-3.5 rounded-xl bg-[#0e081f] border border-cyan-400/60 space-y-2.5 shadow-xl shadow-cyan-950/40 min-w-0"
                         >
                           <input
                             type="text"
@@ -1650,7 +1666,7 @@ export function App() {
                             value={newCardTitle}
                             onChange={(e) => setNewCardTitle(e.target.value)}
                             placeholder="O que você vai fazer?"
-                            className="w-full bg-[#090612] border border-purple-500/30 rounded-lg px-2.5 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-cyan-400"
+                            className="w-full bg-[#070412] border border-cyan-400/80 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-cyan-300 shadow-sm"
                           />
 
                           {/* 24h Schedule Hours Row with Auto-Synced End Time */}
@@ -1674,7 +1690,7 @@ export function App() {
                               type="date"
                               value={newCardDate}
                               onChange={(e) => setNewCardDate(e.target.value)}
-                              className="bg-[#090612] border border-purple-500/30 rounded-md px-2 py-1 text-[10px] text-slate-200 focus:outline-none"
+                              className="bg-[#070412] border border-purple-500/30 rounded-md px-2 py-1 text-[10px] text-slate-200 focus:outline-none"
                               title="Dia da tarefa (Sincroniza com o Calendário)"
                             />
                             <input
@@ -1684,13 +1700,13 @@ export function App() {
                                 setNewCardTag(e.target.value.toUpperCase())
                               }
                               placeholder="TAG (EX: EDIÇÃO)"
-                              className="bg-[#090612] border border-purple-500/30 rounded-md px-2 py-1 text-[10px] font-bold text-fuchsia-300 uppercase focus:outline-none"
+                              className="bg-[#070412] border border-purple-500/30 rounded-md px-2 py-1 text-[10px] font-bold text-fuchsia-300 uppercase focus:outline-none"
                             />
                           </div>
 
-                          {/* Line 1: Color Dots (Left) + Rotina Button (Right of Colors) */}
-                          <div className="flex items-center justify-between gap-1.5 pt-1">
-                            <div className="flex items-center gap-1.5">
+                          {/* Colors (2 rows on left) + Rotina Button (Right) */}
+                          <div className="flex items-center justify-between gap-2 pt-0.5">
+                            <div className="grid grid-cols-4 gap-1.5 w-max">
                               {(
                                 [
                                   'purple',
@@ -1705,7 +1721,7 @@ export function App() {
                                   key={col}
                                   type="button"
                                   onClick={() => setNewCardLabel(col)}
-                                  className={`w-4 h-4 rounded-full cursor-pointer ${
+                                  className={`w-4 h-4 rounded-full cursor-pointer transition-all ${
                                     LABEL_CONFIG[col].bg
                                   } ${
                                     newCardLabel === col
@@ -1723,18 +1739,18 @@ export function App() {
                             />
                           </div>
 
-                          {/* Line 2: Action Buttons (Cancelar em Vermelho + Adicionar em Destaque) */}
+                          {/* Action Buttons: Cancelar (Wine/Red) + Adicionar (Fuchsia-Cyan) */}
                           <div className="flex items-center justify-end gap-2 pt-1">
                             <button
                               type="button"
                               onClick={handleCancelAddCardInline}
-                              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-rose-500/20 hover:bg-rose-500/35 border border-rose-500/40 text-rose-300 hover:text-white cursor-pointer transition-colors"
+                              className="px-4 py-1.5 rounded-lg text-xs font-bold bg-[#380e25] hover:bg-[#501334] border border-rose-500/40 text-rose-200 hover:text-white cursor-pointer transition-all"
                             >
                               Cancelar
                             </button>
                             <button
                               type="submit"
-                              className="px-4 py-1.5 rounded-lg text-xs font-bold bg-gradient-to-r from-fuchsia-600 to-cyan-500 text-white shadow-md shadow-cyan-500/25 hover:opacity-95 cursor-pointer transition-opacity"
+                              className="px-5 py-1.5 rounded-lg text-xs font-bold bg-gradient-to-r from-fuchsia-500 to-cyan-400 text-white shadow-md shadow-cyan-400/30 hover:opacity-95 cursor-pointer transition-all"
                             >
                               Adicionar
                             </button>
@@ -1837,6 +1853,7 @@ export function App() {
             onDeleteCard={handleDeleteCard}
           />
         )}
+        </div>
       </main>
 
       {/* FLOATING COMPLETION TOAST */}
@@ -1866,11 +1883,11 @@ export function App() {
       <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 flex flex-nowrap items-center gap-1.5 p-1.5 rounded-2xl bg-[#0d081a]/95 border border-purple-500/40 shadow-2xl shadow-purple-950/80 backdrop-blur-2xl whitespace-nowrap">
         <button
           type="button"
-          onClick={() => setActiveTab('calendar')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+          onClick={() => handleTabChange('calendar')}
+          className={`dock-btn flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
             activeTab === 'calendar'
               ? 'bg-gradient-to-r from-purple-600 via-fuchsia-500 to-pink-500 text-white shadow-lg shadow-pink-500/30'
-              : 'bg-gradient-to-r from-purple-600/25 to-pink-500/25 text-pink-200 hover:from-purple-600/45 hover:to-pink-500/45 hover:text-white border border-pink-500/25'
+              : 'text-slate-300 hover:text-white hover:bg-white/5'
           }`}
         >
           <CalendarIcon className="w-4 h-4 flex-shrink-0" />
@@ -1879,8 +1896,8 @@ export function App() {
 
         <button
           type="button"
-          onClick={() => setActiveTab('board')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+          onClick={() => handleTabChange('board')}
+          className={`dock-btn flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
             activeTab === 'board'
               ? 'bg-gradient-to-r from-fuchsia-600 via-purple-600 to-cyan-500 text-white shadow-lg shadow-purple-500/30'
               : 'text-slate-300 hover:text-white hover:bg-white/5'
@@ -1892,8 +1909,8 @@ export function App() {
 
         <button
           type="button"
-          onClick={() => setActiveTab('history')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+          onClick={() => handleTabChange('history')}
+          className={`dock-btn flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
             activeTab === 'history'
               ? 'bg-gradient-to-r from-cyan-500 to-emerald-500 text-slate-950 shadow-lg shadow-cyan-500/30'
               : 'text-slate-300 hover:text-white hover:bg-white/5'
