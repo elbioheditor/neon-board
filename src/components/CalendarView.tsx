@@ -491,27 +491,19 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               className="w-full bg-[#090612] border border-purple-500/30 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-pink-400"
             />
 
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5">
-                <TimeInput24h value={newStart} onChange={handleStartChange} />
-                <span className="text-[10px] text-slate-400">até</span>
-                <TimeInput24h value={newEnd} onChange={handleEndChange} />
-              </div>
-
-              <input
-                type="text"
-                value={newTag}
-                onChange={(e) => setNewTag(e.target.value.toUpperCase())}
-                placeholder="TAG"
-                style={newTagColor ? { color: newTagColor } : undefined}
-                className="w-24 bg-[#090612] border border-purple-500/30 rounded-lg px-2.5 py-1.5 text-xs font-bold uppercase focus:outline-none"
-              />
+            {/* 24h Time Schedule Row */}
+            <div className="flex items-center gap-1.5">
+              <TimeInput24h value={newStart} onChange={handleStartChange} />
+              <span className="text-[10px] text-slate-400">até</span>
+              <TimeInput24h value={newEnd} onChange={handleEndChange} />
             </div>
 
-            {/* Tag Colors Row */}
-            <div className="space-y-1">
+            {/* Tag & Colors Unified Container */}
+            <div className="p-2.5 rounded-xl bg-[#090612]/90 border border-purple-500/30 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] text-slate-400 font-semibold">Cor da Tag:</span>
+                <span className="text-[10px] text-slate-300 font-bold uppercase tracking-wider">
+                  Tag & Cor da Tag:
+                </span>
                 <button
                   type="button"
                   onClick={() => setShowAddColor(!showAddColor)}
@@ -522,8 +514,53 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 </button>
               </div>
 
+              {/* Tag Input + Cores colados lado a lado */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={newTag}
+                  onChange={(e) => setNewTag(e.target.value.toUpperCase())}
+                  placeholder="EX: EDIÇÃO"
+                  style={{
+                    color: newTagColor,
+                    borderColor: `${newTagColor}70`,
+                  }}
+                  className="w-28 sm:w-32 flex-shrink-0 bg-black/60 border border-purple-500/40 rounded-lg px-2.5 py-1.5 text-xs font-bold uppercase focus:outline-none"
+                />
+
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {tagColors.map((tc) => (
+                    <div key={tc.id} className="relative group/calcol">
+                      <button
+                        type="button"
+                        onClick={() => setNewTagColor(tc.hex)}
+                        className={`w-4 h-4 rounded-full cursor-pointer transition-all ${
+                          newTagColor === tc.hex
+                            ? 'ring-2 ring-white scale-125 shadow-md shadow-white/30'
+                            : 'opacity-50 hover:opacity-100 hover:scale-110'
+                        }`}
+                        style={{ backgroundColor: tc.hex }}
+                        title={tc.name}
+                      />
+                      {onDeleteTagColor && !['purple', 'yellow', 'red', 'green', 'cyan'].includes(tc.id) && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteTagColor(tc.id);
+                          }}
+                          className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-600 text-white text-[8px] flex items-center justify-center opacity-0 group-hover/calcol:opacity-100 transition-opacity"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               {showAddColor && (
-                <div className="flex items-center gap-1.5 p-1.5 mb-1.5 bg-[#090612] rounded-lg border border-cyan-400/30">
+                <div className="flex items-center gap-1.5 p-1.5 bg-black/60 rounded-lg border border-cyan-400/40">
                   <input
                     type="color"
                     value={customColorInput}
@@ -534,7 +571,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     type="text"
                     value={customColorInput}
                     onChange={(e) => setCustomColorInput(e.target.value)}
-                    className="w-20 bg-black/40 text-[10px] font-mono px-1.5 py-0.5 rounded text-white border border-white/20"
+                    className="w-20 bg-black/60 text-[10px] font-mono px-1.5 py-0.5 rounded text-white border border-white/20"
                   />
                   <button
                     type="button"
@@ -543,42 +580,12 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                       setNewTagColor(customColorInput);
                       setShowAddColor(false);
                     }}
-                    className="px-2 py-0.5 text-[10px] font-bold bg-cyan-500/30 text-cyan-200 rounded border border-cyan-400/40 cursor-pointer"
+                    className="px-2.5 py-1 text-[10px] font-bold bg-cyan-500/30 text-cyan-200 rounded border border-cyan-400/40 cursor-pointer hover:bg-cyan-500/50"
                   >
                     Salvar
                   </button>
                 </div>
               )}
-
-              <div className="flex flex-wrap items-center gap-1.5">
-                {tagColors.map((tc) => (
-                  <div key={tc.id} className="relative group/calcol">
-                    <button
-                      type="button"
-                      onClick={() => setNewTagColor(tc.hex)}
-                      className={`w-4 h-4 rounded-full cursor-pointer transition-all ${
-                        newTagColor === tc.hex
-                          ? 'ring-2 ring-white scale-125'
-                          : 'opacity-50 hover:opacity-100'
-                      }`}
-                      style={{ backgroundColor: tc.hex }}
-                      title={tc.name}
-                    />
-                    {onDeleteTagColor && !['purple', 'yellow', 'red', 'green', 'cyan'].includes(tc.id) && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeleteTagColor(tc.id);
-                        }}
-                        className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-600 text-white text-[8px] flex items-center justify-center opacity-0 group-hover/calcol:opacity-100 transition-opacity"
-                      >
-                        ×
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
             </div>
 
             {/* Priority Labels Row */}

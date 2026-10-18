@@ -1275,7 +1275,7 @@ export function App() {
 
   const isDraggingAnything = Boolean(draggedCardId || draggedListId);
   const appBrandName = window.neonDesktop?.brandName || 'NEON';
-  const appVersion = window.neonDesktop?.version || '1.2.0';
+  const appVersion = window.neonDesktop?.version || '1.2.1';
 
   return (
     <div className="relative w-screen h-screen flex flex-col bg-[#07050d] text-slate-100 overflow-hidden select-none">
@@ -1911,31 +1911,23 @@ export function App() {
                             />
                           </div>
 
-                          {/* Date + Category Tag Row */}
-                          <div className="grid grid-cols-2 gap-2">
+                          {/* Date Row */}
+                          <div>
                             <input
                               type="date"
                               value={newCardDate}
                               onChange={(e) => setNewCardDate(e.target.value)}
-                              className="bg-[#070412] border border-purple-900/60 rounded-xl px-2.5 py-1.5 text-[11px] text-slate-200 focus:outline-none focus:border-purple-500"
+                              className="w-full bg-[#070412] border border-purple-900/60 rounded-xl px-2.5 py-1.5 text-[11px] text-slate-200 focus:outline-none focus:border-purple-500"
                               title="Dia da tarefa (Sincroniza com o Calendário)"
-                            />
-                            <input
-                              type="text"
-                              value={newCardTag}
-                              onChange={(e) =>
-                                setNewCardTag(e.target.value.toUpperCase())
-                              }
-                              placeholder="TAG (EX: EDIÇÃO)"
-                              style={{ color: newCardTagColor }}
-                              className="bg-[#070412] border border-purple-900/60 rounded-xl px-2.5 py-1.5 text-[11px] font-bold uppercase focus:outline-none focus:border-purple-500"
                             />
                           </div>
 
-                          {/* Tag Color Picker */}
-                          <div className="space-y-1 pt-0.5">
-                            <div className="flex items-center justify-between text-[10px] text-slate-400">
-                              <span className="font-semibold">Cor da Tag:</span>
+                          {/* Tag & Colors Unified Container */}
+                          <div className="p-2 rounded-xl bg-[#070412] border border-purple-900/60 space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-bold text-slate-300">
+                                Tag & Cor da Tag:
+                              </span>
                               <button
                                 type="button"
                                 onClick={() =>
@@ -1948,8 +1940,62 @@ export function App() {
                               </button>
                             </div>
 
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={newCardTag}
+                                onChange={(e) =>
+                                  setNewCardTag(e.target.value.toUpperCase())
+                                }
+                                placeholder="TAG (EX: EDIÇÃO)"
+                                style={{
+                                  color: newCardTagColor,
+                                  borderColor: `${newCardTagColor}70`,
+                                }}
+                                className="w-28 flex-shrink-0 bg-[#0b0717] border border-purple-900/60 rounded-lg px-2 py-1 text-[11px] font-bold uppercase focus:outline-none"
+                              />
+
+                              {/* Cores da Tag coladas diretamente com o input da Tag */}
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {(state.tagColors || DEFAULT_TAG_COLORS).map(
+                                  (tc) => (
+                                    <div
+                                      key={tc.id}
+                                      className="relative group/tagcol"
+                                    >
+                                      <button
+                                        type="button"
+                                        onClick={() => setNewCardTagColor(tc.hex)}
+                                        className={`w-3.5 h-3.5 rounded-full cursor-pointer transition-all ${
+                                          newCardTagColor === tc.hex
+                                            ? 'ring-2 ring-white scale-125'
+                                            : 'opacity-50 hover:opacity-100 hover:scale-110'
+                                        }`}
+                                        style={{ backgroundColor: tc.hex }}
+                                        title={tc.name}
+                                      />
+                                      {!['purple', 'yellow', 'red', 'green', 'cyan'].includes(
+                                        tc.id
+                                      ) && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeleteTagColor(tc.id);
+                                          }}
+                                          className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-600 text-white text-[8px] flex items-center justify-center opacity-0 group-hover/tagcol:opacity-100 transition-opacity"
+                                        >
+                                          ×
+                                        </button>
+                                      )}
+                                    </div>
+                                  )
+                                )}
+                              </div>
+                            </div>
+
                             {showInlineAddTagColor && (
-                              <div className="flex items-center gap-1.5 p-1.5 bg-[#070412] rounded-lg border border-cyan-400/30">
+                              <div className="flex items-center gap-1.5 p-1 bg-[#0b0717] rounded-lg border border-cyan-400/30">
                                 <input
                                   type="color"
                                   value={inlineTagColorHex}
@@ -1979,43 +2025,6 @@ export function App() {
                                 </button>
                               </div>
                             )}
-
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              {(state.tagColors || DEFAULT_TAG_COLORS).map(
-                                (tc) => (
-                                  <div
-                                    key={tc.id}
-                                    className="relative group/tagcol"
-                                  >
-                                    <button
-                                      type="button"
-                                      onClick={() => setNewCardTagColor(tc.hex)}
-                                      className={`w-4 h-4 rounded-full cursor-pointer transition-all ${
-                                        newCardTagColor === tc.hex
-                                          ? 'ring-2 ring-white scale-125'
-                                          : 'opacity-50 hover:opacity-100'
-                                      }`}
-                                      style={{ backgroundColor: tc.hex }}
-                                      title={tc.name}
-                                    />
-                                    {!['purple', 'yellow', 'red', 'green', 'cyan'].includes(
-                                      tc.id
-                                    ) && (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleDeleteTagColor(tc.id);
-                                        }}
-                                        className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-600 text-white text-[8px] flex items-center justify-center opacity-0 group-hover/tagcol:opacity-100 transition-opacity"
-                                      >
-                                        ×
-                                      </button>
-                                    )}
-                                  </div>
-                                )
-                              )}
-                            </div>
                           </div>
 
                           {/* Priority Labels Row */}

@@ -383,62 +383,34 @@ export const CardModal: React.FC<CardModalProps> = ({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[11px] text-slate-400 mb-1">Tag (Ex: EDIÇÃO)</label>
-                <input
-                  type="text"
-                  value={categoryTag}
-                  onChange={(e) => setCategoryTag(e.target.value.toUpperCase())}
-                  onBlur={() => saveField({ categoryTag: categoryTag.trim() })}
-                  placeholder="EX: PROSPECÇÃO"
-                  className="w-full bg-[#090612] border border-purple-500/30 rounded-lg px-2.5 py-1.5 text-xs font-bold uppercase focus:outline-none focus:border-fuchsia-400"
-                  style={selectedTagColor ? { color: selectedTagColor } : undefined}
-                />
+              <div className="p-2.5 rounded-xl bg-[#090612]/90 border border-purple-500/25 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">
+                    Tag & Cor da Tag:
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddColor(!showAddColor)}
+                    className="text-[9px] text-cyan-300 hover:text-white font-bold flex items-center gap-0.5 cursor-pointer"
+                  >
+                    <Plus className="w-2.5 h-2.5" />
+                    <span>Nova Cor</span>
+                  </button>
+                </div>
 
-                {/* Cores das Tags */}
-                <div className="mt-2">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] text-slate-400 font-semibold">Cor da Tag:</span>
-                    <button
-                      type="button"
-                      onClick={() => setShowAddColor(!showAddColor)}
-                      className="text-[9px] text-cyan-300 hover:text-white font-bold flex items-center gap-0.5 cursor-pointer"
-                    >
-                      <Plus className="w-2.5 h-2.5" />
-                      <span>Nova Cor</span>
-                    </button>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={categoryTag}
+                    onChange={(e) => setCategoryTag(e.target.value.toUpperCase())}
+                    onBlur={() => saveField({ categoryTag: categoryTag.trim() })}
+                    placeholder="EX: PROSPECÇÃO"
+                    className="w-28 sm:w-32 flex-shrink-0 bg-black/60 border border-purple-500/30 rounded-lg px-2.5 py-1.5 text-xs font-bold uppercase focus:outline-none focus:border-fuchsia-400"
+                    style={selectedTagColor ? { color: selectedTagColor, borderColor: `${selectedTagColor}70` } : undefined}
+                  />
 
-                  {showAddColor && (
-                    <div className="flex items-center gap-1.5 p-1.5 mb-1.5 bg-[#090612] rounded-lg border border-cyan-400/30">
-                      <input
-                        type="color"
-                        value={newCustomColor}
-                        onChange={(e) => setNewCustomColor(e.target.value)}
-                        className="w-6 h-6 rounded border-0 cursor-pointer bg-transparent"
-                      />
-                      <input
-                        type="text"
-                        value={newCustomColor}
-                        onChange={(e) => setNewCustomColor(e.target.value)}
-                        className="w-20 bg-black/40 text-[10px] font-mono px-1.5 py-0.5 rounded text-white border border-white/20"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (onAddTagColor) onAddTagColor(newCustomColor);
-                          setSelectedTagColor(newCustomColor);
-                          saveField({ tagColor: newCustomColor });
-                          setShowAddColor(false);
-                        }}
-                        className="px-2 py-0.5 text-[10px] font-bold bg-cyan-500/30 text-cyan-200 rounded border border-cyan-400/40 cursor-pointer"
-                      >
-                        Salvar
-                      </button>
-                    </div>
-                  )}
-
-                  <div className="flex flex-wrap items-center gap-1.5">
+                  {/* Cores das Tags coladas ao lado */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     {tagColors.map((tc) => (
                       <div key={tc.id} className="relative group/col">
                         <button
@@ -471,6 +443,35 @@ export const CardModal: React.FC<CardModalProps> = ({
                     ))}
                   </div>
                 </div>
+
+                {showAddColor && (
+                  <div className="flex items-center gap-1.5 p-1.5 bg-[#090612] rounded-lg border border-cyan-400/30">
+                    <input
+                      type="color"
+                      value={newCustomColor}
+                      onChange={(e) => setNewCustomColor(e.target.value)}
+                      className="w-6 h-6 rounded border-0 cursor-pointer bg-transparent"
+                    />
+                    <input
+                      type="text"
+                      value={newCustomColor}
+                      onChange={(e) => setNewCustomColor(e.target.value)}
+                      className="w-20 bg-black/40 text-[10px] font-mono px-1.5 py-0.5 rounded text-white border border-white/20"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onAddTagColor) onAddTagColor(newCustomColor);
+                        setSelectedTagColor(newCustomColor);
+                        saveField({ tagColor: newCustomColor });
+                        setShowAddColor(false);
+                      }}
+                      className="px-2 py-0.5 text-[10px] font-bold bg-cyan-500/30 text-cyan-200 rounded border border-cyan-400/40 cursor-pointer"
+                    >
+                      Salvar
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div>
