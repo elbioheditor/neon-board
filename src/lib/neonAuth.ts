@@ -173,26 +173,37 @@ export async function signInUser(
     password: pass,
   });
 
-  // If failed and input was a username, also check if there is an email stored in profile
+  // If failed and input was a username, also check candidate emails
   if (error && !input.includes('@')) {
+    const candidateEmails: string[] = [];
+    if (input.toLowerCase().includes('elbioh')) {
+      candidateEmails.push('elbioheditor@gmail.com');
+    }
     try {
       const { data: prof } = await client
         .from('profiles')
         .select('id, email')
         .ilike('username', input)
         .maybeSingle();
-      if (prof?.email && prof.email !== targetEmail) {
+      if (prof?.email && !candidateEmails.includes(prof.email)) {
+        candidateEmails.push(prof.email);
+      }
+    } catch {
+      // ignore
+    }
+
+    for (const cand of candidateEmails) {
+      if (cand !== targetEmail) {
         const retry = await client.auth.signInWithPassword({
-          email: prof.email,
+          email: cand,
           password: pass,
         });
         if (!retry.error && retry.data) {
           data = retry.data;
           error = null;
+          break;
         }
       }
-    } catch {
-      // ignore
     }
   }
 
