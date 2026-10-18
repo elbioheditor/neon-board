@@ -709,7 +709,7 @@ export function App() {
     };
     updateState((prev) => ({
       ...prev,
-      tagColors: [...(prev.tagColors || DEFAULT_TAG_COLORS), newColor],
+      tagColors: [newColor, ...(prev.tagColors || DEFAULT_TAG_COLORS)],
     }));
   };
 
@@ -1275,7 +1275,7 @@ export function App() {
 
   const isDraggingAnything = Boolean(draggedCardId || draggedListId);
   const appBrandName = window.neonDesktop?.brandName || 'NEON';
-  const appVersion = window.neonDesktop?.version || '1.2.3';
+  const appVersion = window.neonDesktop?.version || '1.2.4';
 
   return (
     <div className="relative w-screen h-screen flex flex-col bg-[#07050d] text-slate-100 overflow-hidden select-none">

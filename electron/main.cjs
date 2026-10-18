@@ -25,6 +25,7 @@ function setupAutoUpdater() {
     const brandName = getLocalBrandName();
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = true;
+    autoUpdater.allowDowngrade = true;
 
     autoUpdater.on('update-downloaded', (info) => {
       if (!mainWindow) {

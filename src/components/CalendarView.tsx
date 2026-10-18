@@ -512,10 +512,20 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               />
             </div>
 
-            {/* Row 3: Tag colors + Cor aligned directly under Tag input (to the right) */}
-            <div className="flex items-center justify-end gap-1.5">
+            {/* Row 3: + Cor à esquerda e cores de tag à direita, sob o input de Tag */}
+            <div className="flex items-center justify-end gap-1.5 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setShowAddColor(!showAddColor)}
+                className="text-[9px] text-cyan-300 hover:text-white font-bold flex items-center gap-0.5 cursor-pointer px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 flex-shrink-0"
+                title="Adicionar nova cor de tag"
+              >
+                <Plus className="w-2.5 h-2.5" />
+                <span>Cor</span>
+              </button>
+
               {tagColors.map((tc) => (
-                <div key={tc.id} className="relative group/calcol">
+                <div key={tc.id} className="relative group/calcol flex-shrink-0">
                   <button
                     type="button"
                     onClick={() => setNewTagColor(tc.hex)}
@@ -541,16 +551,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   )}
                 </div>
               ))}
-
-              <button
-                type="button"
-                onClick={() => setShowAddColor(!showAddColor)}
-                className="text-[9px] text-cyan-300 hover:text-white font-bold flex items-center gap-0.5 cursor-pointer px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10"
-                title="Adicionar nova cor de tag"
-              >
-                <Plus className="w-2.5 h-2.5" />
-                <span>Cor</span>
-              </button>
             </div>
 
             {showAddColor && (
