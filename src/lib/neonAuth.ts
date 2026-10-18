@@ -82,11 +82,14 @@ export function resolveAuthEmail(input: string): string {
 export async function signUpUser(
   username: string,
   pass: string,
+  optionalEmail?: string,
   avatarColor: string = '#a855f7'
 ): Promise<{ user: User | null; profile: UserProfile | null; error?: string }> {
   const client = getSupabaseAuthClient();
   const trimmedName = username.trim() || 'Usuário';
-  const email = usernameToAuthEmail(trimmedName);
+  const email = (optionalEmail && optionalEmail.trim().includes('@'))
+    ? optionalEmail.trim().toLowerCase()
+    : usernameToAuthEmail(trimmedName);
 
   const { data, error } = await client.auth.signUp({
     email,
@@ -101,7 +104,7 @@ export async function signUpUser(
 
   if (error) {
     if (error.message.toLowerCase().includes('already registered')) {
-      return { user: null, profile: null, error: 'Este nome de usuário já foi criado. Use a aba "Entrar"!' };
+      return { user: null, profile: null, error: 'Este usuário ou e-mail já foi criado. Se já tem conta, use a aba "Entrar"!' };
     }
     return { user: null, profile: null, error: error.message };
   }
@@ -119,14 +122,18 @@ export async function signUpUser(
     createdAt: new Date().toISOString(),
   };
 
-  const { error: profError } = await client.from('profiles').upsert({
-    id: data.user.id,
-    username: profile.username,
-    friend_code: profile.friendCode,
-    avatar_color: profile.avatarColor,
-  });
-
-  if (profError) {
+  try {
+    const profPayload: any = {
+      id: data.user.id,
+      username: profile.username,
+      friend_code: profile.friendCode,
+      avatar_color: profile.avatarColor,
+    };
+    if (data.user.email) {
+      profPayload.email = data.user.email;
+    }
+    await client.from('profiles').upsert(profPayload);
+  } catch (profError) {
     console.error('Erro ao salvar perfil no Supabase:', profError);
   }
 
@@ -138,12 +145,56 @@ export async function signInUser(
   pass: string
 ): Promise<{ user: User | null; profile: UserProfile | null; error?: string }> {
   const client = getSupabaseAuthClient();
-  const email = resolveAuthEmail(usernameOrEmail);
+  const input = usernameOrEmail.trim();
 
-  const { data, error } = await client.auth.signInWithPassword({
-    email,
+  let targetEmail = input;
+
+  if (!input.includes('@')) {
+    // User typed a username/nick!
+    try {
+      const { data: prof } = await client
+        .from('profiles')
+        .select('id, email, username')
+        .ilike('username', input)
+        .maybeSingle();
+
+      if (prof?.email) {
+        targetEmail = prof.email;
+      } else {
+        targetEmail = usernameToAuthEmail(input);
+      }
+    } catch {
+      targetEmail = usernameToAuthEmail(input);
+    }
+  }
+
+  let { data, error } = await client.auth.signInWithPassword({
+    email: targetEmail,
     password: pass,
   });
+
+  // If failed and input was a username, also check if there is an email stored in profile
+  if (error && !input.includes('@')) {
+    try {
+      const { data: prof } = await client
+        .from('profiles')
+        .select('id, email')
+        .ilike('username', input)
+        .maybeSingle();
+      if (prof?.email && prof.email !== targetEmail) {
+        const retry = await client.auth.signInWithPassword({
+          email: prof.email,
+          password: pass,
+        });
+        if (!retry.error && retry.data) {
+          data = retry.data;
+          error = null;
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
 
   if (error) {
     if (error.message.toLowerCase().includes('email not confirmed')) {
@@ -154,31 +205,43 @@ export async function signInUser(
       };
     }
     if (error.message.toLowerCase().includes('invalid login credentials')) {
-      return { user: null, profile: null, error: 'Nome de usuário ou senha incorretos.' };
+      return { user: null, profile: null, error: 'Usuário/E-mail ou senha incorretos.' };
     }
     return { user: null, profile: null, error: error.message };
   }
 
-  if (!data.user) {
+  if (!data?.user) {
     return { user: null, profile: null, error: 'Usuário não encontrado.' };
   }
 
   let profile = await fetchUserProfile(data.user.id);
   if (!profile) {
-    const username = data.user.user_metadata?.username || usernameOrEmail.split('@')[0];
+    const rawUsername =
+      data.user.user_metadata?.username ||
+      (!input.includes('@') ? input : data.user.email?.split('@')[0]) ||
+      'Usuário';
+
     profile = {
       id: data.user.id,
-      username,
-      friendCode: generateFriendCode(username),
+      username: rawUsername,
+      friendCode: generateFriendCode(rawUsername),
       avatarColor: data.user.user_metadata?.avatar_color || '#a855f7',
       createdAt: new Date().toISOString(),
     };
-    await client.from('profiles').upsert({
-      id: profile.id,
-      username: profile.username,
-      friend_code: profile.friendCode,
-      avatar_color: profile.avatarColor,
-    });
+    try {
+      const profPayload: any = {
+        id: profile.id,
+        username: profile.username,
+        friend_code: profile.friendCode,
+        avatar_color: profile.avatarColor,
+      };
+      if (data.user.email) {
+        profPayload.email = data.user.email;
+      }
+      await client.from('profiles').upsert(profPayload);
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   return { user: data.user, profile };
