@@ -18,6 +18,7 @@ import {
   ChevronRight,
   ChevronLeft,
   AlertCircle,
+  Sparkles,
 } from 'lucide-react';
 import {
   NeonStoreState,
@@ -1043,7 +1044,7 @@ export function App() {
 
   const isDraggingAnything = Boolean(draggedCardId || draggedListId);
   const appBrandName = window.neonDesktop?.brandName || 'NEON';
-  const appVersion = window.neonDesktop?.version || '1.0.6';
+  const appVersion = window.neonDesktop?.version || '1.0.7';
 
   return (
     <div className="relative w-screen h-screen flex flex-col bg-[#07050d] text-slate-100 overflow-hidden select-none">
@@ -1258,13 +1259,14 @@ export function App() {
             type="button"
             onClick={() => setParticlesEnabled(!particlesEnabled)}
             title="Alternar partículas Neon de fundo"
-            className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
               particlesEnabled
                 ? 'bg-purple-500/20 border-purple-400/40 text-purple-200'
                 : 'bg-white/5 border-white/10 text-slate-400'
             }`}
           >
-            ✨ Neon FX
+            <Sparkles className="w-3.5 h-3.5 text-red-500 fill-red-500" />
+            <span>Neon FX</span>
           </button>
 
           <button
