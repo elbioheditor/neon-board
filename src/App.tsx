@@ -61,6 +61,7 @@ import {
   fetchUserAndFriendsBoards,
   saveUserBoardToCloud,
   createNewUserBoardState,
+  getDidiStarterBoardState,
   UserBoardPayload,
 } from './lib/neonAuth';
 import {
@@ -265,32 +266,88 @@ export function App() {
       if (ownerBoard) {
         // User already has their cloud board in Supabase! Restore it.
         setState((prev) => {
-          const myBoards = ownerBoard.boards && ownerBoard.boards.length > 0 ? ownerBoard.boards : [ownerBoard.board];
+          // Strictly isolate user's own board(s).
+          // Friends' boards (like Didi's) MUST NOT be in myBoards unless they come via friendsBoards!
+          const rawMyBoards = ownerBoard.boards && ownerBoard.boards.length > 0 ? ownerBoard.boards : [ownerBoard.board];
+          let myBoards = rawMyBoards.filter((b) => {
+            const ownerLower = (b.owner || '').toLowerCase();
+            const userLower = profile.username.toLowerCase();
+            return ownerLower === userLower || (userLower.includes('elbioh') && ownerLower.includes('elbioh')) || (userLower.includes('didi') && ownerLower.includes('didi'));
+          });
+          if (myBoards.length === 0) {
+            myBoards = [{
+              ...ownerBoard.board,
+              name: `${profile.username}'s Board`,
+              owner: profile.username,
+            }];
+          }
+
+          const myBoardIds = new Set(myBoards.map((b) => b.id));
+          const myLists = ownerBoard.lists.filter((l) => myBoardIds.has(l.boardId) || !l.boardId);
+          const myCards = ownerBoard.cards.filter((c) => myBoardIds.has(c.boardId) || !c.boardId);
+
+          // ONLY include friendsBoards if they were returned by fetchUserAndFriendsBoards (i.e. accepted friends)
           const allBoards = [...myBoards, ...friendsBoards.map((fb) => fb.board)];
-          const allLists = [...ownerBoard.lists, ...friendsBoards.flatMap((fb) => fb.lists)];
-          const allCards = [...ownerBoard.cards, ...friendsBoards.flatMap((fb) => fb.cards)];
-          return {
+          const allLists = [...myLists, ...friendsBoards.flatMap((fb) => fb.lists)];
+          const allCards = [...myCards, ...friendsBoards.flatMap((fb) => fb.cards)];
+
+          const validActiveBoardId = allBoards.some((b) => b.id === prev.activeBoardId)
+            ? prev.activeBoardId
+            : myBoards[0].id;
+
+          const nextState = {
             ...prev,
             boards: allBoards,
             lists: allLists,
             cards: allCards,
             customLabels: ownerBoard.customLabels || prev.customLabels,
             tagColors: ownerBoard.tagColors || prev.tagColors,
-            activeBoardId: allBoards.some((b) => b.id === prev.activeBoardId) ? prev.activeBoardId : allBoards[0].id,
+            activeBoardId: validActiveBoardId,
           };
+
+          try {
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(nextState));
+          } catch (e) {
+            console.error('Failed to update local storage', e);
+          }
+
+          // If rawMyBoards contained other people's boards (like Didi's board), clean up cloud storage!
+          if (rawMyBoards.length !== myBoards.length) {
+            saveUserBoardToCloud(profile.id, {
+              board: myBoards[0],
+              boards: myBoards,
+              lists: myLists,
+              cards: myCards,
+              customLabels: nextState.customLabels,
+              tagColors: nextState.tagColors,
+            });
+          }
+
+          return nextState;
         });
       } else {
         const isElbioh = profile.username.toLowerCase().includes('elbioh');
+        const isDidi = profile.username.toLowerCase().includes('didi');
         const hasExistingCards = state.cards.length > 0;
 
         if (isElbioh && hasExistingCards) {
           // Elbioh's account: save ALL current local state (boards, cards, routines, history) to his Supabase account!
-          const elbiohBoard = state.boards.find((b) => b.owner.toLowerCase().includes('elbioh')) || state.boards[0];
+          const elbiohBoard = state.boards.find((b) => b.owner.toLowerCase().includes('elbioh')) || {
+            id: 'elbioh-board',
+            name: `${profile.username}'s Board`,
+            owner: profile.username,
+            subtitle: 'Rotina Diária, Edição & Prospecção',
+            accentFrom: '#c026d3',
+            accentTo: '#3b82f6',
+          };
+          const elbiohLists = state.lists.filter((l) => l.boardId === elbiohBoard.id || l.boardId === 'elbioh-board');
+          const elbiohCards = state.cards.filter((c) => c.boardId === elbiohBoard.id || c.boardId === 'elbioh-board');
+
           const payload: UserBoardPayload = {
             board: { ...elbiohBoard, name: `${profile.username}'s Board`, owner: profile.username },
-            boards: state.boards,
-            lists: state.lists,
-            cards: state.cards,
+            boards: [{ ...elbiohBoard, name: `${profile.username}'s Board`, owner: profile.username }],
+            lists: elbiohLists.length > 0 ? elbiohLists : state.lists.filter((l) => l.boardId !== 'didi-board'),
+            cards: elbiohCards.length > 0 ? elbiohCards : state.cards.filter((c) => c.boardId !== 'didi-board'),
             customLabels: state.customLabels,
             tagColors: state.tagColors,
           };
@@ -303,6 +360,19 @@ export function App() {
             customLabels: payload.customLabels,
             tagColors: payload.tagColors,
             activeBoardId: payload.board.id,
+          }));
+        } else if (isDidi) {
+          // Didi's account: load preserved Didi board and tasks from backup!
+          const didiPayload = getDidiStarterBoardState(profile.username);
+          await saveUserBoardToCloud(profile.id, didiPayload);
+          setState((prev) => ({
+            ...prev,
+            boards: didiPayload.boards || [didiPayload.board],
+            lists: didiPayload.lists,
+            cards: didiPayload.cards,
+            customLabels: didiPayload.customLabels,
+            tagColors: didiPayload.tagColors,
+            activeBoardId: didiPayload.board.id,
           }));
         } else {
           // New user: Create fresh personalized board with the 3 welcome tasks!
@@ -393,15 +463,19 @@ export function App() {
         pushCloudState(next);
       }
       if (currentUserProfile) {
-        const isElbioh = currentUserProfile.username.toLowerCase().includes('elbioh');
-        const myBoards = next.boards.filter((b) => b.owner.toLowerCase() === currentUserProfile.username.toLowerCase());
+        const userLower = currentUserProfile.username.toLowerCase();
+        const myBoards = next.boards.filter((b) => {
+          const ownerLower = (b.owner || '').toLowerCase();
+          return ownerLower === userLower || (userLower.includes('elbioh') && ownerLower.includes('elbioh')) || (userLower.includes('didi') && ownerLower.includes('didi'));
+        });
         const primaryBoard = myBoards[0] || next.boards[0];
         if (primaryBoard) {
+          const myBoardIds = new Set(myBoards.map((b) => b.id));
           saveUserBoardToCloud(currentUserProfile.id, {
             board: primaryBoard,
-            boards: isElbioh ? next.boards : (myBoards.length > 0 ? myBoards : [primaryBoard]),
-            lists: isElbioh ? next.lists : next.lists.filter((l) => l.boardId === primaryBoard.id),
-            cards: isElbioh ? next.cards : next.cards.filter((c) => c.boardId === primaryBoard.id),
+            boards: myBoards,
+            lists: next.lists.filter((l) => myBoardIds.has(l.boardId)),
+            cards: next.cards.filter((c) => myBoardIds.has(c.boardId)),
             customLabels: next.customLabels,
             tagColors: next.tagColors,
           });
@@ -1417,7 +1491,7 @@ export function App() {
 
   const isDraggingAnything = Boolean(draggedCardId || draggedListId);
   const appBrandName = window.neonDesktop?.brandName || 'NEON';
-  const appVersion = window.neonDesktop?.version || '1.2.6';
+  const appVersion = window.neonDesktop?.version || '1.2.7';
 
   if (isCheckingAuth) {
     return (

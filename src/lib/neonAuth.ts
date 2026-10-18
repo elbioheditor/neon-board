@@ -3,6 +3,7 @@ import { DEFAULT_SUPABASE_URL, DEFAULT_SUPABASE_ANON_KEY, getSavedCloudConfig } 
 import { UserProfile, Friendship, Board, BoardList, TaskCard, CustomLabel, TagColorItem } from '../types';
 import { DEFAULT_CUSTOM_LABELS, DEFAULT_TAG_COLORS } from '../data/initialData';
 import { getYesterdayIsoDate, getTodayIsoDate, addDaysToIsoDate } from '../utils/timeUtils';
+import backupState from '../data/backup_neon_sync_state.json';
 
 let authClient: SupabaseClient | null = null;
 
@@ -392,3 +393,32 @@ export function createNewUserBoardState(username: string): UserBoardPayload {
     tagColors: DEFAULT_TAG_COLORS,
   };
 }
+
+export function getDidiStarterBoardState(username: string): UserBoardPayload {
+  const didiBoardRaw = (backupState.boards as any[]).find((b: any) => b.owner === 'Didi') || {
+    id: 'didi-board',
+    name: "Didi's Board",
+    owner: 'Didi',
+    accentTo: '#a855f7',
+    subtitle: 'Organização de Rotina & Projetos',
+    accentFrom: '#06b6d4',
+  };
+  const didiLists = (backupState.lists as any[]).filter((l: any) => l.boardId === 'didi-board');
+  const didiCards = (backupState.cards as any[]).filter((c: any) => c.boardId === 'didi-board');
+
+  const board: Board = {
+    ...didiBoardRaw,
+    name: `${username}'s Board`,
+    owner: username,
+  };
+
+  return {
+    board,
+    boards: [board],
+    lists: didiLists as BoardList[],
+    cards: didiCards as TaskCard[],
+    customLabels: (backupState.customLabels as CustomLabel[]) || DEFAULT_CUSTOM_LABELS,
+    tagColors: (backupState.tagColors as TagColorItem[]) || DEFAULT_TAG_COLORS,
+  };
+}
+
