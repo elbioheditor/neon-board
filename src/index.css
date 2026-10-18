@@ -16,6 +16,13 @@
   h1, h2, h3, .font-display {
     font-family: 'Space Grotesk', 'Inter', sans-serif;
   }
+
+  button:not(:disabled),
+  [role="button"],
+  select,
+  input[type="date"] {
+    cursor: pointer;
+  }
 }
 
 /* Custom Neon Scrollbars */

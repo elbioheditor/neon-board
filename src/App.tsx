@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import {
   Search,
@@ -11,7 +11,6 @@ import {
   X,
   CheckCircle2,
   RotateCcw,
-  Users,
   Zap,
   Timer,
   GripVertical,
@@ -155,6 +154,10 @@ export function App() {
   const [draggedListId, setDraggedListId] = useState<string | null>(null);
   const [dragOverListId, setDragOverListId] = useState<string | null>(null);
   const [dragOverBoardId, setDragOverBoardId] = useState<string | null>(null);
+  const [hoverSwitchingBoardId, setHoverSwitchingBoardId] = useState<
+    string | null
+  >(null);
+  const boardHoverTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [dragOverBottomAction, setDragOverBottomAction] = useState<
     'complete' | 'delete' | null
   >(null);
@@ -283,12 +286,6 @@ export function App() {
     [state.boards, state.activeBoardId]
   );
 
-  const otherBoard = useMemo(
-    () =>
-      state.boards.find((b) => b.id !== activeBoard.id) || state.boards[0],
-    [state.boards, activeBoard.id]
-  );
-
   const boardLists = useMemo(
     () =>
       state.lists
@@ -398,12 +395,6 @@ export function App() {
         cards: prev.cards.filter((c) => c.boardId !== boardId),
       };
     });
-  };
-
-  const handleSwitchNextBoard = () => {
-    const idx = state.boards.findIndex((b) => b.id === activeBoard.id);
-    const nextBoard = state.boards[(idx + 1) % state.boards.length];
-    handleSelectBoard(nextBoard.id);
   };
 
   const fireNeonConfetti = () => {
@@ -538,8 +529,23 @@ export function App() {
     }));
   };
 
+  const handleCancelAddCardInline = () => {
+    setAddingToListId(null);
+    setNewCardTitle('');
+    setNewCardTag('');
+    setNewCardStart('09:00');
+    setNewCardEnd('10:00');
+    setNewCardLabel('purple');
+    setNewCardRecurrence(DEFAULT_RECURRENCE_CONFIG);
+  };
+
   const handleOpenAddInline = (listId: string, listTitle: string) => {
     setAddingToListId(listId);
+    setNewCardTitle('');
+    setNewCardTag('');
+    setNewCardStart('09:00');
+    setNewCardEnd('10:00');
+    setNewCardLabel('purple');
     setNewCardRecurrence(DEFAULT_RECURRENCE_CONFIG);
     if (isYesterdayListTitle(listTitle)) {
       setNewCardDate(getYesterdayIsoDate());
@@ -582,10 +588,7 @@ export function App() {
       cards: [...prev.cards, ...newCards],
     }));
 
-    setNewCardTitle('');
-    setNewCardTag('');
-    setNewCardRecurrence(DEFAULT_RECURRENCE_CONFIG);
-    setAddingToListId(null);
+    handleCancelAddCardInline();
   };
 
   const handleAddCardFromCalendar = (
@@ -620,6 +623,33 @@ export function App() {
       ...prev,
       cards: [...newCards, ...prev.cards],
     }));
+  };
+
+  const handleMoveCardToDate = (cardId: string, targetIsoDate: string) => {
+    updateState((prev) => {
+      const card = prev.cards.find((c) => c.id === cardId);
+      if (!card) return prev;
+      const bLists = prev.lists.filter((l) => l.boardId === card.boardId);
+      const currentList = bLists.find((l) => l.id === card.listId);
+      const isCustom =
+        currentList && !isStandardDateSyncedList(currentList.title);
+      const nextListId = isCustom
+        ? card.listId
+        : resolveSyncedListIdForDate(targetIsoDate, bLists) || card.listId;
+
+      return {
+        ...prev,
+        cards: prev.cards.map((c) =>
+          c.id === cardId
+            ? {
+                ...c,
+                scheduledDate: targetIsoDate,
+                listId: nextListId,
+              }
+            : c
+        ),
+      };
+    });
   };
 
   const handleAddList = (e: React.FormEvent) => {
@@ -674,12 +704,29 @@ export function App() {
   };
 
   const handleClearDragState = () => {
+    if (boardHoverTimerRef.current) {
+      clearTimeout(boardHoverTimerRef.current);
+      boardHoverTimerRef.current = null;
+    }
+    setHoverSwitchingBoardId(null);
     setDraggedCardId(null);
     setDraggedListId(null);
     setDragOverListId(null);
     setDragOverBoardId(null);
     setDragOverBottomAction(null);
   };
+
+  useEffect(() => {
+    const handleGlobalDragEnd = () => {
+      handleClearDragState();
+    };
+    window.addEventListener('dragend', handleGlobalDragEnd);
+    window.addEventListener('drop', handleGlobalDragEnd);
+    return () => {
+      window.removeEventListener('dragend', handleGlobalDragEnd);
+      window.removeEventListener('drop', handleGlobalDragEnd);
+    };
+  }, []);
 
   const handleDropCompleteCard = (e: React.DragEvent) => {
     e.preventDefault();
@@ -750,7 +797,10 @@ export function App() {
 
     if (!activeCardId) return;
 
-    const targetList = boardLists.find((l) => l.id === targetListId);
+    const targetList = state.lists.find((l) => l.id === targetListId);
+    const targetBoard = targetList
+      ? state.boards.find((b) => b.id === targetList.boardId)
+      : null;
     const targetTitle = targetList?.title || '';
 
     updateState((prev) => {
@@ -776,6 +826,8 @@ export function App() {
           }
           return {
             ...c,
+            boardId: targetList ? targetList.boardId : c.boardId,
+            assignee: targetBoard ? targetBoard.owner : c.assignee,
             listId: targetListId,
             scheduledDate: nextDate,
             order: targetCards.length,
@@ -991,7 +1043,7 @@ export function App() {
 
   const isDraggingAnything = Boolean(draggedCardId || draggedListId);
   const appBrandName = window.neonDesktop?.brandName || 'NEON';
-  const appVersion = window.neonDesktop?.version || '1.0.5';
+  const appVersion = window.neonDesktop?.version || '1.0.6';
 
   return (
     <div className="relative w-screen h-screen flex flex-col bg-[#07050d] text-slate-100 overflow-hidden select-none">
@@ -1031,15 +1083,44 @@ export function App() {
                     onDragOver={(e) => {
                       if (b.id !== activeBoard.id) {
                         e.preventDefault();
-                        setDragOverBoardId(b.id);
+                        if (dragOverBoardId !== b.id) {
+                          setDragOverBoardId(b.id);
+                        }
+                        if (hoverSwitchingBoardId !== b.id) {
+                          if (boardHoverTimerRef.current) {
+                            clearTimeout(boardHoverTimerRef.current);
+                          }
+                          setHoverSwitchingBoardId(b.id);
+                          boardHoverTimerRef.current = setTimeout(() => {
+                            handleSelectBoard(b.id);
+                            setHoverSwitchingBoardId(null);
+                            setDragOverBoardId(null);
+                          }, 800);
+                        }
                       }
                     }}
                     onDragLeave={() => {
                       if (dragOverBoardId === b.id) setDragOverBoardId(null);
+                      if (hoverSwitchingBoardId === b.id) {
+                        if (boardHoverTimerRef.current) {
+                          clearTimeout(boardHoverTimerRef.current);
+                          boardHoverTimerRef.current = null;
+                        }
+                        setHoverSwitchingBoardId(null);
+                      }
                     }}
-                    onDrop={(e) => handleDropOnBoard(e, b.id)}
+                    onDrop={(e) => {
+                      if (boardHoverTimerRef.current) {
+                        clearTimeout(boardHoverTimerRef.current);
+                        boardHoverTimerRef.current = null;
+                      }
+                      setHoverSwitchingBoardId(null);
+                      handleDropOnBoard(e, b.id);
+                    }}
                     className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      isDropTarget
+                      hoverSwitchingBoardId === b.id
+                        ? 'bg-gradient-to-r from-cyan-400 via-fuchsia-500 to-purple-600 text-white ring-2 ring-cyan-300 scale-105 shadow-xl shadow-cyan-400/60 animate-pulse'
+                        : isDropTarget
                         ? 'bg-gradient-to-r from-cyan-400 to-fuchsia-500 text-white ring-2 ring-cyan-300 scale-105 shadow-lg shadow-cyan-400/50'
                         : isSelected
                         ? b.owner === 'Elbioh'
@@ -1062,7 +1143,9 @@ export function App() {
                     <span>{b.name}</span>
                     {isDraggingAnything && !isSelected && (
                       <span className="text-[10px] px-1.5 py-0.2 rounded bg-cyan-400/25 text-cyan-200 font-extrabold">
-                        Soltar aqui ↗
+                        {hoverSwitchingBoardId === b.id
+                          ? 'Trocando (0.8s)...'
+                          : 'Soltar aqui ↗'}
                       </span>
                     )}
                   </button>
@@ -1216,7 +1299,9 @@ export function App() {
           <div
             onDragOver={(e) => {
               e.preventDefault();
-              setDragOverBottomAction('complete');
+              if (dragOverBottomAction !== 'complete') {
+                setDragOverBottomAction('complete');
+              }
             }}
             onDragLeave={() => {
               if (dragOverBottomAction === 'complete') {
@@ -1224,14 +1309,14 @@ export function App() {
               }
             }}
             onDrop={handleDropCompleteCard}
-            className={`flex-1 flex items-center justify-center gap-3.5 px-8 border-t-2 transition-all duration-200 backdrop-blur-2xl cursor-pointer ${
+            className={`flex-1 flex items-center justify-center gap-3.5 px-8 border-t-2 backdrop-blur-2xl cursor-pointer ${
               dragOverBottomAction === 'complete'
-                ? 'bg-gradient-to-t from-emerald-500/95 via-emerald-500/80 to-emerald-400/50 border-emerald-200 text-slate-950 shadow-[0_-15px_50px_rgba(16,185,129,0.55)]'
+                ? 'bg-gradient-to-t from-emerald-500/95 via-emerald-500/80 to-emerald-400/50 border-emerald-200 text-slate-950 shadow-[0_-15px_50px_rgba(16,185,129,0.7)]'
                 : 'bg-gradient-to-t from-emerald-950/95 via-emerald-900/80 to-emerald-800/45 border-emerald-400/70 text-emerald-100 hover:from-emerald-900/95'
             }`}
           >
             <CheckCircle2
-              className={`w-7 h-7 flex-shrink-0 transition-transform ${
+              className={`w-7 h-7 flex-shrink-0 ${
                 dragOverBottomAction === 'complete'
                   ? 'text-slate-950 scale-125'
                   : 'text-emerald-400 animate-pulse'
@@ -1263,7 +1348,9 @@ export function App() {
           <div
             onDragOver={(e) => {
               e.preventDefault();
-              setDragOverBottomAction('delete');
+              if (dragOverBottomAction !== 'delete') {
+                setDragOverBottomAction('delete');
+              }
             }}
             onDragLeave={() => {
               if (dragOverBottomAction === 'delete') {
@@ -1271,14 +1358,14 @@ export function App() {
               }
             }}
             onDrop={handleDropDeleteCard}
-            className={`w-72 sm:w-80 flex-shrink-0 flex items-center justify-center gap-3 px-6 border-t-2 border-l-2 transition-all duration-200 backdrop-blur-2xl cursor-pointer ${
+            className={`w-72 sm:w-80 flex-shrink-0 flex items-center justify-center gap-3 px-6 border-t-2 border-l-2 backdrop-blur-2xl cursor-pointer ${
               dragOverBottomAction === 'delete'
-                ? 'bg-gradient-to-t from-rose-500/95 via-rose-500/80 to-rose-400/50 border-rose-200 text-white shadow-[0_-15px_50px_rgba(244,63,94,0.6)]'
+                ? 'bg-gradient-to-t from-rose-500/95 via-rose-500/80 to-rose-400/50 border-rose-200 text-white shadow-[0_-15px_50px_rgba(244,63,94,0.7)]'
                 : 'bg-gradient-to-t from-rose-950/95 via-rose-900/80 to-rose-800/45 border-rose-500/70 text-rose-100 hover:from-rose-900/95'
             }`}
           >
             <Trash2
-              className={`w-6 h-6 flex-shrink-0 transition-transform ${
+              className={`w-6 h-6 flex-shrink-0 ${
                 dragOverBottomAction === 'delete'
                   ? 'text-white scale-125'
                   : 'text-rose-400'
@@ -1550,10 +1637,10 @@ export function App() {
 
                     {/* Inline Add Card Form */}
                     {addingToListId === list.id && (
-                      <div className="p-3 bg-[#0d091a]">
+                      <div className="p-2.5 bg-[#0d091a] border-t border-white/10 flex-shrink-0">
                         <form
                           onSubmit={(e) => handleAddCardInline(e, list.id)}
-                          className="p-3 rounded-xl bg-[#16102b] border border-cyan-400/50 space-y-2.5 shadow-lg"
+                          className="p-3 rounded-xl bg-[#16102b] border border-cyan-400/50 space-y-2.5 shadow-lg min-w-0"
                         >
                           <input
                             type="text"
@@ -1599,57 +1686,56 @@ export function App() {
                             />
                           </div>
 
-                          {/* Color Dots + Rotina Button + Action Buttons */}
+                          {/* Line 1: Color Dots (Left) + Rotina Button (Right of Colors) */}
                           <div className="flex items-center justify-between gap-1.5 pt-1">
                             <div className="flex items-center gap-1.5">
-                              <div className="flex items-center gap-1">
-                                {(
-                                  [
-                                    'purple',
-                                    'cyan',
-                                    'pink',
-                                    'green',
-                                    'yellow',
-                                    'orange',
-                                  ] as LabelColor[]
-                                ).map((col) => (
-                                  <button
-                                    key={col}
-                                    type="button"
-                                    onClick={() => setNewCardLabel(col)}
-                                    className={`w-3.5 h-3.5 rounded-full ${
-                                      LABEL_CONFIG[col].bg
-                                    } ${
-                                      newCardLabel === col
-                                        ? 'ring-2 ring-white scale-110'
-                                        : 'opacity-45'
-                                    }`}
-                                  />
-                                ))}
-                              </div>
-
-                              <RecurrenceButton
-                                config={newCardRecurrence}
-                                onChange={setNewCardRecurrence}
-                                compact
-                              />
+                              {(
+                                [
+                                  'purple',
+                                  'cyan',
+                                  'pink',
+                                  'green',
+                                  'yellow',
+                                  'orange',
+                                ] as LabelColor[]
+                              ).map((col) => (
+                                <button
+                                  key={col}
+                                  type="button"
+                                  onClick={() => setNewCardLabel(col)}
+                                  className={`w-4 h-4 rounded-full cursor-pointer ${
+                                    LABEL_CONFIG[col].bg
+                                  } ${
+                                    newCardLabel === col
+                                      ? 'ring-2 ring-white scale-110'
+                                      : 'opacity-45 hover:opacity-85'
+                                  }`}
+                                />
+                              ))}
                             </div>
 
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => setAddingToListId(null)}
-                                className="px-1.5 py-1 rounded-lg text-[11px] text-slate-400 hover:text-white cursor-pointer"
-                              >
-                                Cancelar
-                              </button>
-                              <button
-                                type="submit"
-                                className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-gradient-to-r from-fuchsia-600 to-cyan-500 text-white shadow-md shadow-cyan-500/20 cursor-pointer"
-                              >
-                                Adicionar
-                              </button>
-                            </div>
+                            <RecurrenceButton
+                              config={newCardRecurrence}
+                              onChange={setNewCardRecurrence}
+                              compact
+                            />
+                          </div>
+
+                          {/* Line 2: Action Buttons (Cancelar em Vermelho + Adicionar em Destaque) */}
+                          <div className="flex items-center justify-end gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={handleCancelAddCardInline}
+                              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-rose-500/20 hover:bg-rose-500/35 border border-rose-500/40 text-rose-300 hover:text-white cursor-pointer transition-colors"
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              type="submit"
+                              className="px-4 py-1.5 rounded-lg text-xs font-bold bg-gradient-to-r from-fuchsia-600 to-cyan-500 text-white shadow-md shadow-cyan-500/25 hover:opacity-95 cursor-pointer transition-opacity"
+                            >
+                              Adicionar
+                            </button>
                           </div>
 
                           {/* Recurrence Options Panel (when Rotina is toggled) */}
@@ -1734,6 +1820,9 @@ export function App() {
             onToggleTimer={handleToggleTimer}
             onCompleteCard={handleCompleteCard}
             onAddCardForDate={handleAddCardFromCalendar}
+            onCardDragStart={handleCardDragStart}
+            onCardDragEnd={handleClearDragState}
+            onMoveCardToDate={handleMoveCardToDate}
           />
         )}
 
@@ -1819,30 +1908,6 @@ export function App() {
           >
             {currentMonthCompletedCount}
           </span>
-        </button>
-
-        <div className="h-5 w-[1px] bg-white/10 mx-1 flex-shrink-0" />
-
-        <button
-          type="button"
-          onClick={handleSwitchNextBoard}
-          onDragOver={(e) => {
-            if (otherBoard) {
-              e.preventDefault();
-              setDragOverBoardId(otherBoard.id);
-            }
-          }}
-          onDragLeave={() => setDragOverBoardId(null)}
-          onDrop={(e) => otherBoard && handleDropOnBoard(e, otherBoard.id)}
-          title="Alternar entre Elbioh's Board e Didi's Board (ou arraste uma tarefa/lista aqui)"
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer whitespace-nowrap ${
-            isDraggingAnything && dragOverBoardId === otherBoard?.id
-              ? 'bg-gradient-to-r from-cyan-400 to-fuchsia-500 text-white border-white scale-105'
-              : 'text-cyan-300 hover:bg-cyan-500/15 border-cyan-500/25'
-          }`}
-        >
-          <Users className="w-4 h-4 flex-shrink-0" />
-          <span>Switch boards</span>
         </button>
       </nav>
 

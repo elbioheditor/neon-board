@@ -56,6 +56,9 @@ interface CalendarViewProps {
     categoryTag: string,
     recurrence?: RecurrenceConfig
   ) => void;
+  onCardDragStart?: (e: React.DragEvent, cardId: string) => void;
+  onCardDragEnd?: () => void;
+  onMoveCardToDate?: (cardId: string, targetIsoDate: string) => void;
 }
 
 const MONTH_NAMES = [
@@ -98,6 +101,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   onToggleTimer,
   onCompleteCard,
   onAddCardForDate,
+  onCardDragStart,
+  onCardDragEnd,
+  onMoveCardToDate,
 }) => {
   const todayIso = getTodayIsoDate();
   const initialDate = getBrasiliaNow();
@@ -105,6 +111,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   const [viewYear, setViewYear] = useState<number>(initialDate.getFullYear());
   const [viewMonth, setViewMonth] = useState<number>(initialDate.getMonth()); // 0..11
   const [selectedDateIso, setSelectedDateIso] = useState<string>(todayIso);
+  const [dragOverCellIso, setDragOverCellIso] = useState<string | null>(null);
 
   // Quick Add Task State for the selected day
   const [newTitle, setNewTitle] = useState('');
@@ -334,8 +341,37 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 <div
                   key={cell.iso}
                   onClick={() => setSelectedDateIso(cell.iso!)}
+                  onDragOver={(e) => {
+                    if (cell.iso) {
+                      e.preventDefault();
+                      if (dragOverCellIso !== cell.iso) {
+                        setDragOverCellIso(cell.iso);
+                      }
+                    }
+                  }}
+                  onDragLeave={() => {
+                    if (dragOverCellIso === cell.iso) {
+                      setDragOverCellIso(null);
+                    }
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragOverCellIso(null);
+                    const rawData = e.dataTransfer.getData('text/plain') || '';
+                    const cardId = rawData.startsWith('card:')
+                      ? rawData.replace('card:', '')
+                      : '';
+                    if (cardId && cell.iso && onMoveCardToDate) {
+                      onMoveCardToDate(cardId, cell.iso);
+                    }
+                    if (onCardDragEnd) {
+                      onCardDragEnd();
+                    }
+                  }}
                   className={`h-24 rounded-xl p-2 flex flex-col justify-between cursor-pointer transition-all border overflow-hidden ${
-                    isSelected
+                    dragOverCellIso === cell.iso
+                      ? 'bg-[#1f1545] border-cyan-400 ring-2 ring-cyan-400/60 shadow-lg shadow-cyan-400/40 scale-[1.02]'
+                      : isSelected
                       ? 'bg-[#1b1236] border-cyan-400 ring-2 ring-cyan-400/30 shadow-lg shadow-cyan-500/15'
                       : isToday
                       ? 'bg-[#160f2c] border-fuchsia-500/60 hover:border-cyan-400/60'
@@ -372,7 +408,16 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     {dayTasks.slice(0, 2).map((t) => (
                       <div
                         key={t.id}
-                        className="flex items-center gap-1 text-[10px] truncate px-1.5 py-0.5 rounded bg-[#090612]/90 text-slate-200 border border-white/5"
+                        draggable
+                        onDragStart={(e) => {
+                          e.stopPropagation();
+                          e.dataTransfer.setData('text/plain', `card:${t.id}`);
+                          if (onCardDragStart) onCardDragStart(e, t.id);
+                        }}
+                        onDragEnd={() => {
+                          if (onCardDragEnd) onCardDragEnd();
+                        }}
+                        className="flex items-center gap-1 text-[10px] truncate px-1.5 py-0.5 rounded bg-[#090612]/90 text-slate-200 border border-white/5 cursor-grab active:cursor-grabbing hover:border-cyan-400/40 transition-colors"
                       >
                         <span
                           className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
@@ -454,10 +499,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                       key={col}
                       type="button"
                       onClick={() => setNewLabel(col)}
-                      className={`w-4 h-4 rounded-full ${LABEL_CONFIG[col].bg} ${
+                      className={`w-4 h-4 rounded-full cursor-pointer ${LABEL_CONFIG[col].bg} ${
                         newLabel === col
                           ? 'ring-2 ring-white scale-110'
-                          : 'opacity-45'
+                          : 'opacity-45 hover:opacity-85'
                       }`}
                     />
                   ))}
@@ -501,8 +546,16 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 return (
                   <div
                     key={card.id}
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('text/plain', `card:${card.id}`);
+                      if (onCardDragStart) onCardDragStart(e, card.id);
+                    }}
+                    onDragEnd={() => {
+                      if (onCardDragEnd) onCardDragEnd();
+                    }}
                     onClick={() => onOpenModal(card)}
-                    className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
+                    className={`p-3.5 rounded-xl border transition-all cursor-grab active:cursor-grabbing ${
                       periodStyle.cardBgClass
                     } ${isInProgress ? 'neon-card-active' : ''}`}
                   >
