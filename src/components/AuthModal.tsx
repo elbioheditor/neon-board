@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Lock, Mail, User, Sparkles, AlertCircle, LogIn, UserPlus } from 'lucide-react';
+import { X, Lock, User, Sparkles, AlertCircle, LogIn, UserPlus } from 'lucide-react';
 import { signInUser, signUpUser, setRememberMePreference } from '../lib/neonAuth';
 import { UserProfile } from '../types';
 
@@ -17,9 +17,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   isMandatory = false,
 }) => {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [avatarColor, setAvatarColor] = useState('#a855f7');
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -37,14 +36,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setLoading(true);
 
     try {
-      if (mode === 'signup') {
-        if (!username.trim()) {
-          setErrorMessage('Por favor, informe seu nome de exibição.');
-          setLoading(false);
-          return;
-        }
+      if (!username.trim()) {
+        setErrorMessage('Por favor, informe seu nome de usuário.');
+        setLoading(false);
+        return;
+      }
 
-        const res = await signUpUser(email, password, username, avatarColor);
+      if (mode === 'signup') {
+        const res = await signUpUser(username, password, avatarColor);
         if (res.error) {
           setErrorMessage(res.error);
         } else if (res.profile) {
@@ -56,7 +55,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           setMode('signin');
         }
       } else {
-        const res = await signInUser(email, password);
+        const res = await signInUser(username, password);
         if (res.error) {
           setErrorMessage(res.error);
         } else if (res.profile) {
@@ -159,22 +158,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-3.5 relative z-10">
-          {mode === 'signup' && (
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Seu Nome / Apelido</label>
-              <div className="relative">
-                <User className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-                <input
-                  type="text"
-                  required
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Ex: Elbioh, Didi, Marcos..."
-                  className="w-full pl-9 pr-3 py-2 bg-[#05030a] border border-white/15 focus:border-cyan-400 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none transition-colors"
-                />
-              </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">
+              {mode === 'signup' ? 'Escolha seu Nome de Usuário' : 'Nome de Usuário'}
+            </label>
+            <div className="relative">
+              <User className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                required
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder={mode === 'signup' ? 'Ex: Elbioh, Didi, Marcos...' : 'Seu nome de usuário'}
+                className="w-full pl-9 pr-3 py-2 bg-[#05030a] border border-white/15 focus:border-cyan-400 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none transition-colors"
+              />
+            </div>
 
-              {/* Avatar color picker */}
+            {mode === 'signup' && (
               <div className="flex items-center gap-2 mt-2">
                 <span className="text-[11px] text-slate-400">Cor do seu avatar:</span>
                 <div className="flex items-center gap-1.5">
@@ -191,22 +191,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   ))}
                 </div>
               </div>
-            </div>
-          )}
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">E-mail</label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="seuemail@exemplo.com"
-                className="w-full pl-9 pr-3 py-2 bg-[#05030a] border border-white/15 focus:border-cyan-400 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none transition-colors"
-              />
-            </div>
+            )}
           </div>
 
           <div>

@@ -65,22 +65,44 @@ export function generateFriendCode(username: string): string {
   return `${clean}#${rand}`;
 }
 
+export function usernameToAuthEmail(username: string): string {
+  const clean = username.trim().toLowerCase().replace(/[^a-z0-9_.-]/g, '');
+  return `${clean || 'user'}@neon.app`;
+}
+
+export function resolveAuthEmail(input: string): string {
+  const trimmed = input.trim();
+  if (trimmed.includes('@')) {
+    return trimmed.toLowerCase();
+  }
+  const clean = trimmed.toLowerCase().replace(/[^a-z0-9_.-]/g, '');
+  return `${clean || 'user'}@neon.app`;
+}
+
 export async function signUpUser(
-  email: string,
-  pass: string,
   username: string,
+  pass: string,
   avatarColor: string = '#a855f7'
 ): Promise<{ user: User | null; profile: UserProfile | null; error?: string }> {
   const client = getSupabaseAuthClient();
-  const trimmedEmail = email.trim();
   const trimmedName = username.trim() || 'Usuário';
+  const email = usernameToAuthEmail(trimmedName);
 
   const { data, error } = await client.auth.signUp({
-    email: trimmedEmail,
+    email,
     password: pass,
+    options: {
+      data: {
+        username: trimmedName,
+        avatar_color: avatarColor,
+      },
+    },
   });
 
   if (error) {
+    if (error.message.toLowerCase().includes('already registered')) {
+      return { user: null, profile: null, error: 'Este nome de usuário já foi criado. Use a aba "Entrar"!' };
+    }
     return { user: null, profile: null, error: error.message };
   }
 
@@ -112,16 +134,28 @@ export async function signUpUser(
 }
 
 export async function signInUser(
-  email: string,
+  usernameOrEmail: string,
   pass: string
 ): Promise<{ user: User | null; profile: UserProfile | null; error?: string }> {
   const client = getSupabaseAuthClient();
+  const email = resolveAuthEmail(usernameOrEmail);
+
   const { data, error } = await client.auth.signInWithPassword({
-    email: email.trim(),
+    email,
     password: pass,
   });
 
   if (error) {
+    if (error.message.toLowerCase().includes('email not confirmed')) {
+      return {
+        user: null,
+        profile: null,
+        error: 'Confirmação pendente no Supabase! Desative "Confirm email" no painel do Supabase (Authentication > Providers > Email).'
+      };
+    }
+    if (error.message.toLowerCase().includes('invalid login credentials')) {
+      return { user: null, profile: null, error: 'Nome de usuário ou senha incorretos.' };
+    }
     return { user: null, profile: null, error: error.message };
   }
 
@@ -129,7 +163,24 @@ export async function signInUser(
     return { user: null, profile: null, error: 'Usuário não encontrado.' };
   }
 
-  const profile = await fetchUserProfile(data.user.id);
+  let profile = await fetchUserProfile(data.user.id);
+  if (!profile) {
+    const username = data.user.user_metadata?.username || usernameOrEmail.split('@')[0];
+    profile = {
+      id: data.user.id,
+      username,
+      friendCode: generateFriendCode(username),
+      avatarColor: data.user.user_metadata?.avatar_color || '#a855f7',
+      createdAt: new Date().toISOString(),
+    };
+    await client.from('profiles').upsert({
+      id: profile.id,
+      username: profile.username,
+      friend_code: profile.friendCode,
+      avatar_color: profile.avatarColor,
+    });
+  }
+
   return { user: data.user, profile };
 }
 
