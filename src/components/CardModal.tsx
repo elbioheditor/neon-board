@@ -355,30 +355,20 @@ export const CardModal: React.FC<CardModalProps> = ({
             </div>
           </div>
 
-          {/* Responsável & Tag & Data Sincronizada */}
+          {/* Criador & Categoria */}
           <div className="p-3.5 rounded-xl bg-[#140d26] border border-purple-500/20 space-y-3">
             <div>
               <div className="flex items-center gap-2 text-xs font-semibold text-purple-300 uppercase tracking-wider mb-1.5">
                 <UserCheck className="w-4 h-4 text-purple-400" />
-                <span>Responsável & Categoria</span>
+                <span>Criador da Tarefa</span>
               </div>
               <div className="flex items-center gap-2">
-                {(['Elbioh', 'Didi'] as const).map((person) => (
-                  <button
-                    key={person}
-                    type="button"
-                    onClick={() => saveField({ assignee: person })}
-                    className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
-                      card.assignee === person
-                        ? person === 'Elbioh'
-                          ? 'bg-fuchsia-600/30 border-fuchsia-400 text-fuchsia-200'
-                          : 'bg-cyan-600/30 border-cyan-400 text-cyan-200'
-                        : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    {person}
-                  </button>
-                ))}
+                <div className="flex items-center gap-2.5 py-1.5 px-3 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-300 w-full">
+                  <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-cyan-500 to-purple-600 text-white font-bold text-[10px] flex items-center justify-center shadow-sm shadow-cyan-500/20">
+                    {(card.assignee || 'U').slice(0, 2).toUpperCase()}
+                  </div>
+                  <span>Criado por: <strong className="text-white">{card.assignee || 'Você'}</strong></span>
+                </div>
               </div>
             </div>
 

@@ -894,7 +894,7 @@ export function App() {
       label: newCardLabels,
       categoryTag: newCardTag.trim() || undefined,
       tagColor: newCardTagColor || undefined,
-      assignee: activeBoard.owner,
+      assignee: currentUserProfile?.username || activeBoard.owner || 'Eu',
       baseOrder: activeBoardCards.length,
       recurrence: newCardRecurrence,
     });
@@ -932,7 +932,7 @@ export function App() {
       label: labels,
       categoryTag: categoryTag.trim() || undefined,
       tagColor: tagColor || undefined,
-      assignee: activeBoard.owner,
+      assignee: currentUserProfile?.username || activeBoard.owner || 'Eu',
       baseOrder: activeBoardCards.length,
       recurrence,
     });
@@ -1301,7 +1301,7 @@ export function App() {
           return {
             ...c,
             boardId: targetList ? targetList.boardId : c.boardId,
-            assignee: targetBoard ? targetBoard.owner : c.assignee,
+            assignee: c.assignee,
             listId: targetListId,
             scheduledDate: nextDate,
             order: targetCards.length,
@@ -1373,7 +1373,6 @@ export function App() {
                     ...c,
                     boardId: targetBoard.id,
                     listId: destListId || c.listId,
-                    assignee: targetBoard.owner,
                   }
                 : c
             ),
@@ -1436,7 +1435,6 @@ export function App() {
                       ...c,
                       boardId: targetBoard.id,
                       listId: matchingTargetList.id,
-                      assignee: targetBoard.owner,
                     }
                   : c
               ),
@@ -1474,7 +1472,6 @@ export function App() {
                 ? {
                     ...c,
                     boardId: targetBoard.id,
-                    assignee: targetBoard.owner,
                   }
                 : c
             ),

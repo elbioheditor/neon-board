@@ -292,16 +292,12 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
             )}
           </button>
 
-          {/* Assignee Avatar (Elbioh = EL, Didi = DI) */}
+          {/* Creator Avatar */}
           <div
-            title={`Responsável: ${card.assignee}`}
-            className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold tracking-tighter border ${
-              card.assignee === 'Elbioh'
-                ? 'bg-gradient-to-br from-fuchsia-600 to-purple-700 text-white border-fuchsia-400/50 shadow-sm shadow-fuchsia-500/30'
-                : 'bg-gradient-to-br from-cyan-500 to-blue-700 text-white border-cyan-300/50 shadow-sm shadow-cyan-500/30'
-            }`}
+            title={`Criado por: ${card.assignee || 'Você'}`}
+            className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold tracking-tighter border bg-gradient-to-br from-cyan-500 to-purple-600 text-white border-cyan-400/40 shadow-sm"
           >
-            {card.assignee === 'Elbioh' ? 'EL' : 'DI'}
+            {(card.assignee || 'U').slice(0, 2).toUpperCase()}
           </div>
         </div>
       </div>

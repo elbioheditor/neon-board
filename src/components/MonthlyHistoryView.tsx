@@ -352,13 +352,9 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
                         {/* Right: Owner + Restore / Delete */}
                         <div className="flex items-center gap-2">
                           <span
-                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
-                              card.assignee === 'Elbioh'
-                                ? 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-400/40'
-                                : 'bg-cyan-500/20 text-cyan-300 border-cyan-400/40'
-                            }`}
+                            className="px-2.5 py-0.5 rounded-full text-[10px] font-bold border bg-purple-500/20 text-purple-300 border-purple-400/40"
                           >
-                            {card.assignee}
+                            {card.assignee || 'Criador'}
                           </span>
 
                           <button
