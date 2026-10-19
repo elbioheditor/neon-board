@@ -238,6 +238,23 @@ export function App() {
       return false;
     }
   });
+  const [tutorialStepIndex, setTutorialStepIndex] = useState(0);
+
+  const notifyTutorialAction = (expectedStepId: number) => {
+    if (!isTutorialOpen) return;
+    // Step IDs are 1-indexed (1 to 16), so stepIndex is expectedStepId - 1
+    if (tutorialStepIndex === expectedStepId - 1) {
+      try {
+        confetti({
+          particleCount: 45,
+          spread: 60,
+          origin: { y: 0.15 },
+          colors: ['#22d3ee', '#d946ef', '#10b981'],
+        });
+      } catch {}
+      setTutorialStepIndex((prev) => Math.min(prev + 1, 15));
+    }
+  };
 
   const loadFriendsAndSyncBoards = async (profile: UserProfile, isNewSignup: boolean = false) => {
     try {
@@ -675,6 +692,7 @@ export function App() {
             timerStartedAt: undefined,
           };
         } else {
+          notifyTutorialAction(4);
           return {
             ...c,
             status: 'in_progress',
@@ -710,6 +728,7 @@ export function App() {
     const finalElapsed = getLiveElapsedSeconds(target, currentNow);
 
     fireNeonConfetti();
+    notifyTutorialAction(8);
 
     updateState((prev) => ({
       ...prev,
@@ -768,10 +787,14 @@ export function App() {
       const targetCard = prev.cards.find((c) => c.id === cardId);
       const groupId = targetCard?.recurrence?.groupId;
       if (groupId) {
+        notifyTutorialAction(12);
         return {
           ...prev,
           cards: prev.cards.filter((c) => c.recurrence?.groupId !== groupId),
         };
+      }
+      if (activeTab === 'history') {
+        notifyTutorialAction(15);
       }
       return {
         ...prev,
@@ -848,6 +871,12 @@ export function App() {
     }));
 
     handleCancelAddCardInline();
+
+    if (newCardRecurrence.enabled) {
+      notifyTutorialAction(9);
+    } else {
+      notifyTutorialAction(2);
+    }
   };
 
   const handleAddCardFromCalendar = (
@@ -1438,6 +1467,7 @@ export function App() {
             nextDate = getTodayIsoDate();
           } else if (isTomorrowListTitle(targetTitle)) {
             nextDate = getTomorrowIsoDate();
+            notifyTutorialAction(6);
           } else if (
             isWeekListTitle(targetTitle) &&
             nextDate <= getTomorrowIsoDate()
@@ -1661,7 +1691,7 @@ export function App() {
   const isDraggingAnything = Boolean(draggedCardId || draggedListId);
   const isDidiUser = Boolean(currentUserProfile?.username?.toLowerCase().includes('didi'));
   const appBrandName = isDidiUser ? 'SHADOWJOKER' : (window.neonDesktop?.brandName || 'NEON');
-  const appVersion = window.neonDesktop?.version || '1.3.8';
+  const appVersion = window.neonDesktop?.version || '1.3.9';
 
   if (isCheckingAuth || isSyncingUserData) {
     return (
@@ -2747,7 +2777,10 @@ export function App() {
               nowMs={nowMs}
               customLabels={state.customLabels}
               tagColors={state.tagColors}
-              onOpenModal={(c) => setSelectedCardId(c.id)}
+              onOpenModal={(c) => {
+                setSelectedCardId(c.id);
+                notifyTutorialAction(11);
+              }}
               onToggleTimer={handleToggleTimer}
               onResetTimer={handleResetTimer}
               onCompleteCard={handleCompleteCard}
@@ -2961,6 +2994,9 @@ export function App() {
         onClose={() => setIsTutorialOpen(false)}
         onTabChange={(tab) => setActiveTab(tab)}
         currentTab={activeTab}
+        stepIndex={tutorialStepIndex}
+        onStepIndexChange={setTutorialStepIndex}
+        isDraggingCard={Boolean(draggedCardId)}
       />
     </div>
   );

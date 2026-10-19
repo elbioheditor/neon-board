@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Lock, Mail, User, Sparkles, AlertCircle, LogIn, UserPlus } from 'lucide-react';
+import { X, Lock, Mail, User, Sparkles, AlertCircle, LogIn, UserPlus, Eye, EyeOff } from 'lucide-react';
 import { signInUser, signUpUser, setRememberMePreference } from '../lib/neonAuth';
 import { UserProfile } from '../types';
 
@@ -21,6 +21,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [avatarColor, setAvatarColor] = useState('#a855f7');
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -47,6 +50,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         if (!email.trim() || !email.includes('@')) {
           setErrorMessage('Por favor, informe um e-mail válido (obrigatório para cadastro).');
+          setLoading(false);
+          return;
+        }
+
+        if (password.length < 6) {
+          setErrorMessage('A senha deve ter pelo menos 6 caracteres.');
+          setLoading(false);
+          return;
+        }
+
+        if (password !== confirmPassword) {
+          setErrorMessage('As senhas não coincidem. Digite a mesma senha nos dois campos.');
           setLoading(false);
           return;
         }
@@ -249,16 +264,52 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <div className="relative">
               <Lock className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 required
                 minLength={6}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Mínimo de 6 caracteres"
-                className="w-full pl-9 pr-3 py-2 bg-[#05030a] border border-white/15 focus:border-cyan-400 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none transition-colors"
+                className="w-full pl-9 pr-10 py-2 bg-[#05030a] border border-white/15 focus:border-cyan-400 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none transition-colors"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-2.5 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                title={showPassword ? 'Ocultar senha' : 'Ver senha'}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           </div>
+
+          {mode === 'signup' && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                Confirmar Senha <span className="text-rose-400 font-bold">*</span>
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  required
+                  minLength={6}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Digite a mesma senha novamente"
+                  className="w-full pl-9 pr-10 py-2 bg-[#05030a] border border-white/15 focus:border-cyan-400 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none transition-colors"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-2.5 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                  title={showConfirmPassword ? 'Ocultar senha' : 'Ver senha'}
+                >
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Remember me for 60 days */}
           <div className="flex items-center justify-between pt-1 pb-1">
