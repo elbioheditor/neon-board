@@ -1661,7 +1661,7 @@ export function App() {
   const isDraggingAnything = Boolean(draggedCardId || draggedListId);
   const isDidiUser = Boolean(currentUserProfile?.username?.toLowerCase().includes('didi'));
   const appBrandName = isDidiUser ? 'SHADOWJOKER' : (window.neonDesktop?.brandName || 'NEON');
-  const appVersion = window.neonDesktop?.version || '1.3.7';
+  const appVersion = window.neonDesktop?.version || '1.3.8';
 
   if (isCheckingAuth || isSyncingUserData) {
     return (

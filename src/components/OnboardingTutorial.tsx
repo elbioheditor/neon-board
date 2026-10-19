@@ -21,6 +21,7 @@ import {
   ChevronLeft,
   X,
   Play,
+  Pause,
   Trash2,
   Target,
   ArrowRight,
@@ -98,17 +99,17 @@ const TUTORIAL_STEPS: StepItem[] = [
     title: 'Crie sua Primeira Tarefa no Board',
     subtitle: 'Adicione uma demanda prática na coluna Today',
     description:
-      'Agora é a sua vez! Vá até a coluna Today (Hoje), clique no botão "+ Adicionar tarefa", digite um título de teste (ex: "Minha Tarefa de Teste") e clique em Salvar.',
+      'Agora é a sua vez! Vá até a coluna Today, clique no botão "+ Add a card" no rodapé, digite o título da sua demanda (ex: "Minha Tarefa de Teste") e clique no botão "Adicionar".',
     icon: Plus,
     isMission: true,
     missionObjective:
-      'Clique no botão "+ Adicionar tarefa" na coluna Today e crie uma tarefa teste.',
+      'Clique no botão "+ Add a card" na coluna Today, digite o título e clique em "Adicionar".',
     missionTip:
-      'O formulário se expande na própria coluna inline com campos rápidos!',
+      'O formulário se expande na própria coluna com campos rápidos de horário, etiquetas e o botão Adicionar!',
     features: [
-      'Adição inline rápida sem sair da tela.',
-      'Nomeie a tarefa com o que quiser testar.',
-      'Ao salvar, ela aparece instantaneamente no topo do Today.',
+      'Clique no botão "+ Add a card" na base de qualquer coluna.',
+      'Digite o título da sua demanda no campo de texto.',
+      'Clique no botão "Adicionar" (ou pressione Enter) para criar o cartão.',
     ],
     previewType: 'inlineadd',
   },
@@ -122,13 +123,13 @@ const TUTORIAL_STEPS: StepItem[] = [
     title: 'Cronômetro de Foco em Tempo Real',
     subtitle: 'Rastreamento líquido para alimentar sua produtividade',
     description:
-      'Cada tarefa tem seu próprio cronômetro em tempo real com botão de Play e Pause. Você pode pausar, retomar ou resetar a qualquer momento. O tempo roda ao vivo, persiste se você fechar o app e alimenta o histórico mensal no Dale!',
+      'Cada cartão possui seu próprio botão "▶ INICIAR" para cronometrar seu tempo de foco em tempo real. Você pode pausar ("⏸ PAUSAR") ou retomar a qualquer momento. O tempo gravado persiste com segurança e alimenta a aba Dale!',
     icon: Timer,
     features: [
-      'Clique no Play no próprio card para começar a focar na hora.',
-      'Persistência em nuvem: seu tempo nunca é perdido.',
+      'Botão "▶ INICIAR" no cartão para começar a focar imediatamente.',
+      'Muda para "⏸ PAUSAR" com pulso neon ao vivo enquanto grava tempo.',
+      'Botão circular para zerar o cronômetro quando necessário.',
       'Alimenta o total de horas líquidas focadas na aba Dale.',
-      'Destaque com pulso neon enquanto estiver gravando tempo.',
     ],
     previewType: 'stopwatch',
   },
@@ -142,17 +143,17 @@ const TUTORIAL_STEPS: StepItem[] = [
     title: 'Cronometre sua Tarefa Teste',
     subtitle: 'Inicie a contagem de tempo de foco no seu cartão',
     description:
-      'Localize a tarefa que você acabou de criar na coluna Today e clique no botão de Play (▶). Veja os segundos começarem a correr ao vivo com pulso neon! Deixe rodar alguns segundos e pause.',
+      'Localize a tarefa que você acabou de criar na coluna Today e clique no botão "▶ INICIAR". Veja os segundos correrem ao vivo com o pulso neon! Deixe rodar alguns segundos e clique em "⏸ PAUSAR".',
     icon: Play,
     isMission: true,
     missionObjective:
-      'Dê Play (▶) no cronômetro da sua tarefa teste e veja os segundos rodando ao vivo.',
+      'Clique no botão "▶ INICIAR" no cartão da sua tarefa teste e veja os segundos rodando ao vivo.',
     missionTip:
       'O tempo gravado é somado automaticamente no painel Dale para auditar sua disciplina!',
     features: [
-      'Botão Play/Pause direto na face do card.',
-      'Cronômetro de segundos ao vivo.',
-      'Clique novamente no botão para pausar.',
+      'Botão "▶ INICIAR" / "⏸ PAUSAR" direto na face do card.',
+      'Cronômetro de segundos correndo em tempo real.',
+      'Clique em "⏸ PAUSAR" para interromper a gravação de tempo.',
     ],
     previewType: 'stopwatch',
   },
@@ -166,12 +167,12 @@ const TUTORIAL_STEPS: StepItem[] = [
     title: 'Labels de Prioridade, Tags & Horários 24h',
     subtitle: 'Classificação visual clara sem conflitos',
     description:
-      'Defina o nível de urgência com as Labels de Prioridade (Baixa, Média, Máxima) com exclusão mútua — nunca haverá tarefas com prioridade alta e baixa ao mesmo tempo! Configure também horários 24h para organizar seu dia em Manhã, Tarde e Noite.',
+      'Defina o nível de urgência com as Etiquetas de Prioridade ("Prioridade baixa", "Prioridade média", "Prioridade máxima") com exclusão mútua — nunca haverá conflito de prioridades! Configure horários 24h para organizar seu dia em Manhã, Tarde e Noite.',
     icon: Tag,
     features: [
-      'Exclusão Mútua: escolher uma prioridade desseleciona as outras.',
-      'Tags de Categoria no topo do card (ex: EDIÇÃO, YOUTUBE, CORTE).',
-      'Horários no formato rígido 24h (ex: 09:00 - 11:30).',
+      'Exclusão Mútua: Prioridade baixa (Azul), média (Amarelo) e máxima (Vermelho).',
+      'Tags de Categoria personalizadas no topo do card.',
+      'Horários no formato rígido 24h (ex: 10:00 - 11:00).',
       'Agrupamento cronológico automático por períodos do dia.',
     ],
     previewType: 'priority',
@@ -192,7 +193,7 @@ const TUTORIAL_STEPS: StepItem[] = [
     missionObjective:
       'Arraste sua tarefa teste da coluna "Today" para "Tomorrow" para reagendar.',
     missionTip:
-      'A data agendada do card é atualizada automaticamente para o dia de amanhã!',
+      'A data agendada do card é atualizada automaticamente para o dia seguinte!',
     features: [
       'Arraste fluido entre qualquer coluna do board.',
       'Atualização instantânea de data no calendário.',
@@ -207,14 +208,14 @@ const TUTORIAL_STEPS: StepItem[] = [
     phaseNumber: 1,
     phaseName: 'FASE 1: ABA BOARD (FINALIZAÇÃO & BARRA MÁGICA)',
     tab: 'board',
-    title: 'Drag & Drop & A Barra Mágica Inferior',
+    title: 'Finalização & Descarte por Arraste Inferior',
     subtitle: 'Mova tarefas com fluidez e conclua com festa de confetes',
     description:
-      'Quando você começa a arrastar qualquer card em direção à parte inferior da tela, a Barra Mágica aparece automaticamente: solte na zona verde para concluir com festa de confetes neon, ou na vermelha para excluir!',
+      'Quando você começa a arrastar qualquer cartão em direção à parte inferior da tela, a barra de ações surge automaticamente: solte na área verde ("Solte aqui para Finalizar Tarefa") para concluir com festa de confetes neon, ou na vermelha ("Lixeira") para descartar!',
     icon: Trophy,
     features: [
-      'Soltar no Troféu: conclusão imediata com chuva de confetes neon.',
-      'Soltar na Lixeira: exclusão rápida sem confirmações redundantes.',
+      'Área verde: "Solte aqui para Finalizar Tarefa" (conclusão com chuva de confetes neon).',
+      'Área vermelha: "Lixeira" (exclusão rápida sem confirmações redundantes).',
       'Persistência imediata com cálculo de horas no Dale.',
       'Feedback tátil e visual durante todo o movimento.',
     ],
@@ -228,17 +229,17 @@ const TUTORIAL_STEPS: StepItem[] = [
     phaseName: 'MISSÃO PRÁTICA 4/9',
     tab: 'board',
     title: 'Conclua a Tarefa Arrastando para Baixo',
-    subtitle: 'Solte no Troféu da Barra Mágica e curta a festa',
+    subtitle: 'Solte na área verde "Solte aqui para Finalizar Tarefa"',
     description:
-      'Pegue o seu card teste e arraste-o para baixo em direção ao rodapé. Veja a Barra Mágica surgir: solte o cartão na área verde "Solte para Concluir" e celebre com os confetes neon!',
+      'Pegue o seu card teste e arraste-o para baixo em direção ao rodapé. Veja surgir a área verde "Solte aqui para Finalizar Tarefa": solte o cartão nela e celebre com os confetes neon!',
     icon: CheckCircle2,
     isMission: true,
     missionObjective:
-      'Arraste sua tarefa teste até a Barra Mágica no rodapé e solte na área verde do Troféu.',
+      'Arraste sua tarefa teste até o rodapé e solte na área verde "Solte aqui para Finalizar Tarefa".',
     missionTip:
-      'Você também pode concluir tarefas pelo modal clicando em "Marcar como Concluída"!',
+      'Você também pode concluir tarefas pelo modal do card clicando em "Marcar como Concluída"!',
     features: [
-      'Aparecimento dinâmico da Barra Mágica ao arrastar.',
+      'Aparecimento dinâmico da barra inferior ao arrastar.',
       'Animação de celebração com confetes multicoloridos.',
       'A tarefa vai diretamente para o histórico de sucessos no Dale.',
     ],
@@ -254,15 +255,15 @@ const TUTORIAL_STEPS: StepItem[] = [
     title: 'Crie uma Tarefa de Rotina Recorrente',
     subtitle: 'Automatize dias da semana para o mês inteiro',
     description:
-      'Agora vamos criar uma rotina! Na coluna Today, clique em "+ Adicionar tarefa", clique no ícone de Repetir (Rotina), escolha "Dias da Semana" (ex: Segundas e Terças) e clique em Salvar.',
+      'Agora vamos criar uma rotina! Na coluna Today, clique no botão "+ Add a card", clique no botão "Rotina", selecione a aba "Dias da Semana" (ex: Seg e Ter), digite um título (ex: "Minha Rotina") e clique no botão "Adicionar".',
     icon: Repeat,
     isMission: true,
     missionObjective:
-      'Crie uma tarefa de rotina escolhendo dias da semana (ex: Seg e Ter) no formulário inline.',
+      'Clique em "+ Add a card", ative o botão "Rotina", marque os dias da semana (ex: Seg e Ter) e clique em "Adicionar".',
     missionTip:
-      'Ao salvar, o Neon vai preencher automaticamente todas as segundas e terças do mês dali para frente!',
+      'Ao adicionar, o Neon vai preencher automaticamente todas as segundas e terças do mês dali para frente!',
     features: [
-      'Motor de recorrência inteligente dali para frente.',
+      'Botão "Rotina" com abas: Dias da Semana, Por Dias e Específico.',
       'Preenchimento automático do mês no calendário.',
       'Garante que você nunca esqueça seus compromissos recorrentes.',
     ],
@@ -278,9 +279,10 @@ const TUTORIAL_STEPS: StepItem[] = [
     title: 'Visão Mensal em Grade & Navegação',
     subtitle: 'Visão panorâmica de todos os dias e compromissos do mês',
     description:
-      'A aba Calendário oferece uma visão geral do mês inteiro, distribuindo seus cards pelas datas reais de execução. Clicando em qualquer dia, você abre a gaveta de tarefas daquela data!',
+      'A aba Calendário (acessível pelo botão "Calendário" na barra inferior flutuante) oferece uma visão panorâmica do mês inteiro, distribuindo seus cards pelas datas reais de execução. Clicando em qualquer dia, você abre a gaveta de tarefas daquela data!',
     icon: Calendar,
     features: [
+      'Acesso direto pelo botão "Calendário" na barra inferior flutuante.',
       'Grade mensal completa com destaques no dia de hoje.',
       'Setas de navegação rápida de mês e ano.',
       'Totalizador de tarefas diárias em cada célula.',
@@ -346,9 +348,10 @@ const TUTORIAL_STEPS: StepItem[] = [
     title: 'A Filosofia Dale: Disciplina & Prestação de Contas',
     subtitle: 'O painel onde a sua evolução é comprovada em números',
     description:
-      'O "Dale" é o núcleo de comprovação de consistência do Neon. Aqui não há espaço para desculpas: cada tarefa concluída e cada minuto trabalhado no cronômetro são consolidados para comprovar a sua disciplina e a da sua dupla.',
+      'O "Dale" (acessível pelo botão "Dale" na barra inferior flutuante) é o núcleo de comprovação de consistência do Neon. Aqui não há espaço para desculpas: cada tarefa concluída e cada minuto trabalhado no cronômetro são consolidados para comprovar a sua disciplina e a da sua dupla.',
     icon: Zap,
     features: [
+      'Acesso direto pelo botão "Dale" na barra inferior flutuante.',
       'Foco em entrega real e metas batidas.',
       'Taxa de Conclusão (%) calculada automaticamente.',
       'Horas focadas líquidas somadas em tempo real.',
@@ -394,7 +397,7 @@ const TUTORIAL_STEPS: StepItem[] = [
     icon: Trash2,
     isMission: true,
     missionObjective:
-      'Clique no ícone de lixeira ao lado da tarefa teste no Dale para removê-la e limpar o histórico.',
+      'Clique no ícone de lixeira (🗑) ao lado da tarefa teste no Dale para removê-la e limpar o histórico.',
     missionTip:
       'Pronto! Seu ambiente agora está zerado e preparado para seu trabalho de verdade.',
     features: [
@@ -414,11 +417,11 @@ const TUTORIAL_STEPS: StepItem[] = [
     title: 'Você está Pronto! Bem-vindo ao Neon',
     subtitle: 'Domínio total das ferramentas de alta performance',
     description:
-      'Sensacional! Você agora domina 100% dos recursos do Neon: das 5 colunas dinâmicas aos cronômetros, rotinas em bloco, visualização no calendário mensal e métricas no Dale. Sempre que quiser rever este guia, basta clicar no botão de Ajuda (?) no topo da tela.',
+      'Sensacional! Você agora domina 100% dos recursos do Neon: das 5 colunas dinâmicas aos cronômetros com "▶ INICIAR", rotinas em bloco, visualização no calendário mensal e métricas no Dale. Sempre que quiser rever este guia, basta clicar no botão "Tutorial" no cabeçalho.',
     icon: Sparkles,
     features: [
       'Domínio completo de todas as abas e atalhos.',
-      'Botão permanente de Ajuda (?) no topo da tela.',
+      'Botão permanente "Tutorial" no topo da tela.',
       'Suas tarefas já estão organizadas no Board para você começar.',
       'Agora é com você: foco total e DALE!',
     ],
@@ -806,17 +809,17 @@ function VisualPreview({
             </div>
             <div>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                Cronômetro Ativo • Rodando
+                Cronômetro do Card • Ao Vivo
               </span>
               <span className="text-lg font-extrabold text-cyan-300 font-mono tracking-wider">
-                00:45:18
+                00:15:32
               </span>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="px-3 py-1.5 rounded-lg text-xs font-bold bg-cyan-500 text-slate-950 flex items-center gap-1.5 shadow-md shadow-cyan-500/30 tutorial-glow-btn">
-              <Play className="w-3.5 h-3.5 fill-slate-950" />
-              <span>Focando</span>
+            <span className="px-3 py-1.5 rounded-full text-[10px] font-bold bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 flex items-center gap-1 shadow-md shadow-amber-500/30 tutorial-glow-btn">
+              <Pause className="w-2.5 h-2.5 fill-current" />
+              <span>PAUSAR</span>
             </span>
           </div>
         </div>
@@ -899,16 +902,19 @@ function VisualPreview({
       return (
         <div className="p-3 rounded-xl bg-black/50 border border-white/15 text-center space-y-2">
           <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
-            Barra Mágica Inferior (ao arrastar um card para baixo)
+            Barra Inferior (ao arrastar um cartão para baixo)
           </div>
-          <div className="flex items-center justify-center gap-4">
+          <div className="flex items-center justify-center gap-3">
             <div className="flex-1 p-2.5 rounded-xl bg-emerald-500/20 border-2 border-emerald-400 text-emerald-300 font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 tutorial-glow-btn">
-              <Trophy className="w-4 h-4 text-emerald-300" />
-              <span>Solte para Concluir (Confetes!)</span>
+              <CheckCircle2 className="w-4 h-4 text-emerald-300 flex-shrink-0" />
+              <div className="text-left">
+                <span className="block text-[11px] font-bold uppercase leading-tight">Solte aqui para Finalizar Tarefa</span>
+                <span className="block text-[9px] text-emerald-300/80 font-normal">Concluir com confete e salvar no Dale</span>
+              </div>
             </div>
-            <div className="flex-1 p-2.5 rounded-xl bg-rose-500/20 border-2 border-rose-500 text-rose-300 font-extrabold text-xs flex items-center justify-center gap-2">
+            <div className="p-2.5 rounded-xl bg-rose-500/20 border-2 border-rose-500 text-rose-300 font-extrabold text-xs flex items-center justify-center gap-1.5">
               <Trash2 className="w-4 h-4 text-rose-300" />
-              <span>Solte na Lixeira</span>
+              <span className="text-[11px] font-bold uppercase">Lixeira</span>
             </div>
           </div>
         </div>
@@ -916,13 +922,16 @@ function VisualPreview({
 
     case 'inlineadd':
       return (
-        <div className="p-2.5 rounded-xl bg-[#0b0717] border-2 border-cyan-400 space-y-2 tutorial-glow-btn">
-          <div className="text-xs font-bold text-white flex items-center gap-1.5">
-            <Plus className="w-3.5 h-3.5 text-cyan-300" />
-            <span>Adicionar nova tarefa inline na coluna</span>
+        <div className="p-2.5 rounded-xl bg-[#0b0717] border border-cyan-400/50 space-y-2">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 bg-white/5 border border-cyan-400/40 tutorial-glow-btn">
+            <Plus className="w-4 h-4 text-cyan-400" />
+            <span className="font-bold text-white">+ Add a card</span>
           </div>
-          <div className="bg-black/50 border border-purple-500/30 rounded-lg p-2 text-xs text-slate-400">
-            "Editar corte principal do vídeo..."
+          <div className="p-2 rounded-lg bg-black/40 border border-white/10 flex items-center justify-between text-[11px]">
+            <span className="text-slate-400">Título: "Minha Tarefa de Teste"</span>
+            <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-gradient-to-r from-fuchsia-500 to-cyan-400 text-white shadow-sm">
+              Adicionar
+            </span>
           </div>
         </div>
       );
