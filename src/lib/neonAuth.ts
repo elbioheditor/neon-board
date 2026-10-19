@@ -82,7 +82,7 @@ export function resolveAuthEmail(input: string): string {
 export async function upsertProfileSafely(
   client: SupabaseClient,
   payload: { id: string; username: string; friendCode: string; avatarColor: string; email?: string }
-): Promise<boolean> {
+): Promise<{ success: boolean; error?: string }> {
   const basePayload: any = {
     id: payload.id,
     username: payload.username,
@@ -97,7 +97,17 @@ export async function upsertProfileSafely(
         email: payload.email,
       });
       if (!errWithEmail) {
-        return true;
+        return { success: true };
+      }
+      if (errWithEmail.code === '23505') {
+        const detail = (errWithEmail.details || errWithEmail.message || '').toLowerCase();
+        if (detail.includes('username')) {
+          return { success: false, error: `O nome de usuário "${payload.username}" já está em uso.` };
+        }
+        if (detail.includes('email')) {
+          return { success: false, error: `O e-mail "${payload.email}" já está cadastrado.` };
+        }
+        return { success: false, error: 'Este nome de usuário ou e-mail já está em uso.' };
       }
     } catch {
       // ignore
@@ -107,13 +117,20 @@ export async function upsertProfileSafely(
   try {
     const { error: baseErr } = await client.from('profiles').upsert(basePayload);
     if (baseErr) {
+      if (baseErr.code === '23505') {
+        const detail = (baseErr.details || baseErr.message || '').toLowerCase();
+        if (detail.includes('username')) {
+          return { success: false, error: `O nome de usuário "${payload.username}" já está em uso.` };
+        }
+        return { success: false, error: 'Este nome de usuário já está em uso.' };
+      }
       console.error('Erro ao salvar perfil no Supabase:', baseErr);
-      return false;
+      return { success: false, error: baseErr.message };
     }
-    return true;
-  } catch (e) {
+    return { success: true };
+  } catch (e: any) {
     console.error('Exceção ao salvar perfil no Supabase:', e);
-    return false;
+    return { success: false, error: e?.message || 'Falha ao salvar perfil.' };
   }
 }
 
@@ -131,6 +148,45 @@ export async function signUpUser(
     return { user: null, profile: null, error: 'Por favor, informe um e-mail válido (obrigatório para cadastro).' };
   }
 
+  // 1. Verificação prévia: Verificar se o Nick já existe na tabela profiles
+  try {
+    const { data: existingNick } = await client
+      .from('profiles')
+      .select('id, username')
+      .ilike('username', trimmedName)
+      .maybeSingle();
+
+    if (existingNick) {
+      return {
+        user: null,
+        profile: null,
+        error: `O nome de usuário "${trimmedName}" já está em uso. Por favor, escolha outro nick.`
+      };
+    }
+  } catch {
+    // ignore
+  }
+
+  // 2. Verificação prévia: Verificar se o E-mail já existe na tabela profiles
+  try {
+    const { data: existingEmail } = await client
+      .from('profiles')
+      .select('id, email')
+      .ilike('email', trimmedEmail)
+      .maybeSingle();
+
+    if (existingEmail) {
+      return {
+        user: null,
+        profile: null,
+        error: `O e-mail "${trimmedEmail}" já está cadastrado. Use a aba "Entrar"!`
+      };
+    }
+  } catch {
+    // ignore
+  }
+
+  // 3. Criar usuário no Supabase Auth
   const { data, error } = await client.auth.signUp({
     email: trimmedEmail,
     password: pass,
@@ -143,10 +199,22 @@ export async function signUpUser(
   });
 
   if (error) {
-    if (error.message.toLowerCase().includes('already registered')) {
-      return { user: null, profile: null, error: 'Este e-mail já está cadastrado. Use a aba "Entrar"!' };
+    if (
+      error.message.toLowerCase().includes('already registered') ||
+      error.message.toLowerCase().includes('user already exists')
+    ) {
+      return { user: null, profile: null, error: `O e-mail "${trimmedEmail}" já está cadastrado. Use a aba "Entrar"!` };
     }
     return { user: null, profile: null, error: error.message };
+  }
+
+  // Proteção contra enumeração do Supabase: retorna user com identities vazio se o email já existe
+  if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+    return {
+      user: null,
+      profile: null,
+      error: `O e-mail "${trimmedEmail}" já está cadastrado. Use a aba "Entrar"!`
+    };
   }
 
   if (!data.user) {
@@ -163,13 +231,21 @@ export async function signUpUser(
     createdAt: new Date().toISOString(),
   };
 
-  await upsertProfileSafely(client, {
+  const profResult = await upsertProfileSafely(client, {
     id: profile.id,
     username: profile.username,
     friendCode: profile.friendCode,
     avatarColor: profile.avatarColor,
     email: trimmedEmail,
   });
+
+  if (!profResult.success) {
+    return {
+      user: null,
+      profile: null,
+      error: profResult.error || 'Não foi possível registrar esse usuário ou e-mail.'
+    };
+  }
 
   return { user: data.user, profile };
 }
