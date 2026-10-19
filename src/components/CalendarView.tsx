@@ -706,10 +706,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                         {card.recurrence && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-cyan-500/20 border border-cyan-400/35 text-[10px] font-bold text-cyan-200 flex-shrink-0">
                             <Repeat className="w-2.5 h-2.5 text-cyan-300" />
-                            {card.recurrence.mode === 'days_count'
-                              ? `Dia ${card.recurrence.dayIndex}/${card.recurrence.daysCount}`
-                              : card.recurrence.mode === 'specific_days'
-                              ? 'Específico'
+                            {card.recurrence.mode === 'days_count' || card.recurrence.mode === 'specific_days'
+                              ? `Parte ${card.recurrence.dayIndex || 1} de ${card.recurrence.daysCount || 1}`
                               : 'Rotina'}
                           </span>
                         )}

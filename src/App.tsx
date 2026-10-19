@@ -103,6 +103,7 @@ import {
   DayPeriodKey,
   buildRecurringTaskCards,
   addDaysToIsoDate,
+  getWeekdayFromIsoDate,
 } from './utils/timeUtils';
 
 const LOCAL_STORAGE_KEY = 'neon_board_state_v1';
@@ -648,12 +649,25 @@ export function App() {
   // Current month completed count for badge (in Brasília time)
   const currentMonthCompletedCount = useMemo(() => {
     const nowYm = getBrasiliaYearMonth();
-    return completedCards.filter(
-      (c) =>
-        c.boardId === activeBoard.id &&
-        (c.completedAt || c.createdAt).slice(0, 7) === nowYm
-    ).length;
-  }, [completedCards, activeBoard.id, currentBrasiliaIso]);
+    return completedCards.filter((c) => {
+      if (c.boardId !== activeBoard.id) return false;
+      if ((c.completedAt || c.createdAt).slice(0, 7) !== nowYm) return false;
+      // If it's a part-based routine task ('days_count' or 'specific_days'), require all parts to be completed
+      if (
+        (c.recurrence?.mode === 'days_count' || c.recurrence?.mode === 'specific_days') &&
+        c.recurrence.groupId &&
+        state.cards.length > 0
+      ) {
+        const groupCards = state.cards.filter(
+          (item) => item.recurrence?.groupId === c.recurrence?.groupId
+        );
+        if (groupCards.length > 0 && !groupCards.every((item) => item.status === 'completed')) {
+          return false;
+        }
+      }
+      return true;
+    }).length;
+  }, [completedCards, activeBoard.id, currentBrasiliaIso, state.cards]);
 
   const selectedCard = useMemo(
     () => state.cards.find((c) => c.id === selectedCardId) || null,
@@ -851,10 +865,21 @@ export function App() {
   };
 
   const handleDeleteCard = (cardId: string) => {
-    updateState((prev) => ({
-      ...prev,
-      cards: prev.cards.filter((c) => c.id !== cardId),
-    }));
+    updateState((prev) => {
+      const targetCard = prev.cards.find((c) => c.id === cardId);
+      const groupId = targetCard?.recurrence?.groupId;
+      if (groupId) {
+        return {
+          ...prev,
+          cards: prev.cards.filter((c) => c.recurrence?.groupId !== groupId),
+        };
+      }
+      return {
+        ...prev,
+        cards: prev.cards.filter((c) => c.id !== cardId),
+      };
+    });
+    setSelectedCardId(null);
   };
 
   const handleCancelAddCardInline = () => {
@@ -1108,6 +1133,209 @@ export function App() {
       ...prev,
       cards: updatedCards,
     }));
+  };
+
+  const handleUpdateRecurrenceGroup = (
+    cardId: string,
+    payload: {
+      mode: 'weekdays' | 'specific_days' | 'days_count';
+      weekdays?: number[];
+      specificDays?: number[];
+      daysCount?: number;
+    }
+  ) => {
+    updateState((prev) => {
+      const targetCard = prev.cards.find((c) => c.id === cardId);
+      if (!targetCard) return prev;
+
+      const boardLists = prev.lists.filter((l) => l.boardId === targetCard.boardId);
+      const groupId = targetCard.recurrence?.groupId || `group-${Date.now()}`;
+      const baseDate = targetCard.scheduledDate || getTodayIsoDate();
+      const [y, m, d] = baseDate.split('-').map(Number);
+      const baseYear = y || new Date().getFullYear();
+      const baseMonth = m || new Date().getMonth() + 1;
+      const baseDay = d || 1;
+      const totalDaysInMonth = new Date(baseYear, baseMonth, 0).getDate();
+
+      let nextCards = [...prev.cards];
+
+      if (payload.mode === 'weekdays') {
+        const selectedWeekdays =
+          payload.weekdays && payload.weekdays.length > 0
+            ? [...payload.weekdays].sort((a, b) => a - b)
+            : [getWeekdayFromIsoDate(baseDate)];
+
+        // Remove only cards of this groupId that are >= baseDate (dali para frente)
+        nextCards = nextCards.filter(
+          (c) =>
+            c.recurrence?.groupId !== groupId ||
+            (c.scheduledDate && c.scheduledDate < baseDate)
+        );
+
+        // Generate matching weekdays from baseDay to totalDaysInMonth
+        const newGroupCards: TaskCard[] = [];
+        let usedTargetId = false;
+
+        for (let dayNum = baseDay; dayNum <= totalDaysInMonth; dayNum++) {
+          const dateIso = `${baseYear}-${String(baseMonth).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+          const wDay = getWeekdayFromIsoDate(dateIso);
+          if (selectedWeekdays.includes(wDay)) {
+            const isOriginalDate = dateIso === baseDate;
+            const cardIdToUse =
+              isOriginalDate || (!usedTargetId && dayNum >= baseDay)
+                ? targetCard.id
+                : `card-${Date.now()}-w${dayNum}-${Math.random().toString(36).slice(2, 5)}`;
+            if (cardIdToUse === targetCard.id) {
+              usedTargetId = true;
+            }
+            const listId = resolveSyncedListIdForDate(dateIso, boardLists) || targetCard.listId;
+
+            newGroupCards.push({
+              ...targetCard,
+              id: cardIdToUse,
+              scheduledDate: dateIso,
+              listId,
+              status: isOriginalDate ? targetCard.status : 'todo',
+              recurrence: {
+                mode: 'weekdays',
+                weekdays: selectedWeekdays,
+                groupId,
+              },
+            });
+          }
+        }
+
+        if (newGroupCards.length === 0) {
+          newGroupCards.push({
+            ...targetCard,
+            recurrence: {
+              mode: 'weekdays',
+              weekdays: selectedWeekdays,
+              groupId,
+            },
+          });
+        }
+
+        nextCards.push(...newGroupCards);
+      } else if (payload.mode === 'specific_days') {
+        const sortedDays = (
+          payload.specificDays && payload.specificDays.length > 0
+            ? payload.specificDays
+            : [baseDay]
+        )
+          .filter((dayNum) => dayNum >= 1 && dayNum <= totalDaysInMonth)
+          .sort((a, b) => a - b);
+
+        const totalParts = sortedDays.length;
+
+        const existingGroupCards = nextCards.filter(
+          (c) => c.recurrence?.groupId === groupId
+        );
+
+        nextCards = nextCards.filter((c) => c.recurrence?.groupId !== groupId);
+
+        const newGroupCards: TaskCard[] = [];
+        sortedDays.forEach((dayNum, idx) => {
+          const partIndex = idx + 1;
+          const dateIso = `${baseYear}-${String(baseMonth).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+          const existing = existingGroupCards.find((c) => c.scheduledDate === dateIso);
+          const listId = resolveSyncedListIdForDate(dateIso, boardLists) || targetCard.listId;
+
+          if (existing) {
+            newGroupCards.push({
+              ...existing,
+              recurrence: {
+                mode: 'specific_days',
+                specificDays: sortedDays,
+                daysCount: totalParts,
+                dayIndex: partIndex,
+                groupId,
+              },
+            });
+          } else {
+            const cardIdToUse =
+              idx === 0
+                ? targetCard.id
+                : `card-${Date.now()}-spec${dayNum}-${Math.random().toString(36).slice(2, 5)}`;
+            newGroupCards.push({
+              ...targetCard,
+              id: cardIdToUse,
+              scheduledDate: dateIso,
+              listId,
+              status: 'todo',
+              recurrence: {
+                mode: 'specific_days',
+                specificDays: sortedDays,
+                daysCount: totalParts,
+                dayIndex: partIndex,
+                groupId,
+              },
+            });
+          }
+        });
+
+        nextCards.push(...newGroupCards);
+      } else if (payload.mode === 'days_count') {
+        const count = Math.max(1, payload.daysCount || 2);
+        const existingGroupCards = nextCards
+          .filter((c) => c.recurrence?.groupId === groupId)
+          .sort((a, b) => (a.scheduledDate || '').localeCompare(b.scheduledDate || ''));
+
+        const startDate =
+          existingGroupCards.length > 0 && existingGroupCards[0].scheduledDate
+            ? existingGroupCards[0].scheduledDate
+            : baseDate;
+
+        nextCards = nextCards.filter((c) => c.recurrence?.groupId !== groupId);
+
+        const newGroupCards: TaskCard[] = [];
+        for (let i = 0; i < count; i++) {
+          const partIndex = i + 1;
+          const dateIso = addDaysToIsoDate(startDate, i);
+          const existing = existingGroupCards.find((c) => c.scheduledDate === dateIso);
+          const listId = resolveSyncedListIdForDate(dateIso, boardLists) || targetCard.listId;
+
+          if (existing) {
+            newGroupCards.push({
+              ...existing,
+              scheduledDate: dateIso,
+              listId,
+              recurrence: {
+                mode: 'days_count',
+                daysCount: count,
+                dayIndex: partIndex,
+                groupId,
+              },
+            });
+          } else {
+            const cardIdToUse =
+              i === 0
+                ? targetCard.id
+                : `card-${Date.now()}-day${i}-${Math.random().toString(36).slice(2, 5)}`;
+            newGroupCards.push({
+              ...targetCard,
+              id: cardIdToUse,
+              scheduledDate: dateIso,
+              listId,
+              status: 'todo',
+              recurrence: {
+                mode: 'days_count',
+                daysCount: count,
+                dayIndex: partIndex,
+                groupId,
+              },
+            });
+          }
+        }
+
+        nextCards.push(...newGroupCards);
+      }
+
+      return {
+        ...prev,
+        cards: nextCards,
+      };
+    });
   };
 
   const handleDeleteRecurringGroup = (groupId: string) => {
@@ -1534,7 +1762,7 @@ export function App() {
   const isDraggingAnything = Boolean(draggedCardId || draggedListId);
   const isDidiUser = Boolean(currentUserProfile?.username?.toLowerCase().includes('didi'));
   const appBrandName = isDidiUser ? 'SHADOWJOKER' : (window.neonDesktop?.brandName || 'NEON');
-  const appVersion = window.neonDesktop?.version || '1.3.6';
+  const appVersion = window.neonDesktop?.version || '1.3.7';
 
   if (isCheckingAuth) {
     return (
@@ -2720,6 +2948,7 @@ export function App() {
           onAddTagColor={handleAddTagColor}
           onDeleteTagColor={handleDeleteTagColor}
           onAddDayToTask={handleAddDayToTask}
+          onUpdateRecurrenceGroup={handleUpdateRecurrenceGroup}
         />
       )}
 

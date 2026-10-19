@@ -75,8 +75,12 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
   const monthCards = useMemo(() => {
     return completedCards
       .filter((c) => {
-        // If it's a 'days_count' routine task, require all days of the routine to be completed
-        if (c.recurrence?.mode === 'days_count' && c.recurrence.groupId && allCards.length > 0) {
+        // If it's a part-based routine task ('days_count' or 'specific_days'), require all parts to be completed
+        if (
+          (c.recurrence?.mode === 'days_count' || c.recurrence?.mode === 'specific_days') &&
+          c.recurrence.groupId &&
+          allCards.length > 0
+        ) {
           const groupCards = allCards.filter(
             (item) => item.recurrence?.groupId === c.recurrence?.groupId
           );

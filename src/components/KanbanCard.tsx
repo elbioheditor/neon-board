@@ -202,15 +202,13 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
             </div>
           )}
 
-          {/* Recurrence Badge (Rotina or Dia X/Y) */}
+          {/* Recurrence Badge (Rotina or Parte X de Y) */}
           {card.recurrence && (
             <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-cyan-500/20 text-cyan-200 border border-cyan-400/35">
               <Repeat className="w-2.5 h-2.5 text-cyan-300" />
               <span>
-                {card.recurrence.mode === 'days_count'
-                  ? `Dia ${card.recurrence.dayIndex}/${card.recurrence.daysCount}`
-                  : card.recurrence.mode === 'specific_days'
-                  ? 'Específico'
+                {card.recurrence.mode === 'days_count' || card.recurrence.mode === 'specific_days'
+                  ? `Parte ${card.recurrence.dayIndex || 1} de ${card.recurrence.daysCount || 1}`
                   : 'Rotina'}
               </span>
             </div>

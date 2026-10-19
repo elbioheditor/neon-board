@@ -711,58 +711,66 @@ export function buildRecurringTaskCards(params: {
     return result;
   }
 
-  // Mode 2: Specific days of the month ("Específico")
+  // Mode 2: Specific days of the month ("Específico" com partes)
   if (recurrence.mode === 'specific_days') {
-    const [y, m] = baseScheduledDate.split('-').map(Number);
+    const [y, m, d] = baseScheduledDate.split('-').map(Number);
+    const baseDayNum = d || 1;
     const totalDaysInMonth = new Date(y, m, 0).getDate();
-    const days =
+    const rawDays =
       recurrence.specificDays && recurrence.specificDays.length > 0
-        ? recurrence.specificDays.filter((d) => d >= 1 && d <= totalDaysInMonth)
-        : [parseInt(baseScheduledDate.split('-')[2], 10) || 1];
+        ? recurrence.specificDays
+        : [baseDayNum];
+    const filteredDays = rawDays
+      .filter((dayNum) => dayNum >= baseDayNum && dayNum <= totalDaysInMonth)
+      .sort((a, b) => a - b);
+    const days = filteredDays.length > 0 ? filteredDays : [baseDayNum];
+    const totalParts = days.length;
     const result: TaskCard[] = [];
-    days
-      .sort((a, b) => a - b)
-      .forEach((dayNum, idx) => {
-        const dateIso = `${y}-${String(m).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
-        result.push({
-          id: `card-${nowTs}-spec${dayNum}`,
-          boardId,
-          listId: resolveListId(dateIso),
-          title,
-          description: '',
-          status: 'todo',
-          startTime: startTime || undefined,
-          endTime: endTime || undefined,
-          scheduledDate: dateIso,
-          elapsedSeconds: 0,
-          labels: cardLabels,
-          categoryTag: categoryTag || undefined,
-          tagColor: tagColor || undefined,
-          checklist: [],
-          assignee,
-          createdAt: nowIso,
-          recurrence: {
-            mode: 'specific_days',
-            specificDays: days,
-            groupId,
-          },
-          order: baseOrder + idx,
-        });
+
+    days.forEach((dayNum, idx) => {
+      const dateIso = `${y}-${String(m).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+      result.push({
+        id: `card-${nowTs}-spec${dayNum}`,
+        boardId,
+        listId: resolveListId(dateIso),
+        title,
+        description: '',
+        status: 'todo',
+        startTime: startTime || undefined,
+        endTime: endTime || undefined,
+        scheduledDate: dateIso,
+        elapsedSeconds: 0,
+        labels: cardLabels,
+        categoryTag: categoryTag || undefined,
+        tagColor: tagColor || undefined,
+        checklist: [],
+        assignee,
+        createdAt: nowIso,
+        recurrence: {
+          mode: 'specific_days',
+          specificDays: days,
+          daysCount: totalParts,
+          dayIndex: idx + 1,
+          groupId,
+        },
+        order: baseOrder + idx,
       });
+    });
     return result;
   }
 
-  // Mode 3: Weekdays filling the whole month
+  // Mode 3: Weekdays filling the month from baseScheduledDate forward ("DALI PARA FRENTE")
   const selectedWeekdays =
     recurrence.weekdays && recurrence.weekdays.length > 0
       ? [...recurrence.weekdays].sort((a, b) => a - b)
       : [getWeekdayFromIsoDate(baseScheduledDate)];
 
-  const [y, m] = baseScheduledDate.split('-').map(Number);
+  const [y, m, d] = baseScheduledDate.split('-').map(Number);
+  const baseDayNum = d || 1;
   const totalDaysInMonth = new Date(y, m, 0).getDate();
   const result: TaskCard[] = [];
 
-  for (let dayNum = 1; dayNum <= totalDaysInMonth; dayNum++) {
+  for (let dayNum = baseDayNum; dayNum <= totalDaysInMonth; dayNum++) {
     const dateIso = `${y}-${String(m).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
     const wDay = getWeekdayFromIsoDate(dateIso);
     if (selectedWeekdays.includes(wDay)) {

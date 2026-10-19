@@ -33,6 +33,7 @@ import {
 } from '../utils/timeUtils';
 import { TimeInput24h } from './TimeInput24h';
 import { getUserInitials, getUserAvatarGradient } from '../lib/neonAuth';
+import { EditRecurrenceModal } from './EditRecurrenceModal';
 
 interface CardModalProps {
   card: TaskCard;
@@ -52,6 +53,15 @@ interface CardModalProps {
   onAddTagColor?: (hex: string, name?: string) => void;
   onDeleteTagColor?: (colorId: string) => void;
   onAddDayToTask?: (cardId: string) => void;
+  onUpdateRecurrenceGroup?: (
+    cardId: string,
+    payload: {
+      mode: 'weekdays' | 'specific_days' | 'days_count';
+      weekdays?: number[];
+      specificDays?: number[];
+      daysCount?: number;
+    }
+  ) => void;
 }
 
 export const CardModal: React.FC<CardModalProps> = ({
@@ -72,6 +82,7 @@ export const CardModal: React.FC<CardModalProps> = ({
   onAddTagColor,
   onDeleteTagColor,
   onAddDayToTask,
+  onUpdateRecurrenceGroup,
 }) => {
   const [title, setTitle] = useState(card.title);
   const [description, setDescription] = useState(card.description);
@@ -85,6 +96,7 @@ export const CardModal: React.FC<CardModalProps> = ({
     card.scheduledDate || getTodayIsoDate()
   );
   const [newCheckText, setNewCheckText] = useState('');
+  const [isEditRecurrenceOpen, setIsEditRecurrenceOpen] = useState(false);
 
   // UI state for creating label and adding color
   const [showCreateLabel, setShowCreateLabel] = useState(false);
@@ -207,8 +219,8 @@ export const CardModal: React.FC<CardModalProps> = ({
               {card.recurrence && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-cyan-500/20 border border-cyan-400/40 text-[10px] font-bold text-cyan-200">
                   <Repeat className="w-3 h-3 text-cyan-300" />
-                  {card.recurrence.mode === 'days_count'
-                    ? `Dia ${card.recurrence.dayIndex} de ${card.recurrence.daysCount}`
+                  {card.recurrence.mode === 'days_count' || card.recurrence.mode === 'specific_days'
+                    ? `Parte ${card.recurrence.dayIndex || 1} de ${card.recurrence.daysCount || 1}`
                     : 'Tarefa de Rotina'}
                 </span>
               )}
@@ -480,16 +492,14 @@ export const CardModal: React.FC<CardModalProps> = ({
                   className="w-full bg-[#090612] border border-purple-500/30 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-400"
                 />
 
-                {onAddDayToTask && (
-                  <button
-                    type="button"
-                    onClick={() => onAddDayToTask(card.id)}
-                    className="mt-2 w-full py-1.5 px-2 rounded-lg text-[10px] font-bold bg-cyan-500/20 hover:bg-cyan-500/35 text-cyan-200 border border-cyan-400/40 flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm"
-                  >
-                    <Plus className="w-3 h-3 text-cyan-400" />
-                    <span>+ Adicionar mais 1 dia para esta tarefa</span>
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setIsEditRecurrenceOpen(true)}
+                  className="mt-2 w-full py-2 px-3 rounded-xl text-xs font-bold bg-cyan-500/20 hover:bg-cyan-500/35 text-cyan-200 border border-cyan-400/40 flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm hover:border-cyan-300"
+                >
+                  <Calendar className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Editar / Adicionar dia</span>
+                </button>
               </div>
             </div>
           </div>
@@ -681,25 +691,15 @@ export const CardModal: React.FC<CardModalProps> = ({
                 onDeleteCard(card.id);
                 onClose();
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-rose-400 hover:bg-rose-500/15 border border-transparent hover:border-rose-500/30 transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-rose-400 hover:bg-rose-500/15 border border-rose-500/30 hover:border-rose-500/50 transition-colors cursor-pointer"
             >
               <Trash2 className="w-3.5 h-3.5" />
-              <span>{card.recurrence?.groupId ? 'Excluir apenas esta tarefa' : 'Excluir Tarefa'}</span>
+              <span>
+                {card.recurrence?.groupId
+                  ? 'Excluir Tarefa (e repetições)'
+                  : 'Excluir Tarefa'}
+              </span>
             </button>
-
-            {card.recurrence?.groupId && onDeleteRecurringGroup && (
-              <button
-                type="button"
-                onClick={() => {
-                  onDeleteRecurringGroup(card.recurrence!.groupId);
-                  onClose();
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-rose-300 bg-rose-500/20 hover:bg-rose-500/35 border border-rose-500/40 transition-colors cursor-pointer"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Excluir em todo o mês</span>
-              </button>
-            )}
           </div>
 
           <button
@@ -710,6 +710,20 @@ export const CardModal: React.FC<CardModalProps> = ({
             Salvar e Fechar
           </button>
         </div>
+
+        {/* Modal Contextual: Editar / Adicionar Dia */}
+        {isEditRecurrenceOpen && (
+          <EditRecurrenceModal
+            isOpen={isEditRecurrenceOpen}
+            card={card}
+            onClose={() => setIsEditRecurrenceOpen(false)}
+            onSave={(payload) => {
+              if (onUpdateRecurrenceGroup) {
+                onUpdateRecurrenceGroup(card.id, payload);
+              }
+            }}
+          />
+        )}
       </div>
     </div>
   );

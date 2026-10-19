@@ -21,11 +21,10 @@ import {
   ChevronLeft,
   X,
   Play,
-  Pause,
   Trash2,
+  Target,
+  ArrowRight,
   CheckCircle2,
-  CheckSquare,
-  HelpCircle,
 } from 'lucide-react';
 import { ActiveTab } from '../types';
 
@@ -46,6 +45,9 @@ interface StepItem {
   description: string;
   icon: React.ComponentType<{ className?: string }>;
   features: string[];
+  isMission?: boolean;
+  missionObjective?: string;
+  missionTip?: string;
   previewType:
     | 'columns'
     | 'stopwatch'
@@ -66,16 +68,16 @@ interface StepItem {
 }
 
 const TUTORIAL_STEPS: StepItem[] = [
-  // FASE 1: ABA BOARD (1 to 9)
+  // PASSO 1: TEÓRICO (Board)
   {
     id: 1,
     phaseNumber: 1,
-    phaseName: 'FASE 1: ABA BOARD (KANBAN & ROTINA DIÁRIA)',
+    phaseName: 'FASE 1: ABA BOARD (KANBAN INTELIGENTE)',
     tab: 'board',
     title: 'As 5 Colunas Dinâmicas & Virada de Dia',
-    subtitle: 'O fluxo inteligente que move suas tarefas automaticamente',
+    subtitle: 'O fluxo automático baseado no Horário de Brasília',
     description:
-      'O Neon organiza seu dia em 5 colunas automatizadas baseadas no Horário de Brasília. À meia-noite, tarefas não concluídas descem sozinhas para "Yesterday", enquanto o "Tomorrow" vira o seu "Today" do dia!',
+      'O Neon organiza seu dia em 5 colunas automatizadas. À meia-noite (Brasília), tarefas não concluídas descem sozinhas para "Yesterday", enquanto "Tomorrow" se torna o seu "Today" do dia!',
     icon: LayoutGrid,
     features: [
       'Yesterday (Atrasadas): O que não foi feito ontem desce para cá automaticamente.',
@@ -86,10 +88,36 @@ const TUTORIAL_STEPS: StepItem[] = [
     ],
     previewType: 'columns',
   },
+
+  // PASSO 2: PRÁTICO - MISSÃO 1 (Board)
   {
     id: 2,
     phaseNumber: 1,
-    phaseName: 'FASE 1: ABA BOARD (KANBAN & ROTINA DIÁRIA)',
+    phaseName: 'MISSÃO PRÁTICA 1/9',
+    tab: 'board',
+    title: 'Crie sua Primeira Tarefa no Board',
+    subtitle: 'Adicione uma demanda prática na coluna Today',
+    description:
+      'Agora é a sua vez! Vá até a coluna Today (Hoje), clique no botão "+ Adicionar tarefa", digite um título de teste (ex: "Minha Tarefa de Teste") e clique em Salvar.',
+    icon: Plus,
+    isMission: true,
+    missionObjective:
+      'Clique no botão "+ Adicionar tarefa" na coluna Today e crie uma tarefa teste.',
+    missionTip:
+      'O formulário se expande na própria coluna inline com campos rápidos!',
+    features: [
+      'Adição inline rápida sem sair da tela.',
+      'Nomeie a tarefa com o que quiser testar.',
+      'Ao salvar, ela aparece instantaneamente no topo do Today.',
+    ],
+    previewType: 'inlineadd',
+  },
+
+  // PASSO 3: TEÓRICO (Board)
+  {
+    id: 3,
+    phaseNumber: 1,
+    phaseName: 'FASE 1: ABA BOARD (RASTREAMENTO DE TEMPO)',
     tab: 'board',
     title: 'Cronômetro de Foco em Tempo Real',
     subtitle: 'Rastreamento líquido para alimentar sua produtividade',
@@ -104,143 +132,153 @@ const TUTORIAL_STEPS: StepItem[] = [
     ],
     previewType: 'stopwatch',
   },
-  {
-    id: 3,
-    phaseNumber: 1,
-    phaseName: 'FASE 1: ABA BOARD (KANBAN & ROTINA DIÁRIA)',
-    tab: 'board',
-    title: 'Tarefas de Rotina & Hábitos Recorrentes',
-    subtitle: 'Automatize sua consistência diária sem esforço',
-    description:
-      'Chega de recriar as mesmas tarefas todo dia! O Neon possui um motor inteligente de recorrência: ao concluir uma tarefa de rotina ou ao virar o dia, o app gera automaticamente a próxima ocorrência.',
-    icon: Repeat,
-    features: [
-      'Dias da Semana: ex: Segunda a Sexta, ou dias alternados.',
-      'Ciclos Consecutivos: com contador dinâmico (ex: "Dia 2 de 5").',
-      'Dias Específicos: todo dia 5 e 20 de cada mês.',
-      'Recriação automática instantânea.',
-    ],
-    previewType: 'recurrence',
-  },
+
+  // PASSO 4: PRÁTICO - MISSÃO 2 (Board)
   {
     id: 4,
     phaseNumber: 1,
-    phaseName: 'FASE 1: ABA BOARD (KANBAN & ROTINA DIÁRIA)',
+    phaseName: 'MISSÃO PRÁTICA 2/9',
     tab: 'board',
-    title: 'Labels de Prioridade & Tags de Categoria',
+    title: 'Cronometre sua Tarefa Teste',
+    subtitle: 'Inicie a contagem de tempo de foco no seu cartão',
+    description:
+      'Localize a tarefa que você acabou de criar na coluna Today e clique no botão de Play (▶). Veja os segundos começarem a correr ao vivo com pulso neon! Deixe rodar alguns segundos e pause.',
+    icon: Play,
+    isMission: true,
+    missionObjective:
+      'Dê Play (▶) no cronômetro da sua tarefa teste e veja os segundos rodando ao vivo.',
+    missionTip:
+      'O tempo gravado é somado automaticamente no painel Dale para auditar sua disciplina!',
+    features: [
+      'Botão Play/Pause direto na face do card.',
+      'Cronômetro de segundos ao vivo.',
+      'Clique novamente no botão para pausar.',
+    ],
+    previewType: 'stopwatch',
+  },
+
+  // PASSO 5: TEÓRICO (Board)
+  {
+    id: 5,
+    phaseNumber: 1,
+    phaseName: 'FASE 1: ABA BOARD (ORGANIZAÇÃO & PRIORIDADES)',
+    tab: 'board',
+    title: 'Labels de Prioridade, Tags & Horários 24h',
     subtitle: 'Classificação visual clara sem conflitos',
     description:
-      'Defina o nível de urgência com as Labels de Prioridade (Baixa, Média, Máxima) com exclusão mútua — nunca haverá tarefas com prioridade alta e baixa ao mesmo tempo! Crie também suas próprias Tags de Categoria com cores personalizadas.',
+      'Defina o nível de urgência com as Labels de Prioridade (Baixa, Média, Máxima) com exclusão mútua — nunca haverá tarefas com prioridade alta e baixa ao mesmo tempo! Configure também horários 24h para organizar seu dia em Manhã, Tarde e Noite.',
     icon: Tag,
     features: [
       'Exclusão Mútua: escolher uma prioridade desseleciona as outras.',
       'Tags de Categoria no topo do card (ex: EDIÇÃO, YOUTUBE, CORTE).',
-      'Paleta de cores customizável para identificar seus projetos na hora.',
-      'Filtro instantâneo por etiqueta na barra de busca.',
+      'Horários no formato rígido 24h (ex: 09:00 - 11:30).',
+      'Agrupamento cronológico automático por períodos do dia.',
     ],
     previewType: 'priority',
   },
-  {
-    id: 5,
-    phaseNumber: 1,
-    phaseName: 'FASE 1: ABA BOARD (KANBAN & ROTINA DIÁRIA)',
-    tab: 'board',
-    title: 'Horários 24h, Blocos do Dia & Checklists',
-    subtitle: 'Estruture o seu dia em Manhã, Tarde e Noite',
-    description:
-      'Defina início e fim no formato 24h (ex: 09:00 - 11:30). O Neon agrupa visualmente seus afazeres em Manhã, Tarde e Noite. Divida tarefas grandes em subtarefas com Checklist interativo e barra de progresso colorida.',
-    icon: Clock,
-    features: [
-      'Formato 24h rígido com sincronização inteligente de horários.',
-      'Agrupamento automático por períodos do dia (Manhã / Tarde / Noite).',
-      'Checklist dinâmico com porcentagem de conclusão visual.',
-      'Ordenação cronológica de manhã até a noite.',
-    ],
-    previewType: 'time24h',
-  },
+
+  // PASSO 6: PRÁTICO - MISSÃO 3 (Board)
   {
     id: 6,
     phaseNumber: 1,
-    phaseName: 'FASE 1: ABA BOARD (KANBAN & ROTINA DIÁRIA)',
+    phaseName: 'MISSÃO PRÁTICA 3/9',
     tab: 'board',
-    title: 'Drag & Drop & A Barra Mágica Inferior',
-    subtitle: 'Mova tarefas com fluidez e conclua com confetes',
+    title: 'Reagende uma Tarefa por Arraste',
+    subtitle: 'Mova seu cartão de Today para Tomorrow',
     description:
-      'Arraste cartões entre colunas para reagendar ou reordenar. Quando você começa a arrastar um card para a parte inferior da tela, a Barra Mágica aparece: solte na zona verde para concluir com festa de confetes neon, ou na vermelha para excluir!',
-    icon: Trophy,
+      'Precisa adiar uma demanda sem complicação? Clique e segure no seu card teste e arraste-o da coluna "Today" para a coluna "Tomorrow". Solte-o para ver a sincronização automática de data!',
+    icon: Move,
+    isMission: true,
+    missionObjective:
+      'Arraste sua tarefa teste da coluna "Today" para "Tomorrow" para reagendar.',
+    missionTip:
+      'A data agendada do card é atualizada automaticamente para o dia de amanhã!',
     features: [
-      'Arraste suave com física fluida entre colunas.',
-      'Soltar para Concluir: chuva de confetes neon comemorativos.',
-      'Soltar na Lixeira: exclusão rápida sem abrir confirmações chatas.',
-      'Feedback tátil e visual brilhante durante o arraste.',
+      'Arraste fluido entre qualquer coluna do board.',
+      'Atualização instantânea de data no calendário.',
+      'Sem menus chatos: reagendamento em 1 segundo.',
     ],
-    previewType: 'magicdock',
+    previewType: 'columns',
   },
+
+  // PASSO 7: TEÓRICO (Board)
   {
     id: 7,
     phaseNumber: 1,
-    phaseName: 'FASE 1: ABA BOARD (KANBAN & ROTINA DIÁRIA)',
+    phaseName: 'FASE 1: ABA BOARD (FINALIZAÇÃO & BARRA MÁGICA)',
     tab: 'board',
-    title: 'Adição Rápida Inline & Edição Completa',
-    subtitle: 'Crie em 2 segundos e edite tudo no modal',
+    title: 'Drag & Drop & A Barra Mágica Inferior',
+    subtitle: 'Mova tarefas com fluidez e conclua com festa de confetes',
     description:
-      'No final de cada coluna existe o botão "+ Adicionar tarefa". O formulário se expande direto no board com campos para título, horário, prioridade e recorrência. Quer editar mais? Basta clicar no cartão para abrir o modal completo.',
-    icon: Plus,
+      'Quando você começa a arrastar qualquer card em direção à parte inferior da tela, a Barra Mágica aparece automaticamente: solte na zona verde para concluir com festa de confetes neon, ou na vermelha para excluir!',
+    icon: Trophy,
     features: [
-      'Adição rápida inline sem travar a navegação.',
-      'Modal completo com título, descrição rica, checklists e cronômetro.',
-      'Identificação imutável do criador da tarefa ("Criado por: Nome").',
-      'Renomeação de colunas e customização rápida.',
+      'Soltar no Troféu: conclusão imediata com chuva de confetes neon.',
+      'Soltar na Lixeira: exclusão rápida sem confirmações redundantes.',
+      'Persistência imediata com cálculo de horas no Dale.',
+      'Feedback tátil e visual durante todo o movimento.',
     ],
-    previewType: 'inlineadd',
+    previewType: 'magicdock',
   },
+
+  // PASSO 8: PRÁTICO - MISSÃO 4 (Board)
   {
     id: 8,
     phaseNumber: 1,
-    phaseName: 'FASE 1: ABA BOARD (KANBAN & ROTINA DIÁRIA)',
+    phaseName: 'MISSÃO PRÁTICA 4/9',
     tab: 'board',
-    title: 'Barra de Ferramentas, Filtros & Partículas',
-    subtitle: 'Mantenha o foco absoluto e o visual do seu jeito',
+    title: 'Conclua a Tarefa Arrastando para Baixo',
+    subtitle: 'Solte no Troféu da Barra Mágica e curta a festa',
     description:
-      'No cabeçalho do board você encontra ferramentas de alta precisão: campo de busca em tempo real, filtro "Em Andamento" para esconder o que não está rodando agora, botão para recolher a coluna de Ontem e controle de partículas.',
-    icon: Search,
+      'Pegue o seu card teste e arraste-o para baixo em direção ao rodapé. Veja a Barra Mágica surgir: solte o cartão na área verde "Solte para Concluir" e celebre com os confetes neon!',
+    icon: CheckCircle2,
+    isMission: true,
+    missionObjective:
+      'Arraste sua tarefa teste até a Barra Mágica no rodapé e solte na área verde do Troféu.',
+    missionTip:
+      'Você também pode concluir tarefas pelo modal clicando em "Marcar como Concluída"!',
     features: [
-      'Busca global instantânea por título, tag ou etiquetas.',
-      'Filtro "Em Andamento": foca apenas nas tarefas com cronômetro rodando.',
-      'Ocultar/Mostrar Ontem: deixa sua tela limpa e focada em hoje.',
-      'Toggle de partículas neon flutuantes no plano de fundo.',
+      'Aparecimento dinâmico da Barra Mágica ao arrastar.',
+      'Animação de celebração com confetes multicoloridos.',
+      'A tarefa vai diretamente para o histórico de sucessos no Dale.',
     ],
-    previewType: 'toolbar',
+    previewType: 'magicdock',
   },
+
+  // PASSO 9: PRÁTICO - MISSÃO 5 (Board -> Criação de Rotina ANTES do Passo 10)
   {
     id: 9,
     phaseNumber: 1,
-    phaseName: 'FASE 1: ABA BOARD (KANBAN & ROTINA DIÁRIA)',
+    phaseName: 'MISSÃO PRÁTICA 5/9',
     tab: 'board',
-    title: 'Multi-Board & Sistema de Amigos (Neon Cloud)',
-    subtitle: 'Conecte-se em dupla e transfira tarefas arrastando',
+    title: 'Crie uma Tarefa de Rotina Recorrente',
+    subtitle: 'Automatize dias da semana para o mês inteiro',
     description:
-      'Navegue entre seus boards no seletor do topo. Ao conectar seu amigo pelo Código de Amigo (ex: SEUNOME#1234), você pode ver o board dele e até ARRASTAR um card do seu board diretamente para a aba do seu amigo para transferir uma tarefa!',
-    icon: Users,
+      'Agora vamos criar uma rotina! Na coluna Today, clique em "+ Adicionar tarefa", clique no ícone de Repetir (Rotina), escolha "Dias da Semana" (ex: Segundas e Terças) e clique em Salvar.',
+    icon: Repeat,
+    isMission: true,
+    missionObjective:
+      'Crie uma tarefa de rotina escolhendo dias da semana (ex: Seg e Ter) no formulário inline.',
+    missionTip:
+      'Ao salvar, o Neon vai preencher automaticamente todas as segundas e terças do mês dali para frente!',
     features: [
-      'Código de Amigo exclusivo para conectar parceiros de trabalho.',
-      'Transferência Cross-Board: arraste um card até a aba do amigo no topo!',
-      'Sincronização em nuvem automática e em tempo real.',
-      'Cada usuário mantém suas iniciais e gradiente único.',
+      'Motor de recorrência inteligente dali para frente.',
+      'Preenchimento automático do mês no calendário.',
+      'Garante que você nunca esqueça seus compromissos recorrentes.',
     ],
-    previewType: 'friends',
+    previewType: 'recurrence',
   },
 
-  // FASE 2: ABA CALENDÁRIO (10 to 12)
+  // PASSO 10: TEÓRICO (Calendário)
   {
     id: 10,
     phaseNumber: 2,
-    phaseName: 'FASE 2: ABA CALENDÁRIO (VISÃO MENSAL & AGENDAMENTO)',
+    phaseName: 'FASE 2: ABA CALENDÁRIO (VISÃO MENSAL & GESTÃO)',
     tab: 'calendar',
     title: 'Visão Mensal em Grade & Navegação',
-    subtitle: 'Visão panorâmica de todos os dias e compromissos',
+    subtitle: 'Visão panorâmica de todos os dias e compromissos do mês',
     description:
-      'A aba Calendário oferece uma visão geral do mês inteiro, distribuindo seus cards pelas datas reais de execução. Navegue livremente para meses passados ou futuros e use o botão "Hoje" para retornar ao dia atual com um clique.',
+      'A aba Calendário oferece uma visão geral do mês inteiro, distribuindo seus cards pelas datas reais de execução. Clicando em qualquer dia, você abre a gaveta de tarefas daquela data!',
     icon: Calendar,
     features: [
       'Grade mensal completa com destaques no dia de hoje.',
@@ -250,44 +288,56 @@ const TUTORIAL_STEPS: StepItem[] = [
     ],
     previewType: 'calendar_grid',
   },
+
+  // PASSO 11: PRÁTICO - MISSÃO 6 (Calendário)
   {
     id: 11,
     phaseNumber: 2,
-    phaseName: 'FASE 2: ABA CALENDÁRIO (VISÃO MENSAL & AGENDAMENTO)',
+    phaseName: 'MISSÃO PRÁTICA 6/9',
     tab: 'calendar',
-    title: 'Mini-Cards no Calendário & Detalhes do Dia',
-    subtitle: 'Inspecione seus horários sem sair da visão mensal',
+    title: 'Veja a Rotina Preencher o Mês',
+    subtitle: 'Inspecione todos os dias populados automaticamente',
     description:
-      'Cada dia exibe mini-cards coloridos com horário, título e etiqueta. Clicando em qualquer dia, abre-se a gaveta detalhada com todos os afazeres daquela data, permitindo abrir o modal, dar play no cronômetro ou criar novas tarefas.',
+      'Observe a grade do Calendário: a tarefa de rotina que você acabou de criar no passo anterior preencheu automaticamente todas as semanas do mês dali para frente! Clique nos dias marcados para inspecionar os cartões.',
     icon: CalendarCheck,
+    isMission: true,
+    missionObjective:
+      'Navegue pelos dias do calendário e veja os cards da sua rotina espalhados pelo mês.',
+    missionTip:
+      'Cada dia tem seu mini-card com horário e badge. Clicando no dia, abre o painel lateral!',
     features: [
-      'Mini-cards com cores de categoria e horários nas células.',
-      'Clique em qualquer dia para abrir o painel lateral completo.',
-      'Crie tarefas para qualquer data futura com horários e tags.',
-      'Controle de play/pause no cronômetro direto pelo calendário.',
+      'Preenchimento automático de dias da semana no mês.',
+      'Visão clara da densidade de trabalho em cada dia.',
+      'Sincronização 100% perfeita com o Board Kanban.',
     ],
     previewType: 'calendar_cards',
   },
+
+  // PASSO 12: PRÁTICO - MISSÃO 7 (Calendário)
   {
     id: 12,
     phaseNumber: 2,
-    phaseName: 'FASE 2: ABA CALENDÁRIO (VISÃO MENSAL & AGENDAMENTO)',
+    phaseName: 'MISSÃO PRÁTICA 7/9',
     tab: 'calendar',
-    title: 'Reagendamento Instantâneo por Arraste',
-    subtitle: 'Mude a data de uma tarefa em 1 segundo',
+    title: 'Exclusão em Bloco da Rotina',
+    subtitle: 'Apague uma ocorrência e veja todas sumirem juntas',
     description:
-      'Precisa adiar ou antecipar uma demanda? Basta clicar e arrastar o card de uma data para outra no calendário! O Neon atualiza a data agendada instantaneamente e sincroniza automaticamente com o Board Kanban.',
-    icon: Move,
+      'Clique em qualquer uma das tarefas da rotina no calendário para abrir seu modal e clique em "Excluir Tarefa (e repetições)". Veja a mágica: TODAS as ocorrências dessa rotina somem simultaneamente de todo o mês!',
+    icon: Trash2,
+    isMission: true,
+    missionObjective:
+      'Abra qualquer card da rotina e clique em "Excluir Tarefa (e repetições)": todas as repetições sumirão juntas!',
+    missionTip:
+      'Chega de apagar 30 tarefas uma a uma! A exclusão em bloco limpa toda a série com 1 clique.',
     features: [
-      'Arraste entre dias do calendário sem precisar abrir o card.',
-      'Reconciliação automática com Yesterday, Today e Tomorrow no Kanban.',
-      'Feedback visual de realce no dia de destino.',
-      'Agilidade total para remanejar prazos.',
+      'Exclusão atômica de todo o grupo de rotina (groupId).',
+      'Funciona pelo modal, arrastando para a lixeira ou no Dale.',
+      'Zero lixo residual no calendário.',
     ],
     previewType: 'calendar_drag',
   },
 
-  // FASE 3: ABA DALE (13 to 16)
+  // PASSO 13: TEÓRICO (Dale)
   {
     id: 13,
     phaseNumber: 3,
@@ -300,48 +350,62 @@ const TUTORIAL_STEPS: StepItem[] = [
     icon: Zap,
     features: [
       'Foco em entrega real e metas batidas.',
-      'Prestação de contas transparente entre amigos conectados.',
-      'Métricas auditáveis baseadas no uso real do app.',
-      'Energia e motivação para manter o ritmo diário.',
+      'Taxa de Conclusão (%) calculada automaticamente.',
+      'Horas focadas líquidas somadas em tempo real.',
+      'Linha do tempo diária para auditar sua consistência.',
     ],
     previewType: 'dale_intro',
   },
+
+  // PASSO 14: PRÁTICO - MISSÃO 8 (Dale)
   {
     id: 14,
     phaseNumber: 3,
-    phaseName: 'FASE 3: ABA DALE (METAS, HISTÓRICO & PERFORMANCE)',
+    phaseName: 'MISSÃO PRÁTICA 8/9',
     tab: 'history',
-    title: 'Métricas do Mês: Taxa % & Horas Focadas',
-    subtitle: 'Seus KPIs essenciais atualizados em tempo real',
+    title: 'Audite a Tarefa Concluída no Dale',
+    subtitle: 'Inspecione sua entrega e o tempo focado gravado',
     description:
-      'No topo da aba Dale você visualiza seus dois indicadores principais: a Taxa de Conclusão (%) — calculando tarefas planejadas versus entregues — e o Somatório de Horas Focadas, que acumula o tempo líquido do cronômetro.',
+      'Veja aqui na aba Dale a primeira tarefa que você concluiu na Missão 4! Observe a linha do tempo do dia de hoje: sua tarefa está salva com o tempo que você cronometrou e os KPIs atualizados no topo.',
     icon: BarChart3,
+    isMission: true,
+    missionObjective:
+      'Inspecione sua tarefa teste finalizada na lista do Dale e observe as horas focadas.',
+    missionTip:
+      'O Dale é o seu comprovante irrefutável de foco e consistência diária!',
     features: [
-      'Taxa de Conclusão (%): Mostra a eficiência das suas semanas.',
-      'Horas Focadas: Somatório líquido dos cronômetros rodados.',
-      'Comparativo de evolução com o mês anterior.',
-      'Cálculo automático e à prova de falhas.',
+      'Registro indelével de tarefas entregues.',
+      'Contador de tempo focado auditável.',
+      'Histórico mensal completo por data.',
     ],
     previewType: 'dale_kpis',
   },
+
+  // PASSO 15: PRÁTICO - MISSÃO 9 (Dale)
   {
     id: 15,
     phaseNumber: 3,
-    phaseName: 'FASE 3: ABA DALE (METAS, HISTÓRICO & PERFORMANCE)',
+    phaseName: 'MISSÃO PRÁTICA 9/9',
     tab: 'history',
-    title: 'Consistência Diária & Histórico Mensal',
-    subtitle: 'Navegue no tempo e audite sua consistência',
+    title: 'Limpe a Tarefa de Teste do Histórico',
+    subtitle: 'Mantenha seu espaço de trabalho impecável',
     description:
-      'O mapa de calor e a lista de tarefas concluídas mostram os dias em que você bateu suas metas. Você pode navegar para meses anteriores para analisar como foi sua produtividade e comprovar seu crescimento.',
-    icon: CalendarRange,
+      'Como aquela era apenas uma tarefa de teste do tutorial, clique no ícone de Lixeira (🗑) ao lado da tarefa no histórico do Dale para excluí-la e deixar seu histórico 100% limpo para o seu uso real!',
+    icon: Trash2,
+    isMission: true,
+    missionObjective:
+      'Clique no ícone de lixeira ao lado da tarefa teste no Dale para removê-la e limpar o histórico.',
+    missionTip:
+      'Pronto! Seu ambiente agora está zerado e preparado para seu trabalho de verdade.',
     features: [
-      'Linha do tempo diária com tarefas concluídas por data.',
-      'Seletor de meses para consultar todo o histórico passado.',
-      'Auditoria de horários gastos e tarefas concluídas com sucesso.',
-      'Motivação visual com sequência de consistência batida.',
+      'Exclusão definitiva ou desfeita com facilidade.',
+      'Histórico limpo para começar do zero com metas reais.',
+      'Contadores recalculados na hora.',
     ],
     previewType: 'dale_consistency',
   },
+
+  // PASSO 16: TEÓRICO / CELEBRAÇÃO (Board)
   {
     id: 16,
     phaseNumber: 3,
@@ -350,11 +414,11 @@ const TUTORIAL_STEPS: StepItem[] = [
     title: 'Você está Pronto! Bem-vindo ao Neon',
     subtitle: 'Domínio total das ferramentas de alta performance',
     description:
-      'Sensacional! Você agora conhece 100% dos recursos do Neon: das 5 colunas dinâmicas aos cronômetros, recorrências, calendário mensal e métricas do Dale. Sempre que quiser rever este guia, basta clicar no botão de Ajuda (?) no topo da tela.',
+      'Sensacional! Você agora domina 100% dos recursos do Neon: das 5 colunas dinâmicas aos cronômetros, rotinas em bloco, visualização no calendário mensal e métricas no Dale. Sempre que quiser rever este guia, basta clicar no botão de Ajuda (?) no topo da tela.',
     icon: Sparkles,
     features: [
       'Domínio completo de todas as abas e atalhos.',
-      'Botão permanente de Ajuda (?) adicionado no topo da tela.',
+      'Botão permanente de Ajuda (?) no topo da tela.',
       'Suas tarefas já estão organizadas no Board para você começar.',
       'Agora é com você: foco total e DALE!',
     ],
@@ -436,11 +500,110 @@ export function OnboardingTutorial({
 
   const StepIcon = step.icon;
 
+  // -------------------------------------------------------------
+  // RENDER 1: FLOATING MISSION HUD (PRÁTICO) - Permite usar o app livremente!
+  // -------------------------------------------------------------
+  if (step.isMission) {
+    return (
+      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-2xl pointer-events-auto animate-spring-pop">
+        <div className="relative rounded-2xl bg-[#0e081e]/95 border-2 border-cyan-400/80 shadow-2xl shadow-cyan-950/90 p-4 sm:p-5 text-slate-100 backdrop-blur-xl overflow-hidden tutorial-glow-btn">
+          {/* Glowing Top Line */}
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-cyan-400 via-purple-500 to-fuchsia-500" />
+
+          {/* Header: Phase badge + Step counter + Close button */}
+          <div className="flex items-center justify-between gap-3 mb-2.5">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-widest bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 animate-pulse flex items-center gap-1">
+                <Target className="w-3 h-3 text-cyan-300" />
+                <span>{step.phaseName}</span>
+              </span>
+              <span className="text-xs text-slate-400 font-medium">
+                Passo <strong className="text-white">{step.id}</strong> de{' '}
+                {TUTORIAL_STEPS.length}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleFinishTutorial}
+              title="Pular Tutorial (Esc)"
+              className="p-1 rounded-lg text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Mission Objective Details */}
+          <div className="flex items-start gap-3 mb-3.5">
+            <div className="p-2.5 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-400/50 flex-shrink-0 animate-bounce-gentle">
+              <StepIcon className="w-5 h-5 text-cyan-300" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-extrabold text-white tracking-wide font-display">
+                {step.title}
+              </h3>
+              <p className="text-xs text-cyan-200 mt-0.5 leading-relaxed font-semibold">
+                {step.missionObjective}
+              </p>
+              {step.missionTip && (
+                <p className="text-[11px] text-slate-400 mt-1 italic">
+                  💡 {step.missionTip}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Progress bar in HUD */}
+          <div className="w-full bg-white/10 h-1 rounded-full overflow-hidden mb-3">
+            <div
+              className="h-full bg-gradient-to-r from-cyan-400 via-purple-500 to-fuchsia-500 transition-all duration-300 rounded-full"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex items-center justify-between pt-2 border-t border-white/10 gap-2">
+            <button
+              type="button"
+              onClick={handlePrev}
+              disabled={isFirst}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+              <span>Voltar</span>
+            </button>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleFinishTutorial}
+                className="px-2.5 py-1.5 rounded-lg text-xs text-slate-400 hover:text-white transition-colors cursor-pointer"
+              >
+                Pular
+              </button>
+
+              <button
+                type="button"
+                onClick={handleNext}
+                className="px-4 py-2 rounded-xl text-xs font-extrabold text-slate-950 bg-gradient-to-r from-cyan-400 to-fuchsia-400 hover:from-cyan-300 hover:to-fuchsia-300 flex items-center gap-1.5 shadow-lg shadow-cyan-500/25 transition-transform active:scale-95 cursor-pointer tutorial-glow-btn"
+              >
+                <span>Concluir Missão / Avançar</span>
+                <ChevronRight className="w-4 h-4 stroke-[3]" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // -------------------------------------------------------------
+  // RENDER 2: FULL THEORETICAL MODAL (APRESENTAÇÃO EXPLICATIVA)
+  // -------------------------------------------------------------
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in"
       onClick={(e) => {
-        // Prevent accidental closing by clicking backdrop, but offer skip button
         e.stopPropagation();
       }}
     >
@@ -500,38 +663,42 @@ export function OnboardingTutorial({
           </div>
 
           {/* Description */}
-          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed bg-black/30 p-3.5 rounded-xl border border-white/5">
+          <p className="text-xs text-slate-300 leading-relaxed bg-white/5 p-3 rounded-xl border border-white/10">
             {step.description}
           </p>
 
-          {/* Visual Interactive Preview Box (Glows & Bounces) */}
-          <div className="p-4 rounded-xl bg-[#070412]/80 border border-purple-500/30 shadow-inner">
+          {/* Interactive Visual Preview Mock */}
+          <div className="p-3.5 rounded-xl bg-[#090514] border border-purple-500/30">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2.5 flex items-center gap-1.5">
+              <Sparkles className="w-3 h-3 text-cyan-300" />
+              <span>Demonstração Visual:</span>
+            </div>
             <VisualPreview previewType={step.previewType} />
           </div>
 
-          {/* Key Features Bullet List */}
-          <div className="space-y-1.5 pt-1">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-              O que você precisa saber:
-            </span>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
+          {/* Bulleted Features List */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+              Pontos-Chave:
+            </h4>
+            <div className="space-y-1.5">
               {step.features.map((feat, idx) => (
                 <div
                   key={idx}
-                  className="flex items-start gap-2 p-2 rounded-lg bg-white/5 border border-white/5 text-[11px] text-slate-200"
+                  className="flex items-start gap-2 text-xs text-slate-300"
                 >
-                  <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0 mt-0.5" />
-                  <span className="leading-snug">{feat}</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 mt-1.5 flex-shrink-0" />
+                  <span>{feat}</span>
                 </div>
               ))}
             </div>
           </div>
         </div>
 
-        {/* Footer: Step Indicators + Back/Next Actions */}
+        {/* Footer: Stepper dots + Navigation buttons */}
         <div className="flex items-center justify-between gap-3 pt-4 border-t border-white/10 mt-4 flex-shrink-0">
-          {/* Quick step jump indicators */}
-          <div className="hidden sm:flex items-center gap-1">
+          {/* Step dots (compact indicator) */}
+          <div className="flex items-center gap-1">
             {TUTORIAL_STEPS.map((s, idx) => {
               const active = idx === currentStepIndex;
               const completed = idx < currentStepIndex;
@@ -540,13 +707,13 @@ export function OnboardingTutorial({
                   key={s.id}
                   type="button"
                   onClick={() => setCurrentStepIndex(idx)}
-                  title={`Ir para passo ${s.id}: ${s.title}`}
-                  className={`h-2 rounded-full transition-all cursor-pointer ${
+                  title={`Ir para passo ${s.id}`}
+                  className={`h-1.5 rounded-full transition-all cursor-pointer ${
                     active
-                      ? 'w-6 bg-cyan-400 shadow-sm shadow-cyan-400/80 ring-1 ring-cyan-300'
+                      ? 'w-5 bg-cyan-400'
                       : completed
-                      ? 'w-2 bg-purple-500/70 hover:bg-purple-400'
-                      : 'w-2 bg-white/15 hover:bg-white/30'
+                      ? 'w-2 bg-purple-500/80'
+                      : 'w-1.5 bg-white/20'
                   }`}
                 />
               );
@@ -664,7 +831,7 @@ function VisualPreview({
               <span>Modo de Recorrência Inteligente</span>
             </span>
             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-200 border border-purple-400/40">
-              Dia 2 de 5
+              Parte 1 de 4
             </span>
           </div>
           <div className="flex items-center gap-1.5">
@@ -672,7 +839,7 @@ function VisualPreview({
               <span
                 key={d}
                 className={`flex-1 py-1 text-center rounded-md text-[10px] font-bold border transition-all ${
-                  i < 4
+                  i < 2
                     ? 'bg-cyan-500/25 border-cyan-400 text-cyan-200 shadow-sm'
                     : 'bg-white/5 border-white/10 text-slate-500'
                 }`}
