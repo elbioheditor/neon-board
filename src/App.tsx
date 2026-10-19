@@ -75,9 +75,6 @@ import backupState from './data/backup_neon_sync_state.json';
 import {
   getSavedCloudConfig,
   saveCloudConfig,
-  initCloudClient,
-  pullCloudState,
-  pushCloudState,
   CloudConfig,
 } from './lib/cloudSync';
 import {
@@ -106,38 +103,11 @@ import {
   getWeekdayFromIsoDate,
 } from './utils/timeUtils';
 
-const LOCAL_STORAGE_KEY = 'neon_board_state_v1';
+export const getUserBoardStorageKey = (userId?: string) =>
+  userId ? `neon_board_state_v2_${userId}` : 'neon_board_state_v2_guest';
 
 export function App() {
   const [state, setState] = useState<NeonStoreState>(() => {
-    try {
-      const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed && parsed.boards && parsed.lists && parsed.cards) {
-          const withDefaults: NeonStoreState = {
-            ...parsed,
-            customLabels:
-              parsed.customLabels && parsed.customLabels.length > 0
-                ? parsed.customLabels
-                : DEFAULT_CUSTOM_LABELS,
-            tagColors:
-              parsed.tagColors && parsed.tagColors.length > 0
-                ? parsed.tagColors
-                : DEFAULT_TAG_COLORS,
-            cards: (parsed.cards || []).map((c: TaskCard) => ({
-              ...c,
-              labels: sanitizeCardLabels(c.labels, parsed.customLabels),
-            })),
-          };
-          const reconciled = reconcileStateWithBrasiliaTime(withDefaults);
-          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(reconciled));
-          return reconciled;
-        }
-      }
-    } catch (e) {
-      console.error('Failed to load state from localStorage:', e);
-    }
     return reconcileStateWithBrasiliaTime(INITIAL_STATE);
   });
 
@@ -158,7 +128,7 @@ export function App() {
       const reconciled = reconcileStateWithBrasiliaTime(prev);
       if (reconciled !== prev) {
         try {
-          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(reconciled));
+          localStorage.setItem(getUserBoardStorageKey(currentUserProfile?.id), JSON.stringify(reconciled));
         } catch {
           // ignore
         }
@@ -253,13 +223,11 @@ export function App() {
   const [cloudConfig, setCloudConfig] = useState<CloudConfig>(() =>
     getSavedCloudConfig()
   );
-  const [syncStatus, setSyncStatus] = useState<
-    'disconnected' | 'connecting' | 'connected' | 'error'
-  >('disconnected');
-
   // User Authentication & Friends state
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [isSyncingUserData, setIsSyncingUserData] = useState(false);
   const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
+  const syncStatus = currentUserProfile ? 'connected' : 'disconnected';
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isFriendsModalOpen, setIsFriendsModalOpen] = useState(false);
   const [pendingFriendCount, setPendingFriendCount] = useState(0);
@@ -326,7 +294,7 @@ export function App() {
           };
 
           try {
-            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(nextState));
+            localStorage.setItem(getUserBoardStorageKey(profile.id), JSON.stringify(nextState));
           } catch (e) {
             console.error('Failed to update local storage', e);
           }
@@ -455,6 +423,18 @@ export function App() {
     await signOutUser();
     setCurrentUserProfile(null);
     setPendingFriendCount(0);
+    const cleanGuest = createNewUserBoardState('Convidado');
+    setState((prev) => ({
+      ...prev,
+      boards: [cleanGuest.board],
+      lists: cleanGuest.lists,
+      cards: cleanGuest.cards,
+      activeBoardId: cleanGuest.board.id,
+    }));
+    try {
+      localStorage.removeItem('neon_board_state_v1');
+      localStorage.removeItem(getUserBoardStorageKey('guest'));
+    } catch {}
   };
 
   const handleSwitchToFriendBoard = (friendName: string) => {
@@ -500,13 +480,10 @@ export function App() {
         lastUpdated: new Date().toISOString(),
       };
       try {
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(next));
+        localStorage.setItem(getUserBoardStorageKey(currentUserProfile?.id), JSON.stringify(next));
         localStorage.setItem('neon_has_user_edits_v1', 'true');
       } catch (e) {
         console.error('Failed to save to localStorage', e);
-      }
-      if (cloudConfig.enabled) {
-        pushCloudState(next);
       }
       if (currentUserProfile) {
         const userLower = currentUserProfile.username.toLowerCase();
@@ -530,84 +507,6 @@ export function App() {
       return next;
     });
   };
-
-  // Initialize Supabase Realtime if configured
-  useEffect(() => {
-    initCloudClient(
-      cloudConfig,
-      (remoteState) => {
-        setState((prev) => {
-          const validBoardId = remoteState.boards.some(
-            (b) => b.id === prev.activeBoardId
-          )
-            ? prev.activeBoardId
-            : remoteState.boards[0]?.id || prev.activeBoardId;
-          const reconciled = reconcileStateWithBrasiliaTime({
-            ...remoteState,
-            customLabels:
-              remoteState.customLabels && remoteState.customLabels.length > 0
-                ? remoteState.customLabels
-                : DEFAULT_CUSTOM_LABELS,
-            tagColors:
-              remoteState.tagColors && remoteState.tagColors.length > 0
-                ? remoteState.tagColors
-                : DEFAULT_TAG_COLORS,
-            activeBoardId: validBoardId,
-          });
-          try {
-            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(reconciled));
-          } catch {
-            // ignore
-          }
-          return reconciled;
-        });
-      },
-      (status) => {
-        setSyncStatus(status);
-        if (status === 'connected') {
-          pullCloudState().then((remote) => {
-            const hasLocalEdits =
-              localStorage.getItem('neon_has_user_edits_v1') === 'true';
-            if (
-              remote &&
-              (!hasLocalEdits || remote.lastUpdated > state.lastUpdated)
-            ) {
-              setState((prev) => {
-                const validBoardId = remote.boards.some(
-                  (b) => b.id === prev.activeBoardId
-                )
-                  ? prev.activeBoardId
-                  : remote.boards[0]?.id || prev.activeBoardId;
-                const reconciled = reconcileStateWithBrasiliaTime({
-                  ...remote,
-                  customLabels:
-                    remote.customLabels && remote.customLabels.length > 0
-                      ? remote.customLabels
-                      : DEFAULT_CUSTOM_LABELS,
-                  tagColors:
-                    remote.tagColors && remote.tagColors.length > 0
-                      ? remote.tagColors
-                      : DEFAULT_TAG_COLORS,
-                  activeBoardId: validBoardId,
-                });
-                try {
-                  localStorage.setItem(
-                    LOCAL_STORAGE_KEY,
-                    JSON.stringify(reconciled)
-                  );
-                } catch {
-                  // ignore
-                }
-                return reconciled;
-              });
-            } else {
-              pushCloudState(state);
-            }
-          });
-        }
-      }
-    );
-  }, [cloudConfig]);
 
   const activeBoard = useMemo(
     () =>
@@ -679,7 +578,7 @@ export function App() {
     setState((prev) => {
       const next = { ...prev, activeBoardId: boardId };
       try {
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(next));
+        localStorage.setItem(getUserBoardStorageKey(currentUserProfile?.id), JSON.stringify(next));
       } catch {
         // ignore
       }
@@ -1764,7 +1663,7 @@ export function App() {
   const appBrandName = isDidiUser ? 'SHADOWJOKER' : (window.neonDesktop?.brandName || 'NEON');
   const appVersion = window.neonDesktop?.version || '1.3.7';
 
-  if (isCheckingAuth) {
+  if (isCheckingAuth || isSyncingUserData) {
     return (
       <div className="w-screen h-screen flex flex-col items-center justify-center bg-[#07050d] text-white select-none">
         <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-fuchsia-500 via-purple-600 to-cyan-400 p-[2px] shadow-2xl shadow-cyan-500/30 animate-pulse mb-4">
@@ -1773,9 +1672,13 @@ export function App() {
           </div>
         </div>
         <h1 className="text-xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 via-purple-300 to-cyan-300 tracking-wider">
-          {appBrandName}
+          {isSyncingUserData ? 'Carregando seu Workspace...' : appBrandName}
         </h1>
-        <span className="text-xs text-slate-400 mt-2 font-mono">Carregando ambiente seguro...</span>
+        <span className="text-xs text-slate-400 mt-2 font-mono">
+          {isSyncingUserData
+            ? 'Isolando dados e sincronizando seu board privado...'
+            : 'Carregando ambiente seguro...'}
+        </span>
       </div>
     );
   }
@@ -1789,8 +1692,27 @@ export function App() {
           isMandatory={true}
           onClose={() => {}}
           onAuthSuccess={async (profile, isNewSignup) => {
-            setCurrentUserProfile(profile);
-            await loadFriendsAndSyncBoards(profile, isNewSignup);
+            setIsSyncingUserData(true);
+            // 1. Instantly wipe memory of any previous board so no old card flashes for even 1ms
+            const cleanTemplate = profile.username.toLowerCase().includes('didi')
+              ? getDidiStarterBoardState(profile.username)
+              : createNewUserBoardState(profile.username);
+            setState((prev) => ({
+              ...prev,
+              boards: cleanTemplate.boards || [cleanTemplate.board],
+              lists: cleanTemplate.lists,
+              cards: cleanTemplate.cards,
+              customLabels: cleanTemplate.customLabels || prev.customLabels,
+              tagColors: cleanTemplate.tagColors || prev.tagColors,
+              activeBoardId: cleanTemplate.board.id,
+            }));
+            try {
+              // 2. Fetch or create cloud board from user_boards in Supabase
+              await loadFriendsAndSyncBoards(profile, isNewSignup);
+              setCurrentUserProfile(profile);
+            } finally {
+              setIsSyncingUserData(false);
+            }
           }}
         />
       </div>
@@ -2966,7 +2888,25 @@ export function App() {
             updateState(() => imported);
           }}
           onForceSync={() => {
-            pushCloudState(state);
+            if (currentUserProfile) {
+              const userLower = currentUserProfile.username.toLowerCase();
+              const myBoards = state.boards.filter((b) => {
+                const ownerLower = (b.owner || '').toLowerCase();
+                return ownerLower === userLower || (userLower.includes('elbioh') && ownerLower.includes('elbioh')) || (userLower.includes('didi') && ownerLower.includes('didi'));
+              });
+              const primaryBoard = myBoards[0] || state.boards[0];
+              if (primaryBoard) {
+                const myBoardIds = new Set(myBoards.map((b) => b.id));
+                saveUserBoardToCloud(currentUserProfile.id, {
+                  board: primaryBoard,
+                  boards: myBoards,
+                  lists: state.lists.filter((l) => myBoardIds.has(l.boardId)),
+                  cards: state.cards.filter((c) => myBoardIds.has(c.boardId)),
+                  customLabels: state.customLabels,
+                  tagColors: state.tagColors,
+                });
+              }
+            }
           }}
           onClose={() => setIsCloudModalOpen(false)}
         />
@@ -2976,15 +2916,28 @@ export function App() {
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
-        onAuthSuccess={(profile) => {
-          setCurrentUserProfile(profile);
-          loadFriendsAndSyncBoards(profile);
+        onAuthSuccess={async (profile) => {
+          setIsSyncingUserData(true);
+          const cleanTemplate = profile.username.toLowerCase().includes('didi')
+            ? getDidiStarterBoardState(profile.username)
+            : createNewUserBoardState(profile.username);
+          setState((prev) => ({
+            ...prev,
+            boards: cleanTemplate.boards || [cleanTemplate.board],
+            lists: cleanTemplate.lists,
+            cards: cleanTemplate.cards,
+            customLabels: cleanTemplate.customLabels || prev.customLabels,
+            tagColors: cleanTemplate.tagColors || prev.tagColors,
+            activeBoardId: cleanTemplate.board.id,
+          }));
           try {
+            await loadFriendsAndSyncBoards(profile);
+            setCurrentUserProfile(profile);
             if (!localStorage.getItem('neon_tutorial_completed_v1')) {
               setIsTutorialOpen(true);
             }
-          } catch {
-            // ignore
+          } finally {
+            setIsSyncingUserData(false);
           }
         }}
       />
