@@ -21,6 +21,7 @@ import {
   Users,
   LogIn,
   LogOut,
+  HelpCircle,
 } from 'lucide-react';
 import {
   NeonStoreState,
@@ -49,6 +50,7 @@ import { CalendarView } from './components/CalendarView';
 import { CloudSyncModal } from './components/CloudSyncModal';
 import { AuthModal } from './components/AuthModal';
 import { FriendsModal } from './components/FriendsModal';
+import { OnboardingTutorial } from './components/OnboardingTutorial';
 import { TimeInput24h } from './components/TimeInput24h';
 import {
   DEFAULT_RECURRENCE_CONFIG,
@@ -260,6 +262,13 @@ export function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isFriendsModalOpen, setIsFriendsModalOpen] = useState(false);
   const [pendingFriendCount, setPendingFriendCount] = useState(0);
+  const [isTutorialOpen, setIsTutorialOpen] = useState<boolean>(() => {
+    try {
+      return !localStorage.getItem('neon_tutorial_completed_v1');
+    } catch {
+      return false;
+    }
+  });
 
   const loadFriendsAndSyncBoards = async (profile: UserProfile, isNewSignup: boolean = false) => {
     try {
@@ -1523,8 +1532,9 @@ export function App() {
   };
 
   const isDraggingAnything = Boolean(draggedCardId || draggedListId);
-  const appBrandName = window.neonDesktop?.brandName || 'NEON';
-  const appVersion = window.neonDesktop?.version || '1.3.5';
+  const isDidiUser = Boolean(currentUserProfile?.username?.toLowerCase().includes('didi'));
+  const appBrandName = isDidiUser ? 'SHADOWJOKER' : (window.neonDesktop?.brandName || 'NEON');
+  const appVersion = window.neonDesktop?.version || '1.3.6';
 
   if (isCheckingAuth) {
     return (
@@ -1772,6 +1782,17 @@ export function App() {
             }`}
           >
             ✨ Neon FX
+          </button>
+
+          {/* Permanent Tutorial / Help Button */}
+          <button
+            type="button"
+            onClick={() => setIsTutorialOpen(true)}
+            title="Abrir Tutorial Interativo do Neon"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/40 text-cyan-300 transition-all cursor-pointer tutorial-glow-btn"
+          >
+            <HelpCircle className="w-3.5 h-3.5 text-cyan-300" />
+            <span className="hidden md:inline">Tutorial</span>
           </button>
 
           {/* Amigos Button (when logged in) */}
@@ -2729,6 +2750,13 @@ export function App() {
         onAuthSuccess={(profile) => {
           setCurrentUserProfile(profile);
           loadFriendsAndSyncBoards(profile);
+          try {
+            if (!localStorage.getItem('neon_tutorial_completed_v1')) {
+              setIsTutorialOpen(true);
+            }
+          } catch {
+            // ignore
+          }
         }}
       />
 
@@ -2744,6 +2772,14 @@ export function App() {
           onSwitchToFriendBoard={handleSwitchToFriendBoard}
         />
       )}
+
+      {/* INTERACTIVE ONBOARDING TUTORIAL (16 Steps: Board -> Calendar -> Dale) */}
+      <OnboardingTutorial
+        isOpen={isTutorialOpen}
+        onClose={() => setIsTutorialOpen(false)}
+        onTabChange={(tab) => setActiveTab(tab)}
+        currentTab={activeTab}
+      />
     </div>
   );
 }
