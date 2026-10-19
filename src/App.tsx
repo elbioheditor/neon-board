@@ -231,6 +231,13 @@ export function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isFriendsModalOpen, setIsFriendsModalOpen] = useState(false);
   const [pendingFriendCount, setPendingFriendCount] = useState(0);
+  const [isTutorialCompleted, setIsTutorialCompleted] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('neon_tutorial_completed_v1') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [isTutorialOpen, setIsTutorialOpen] = useState<boolean>(() => {
     try {
       return !localStorage.getItem('neon_tutorial_completed_v1');
@@ -1691,7 +1698,7 @@ export function App() {
   const isDraggingAnything = Boolean(draggedCardId || draggedListId);
   const isDidiUser = Boolean(currentUserProfile?.username?.toLowerCase().includes('didi'));
   const appBrandName = isDidiUser ? 'SHADOWJOKER' : (window.neonDesktop?.brandName || 'NEON');
-  const appVersion = window.neonDesktop?.version || '1.3.9';
+  const appVersion = window.neonDesktop?.version || '1.4.0';
 
   if (isCheckingAuth || isSyncingUserData) {
     return (
@@ -1737,6 +1744,12 @@ export function App() {
               activeBoardId: cleanTemplate.board.id,
             }));
             try {
+              if (isNewSignup) {
+                localStorage.removeItem('neon_tutorial_completed_v1');
+                setIsTutorialCompleted(false);
+                setIsTutorialOpen(true);
+                setTutorialStepIndex(0);
+              }
               // 2. Fetch or create cloud board from user_boards in Supabase
               await loadFriendsAndSyncBoards(profile, isNewSignup);
               setCurrentUserProfile(profile);
@@ -1964,15 +1977,21 @@ export function App() {
             ✨ Neon FX
           </button>
 
-          {/* Permanent Tutorial / Help Button */}
+          {/* Permanent Tutorial / Help Button (? icon only, no text; glow only when tutorial is pending) */}
           <button
             type="button"
-            onClick={() => setIsTutorialOpen(true)}
-            title="Abrir Tutorial Interativo do Neon"
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/40 text-cyan-300 transition-all cursor-pointer tutorial-glow-btn"
+            onClick={() => {
+              setTutorialStepIndex(0);
+              setIsTutorialOpen(true);
+            }}
+            title="Ajuda & Tutorial Interativo (?)"
+            className={`p-2 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center justify-center ${
+              !isTutorialCompleted
+                ? 'bg-cyan-500/20 border-cyan-400/60 text-cyan-300 tutorial-glow-btn shadow-lg shadow-cyan-500/25'
+                : 'bg-white/5 hover:bg-cyan-500/15 border-white/10 hover:border-cyan-400/40 text-slate-400 hover:text-cyan-300'
+            }`}
           >
-            <HelpCircle className="w-3.5 h-3.5 text-cyan-300" />
-            <span className="hidden md:inline">Tutorial</span>
+            <HelpCircle className="w-4 h-4" />
           </button>
 
           {/* Amigos Button (when logged in) */}
@@ -2997,6 +3016,7 @@ export function App() {
         stepIndex={tutorialStepIndex}
         onStepIndexChange={setTutorialStepIndex}
         isDraggingCard={Boolean(draggedCardId)}
+        onTutorialComplete={() => setIsTutorialCompleted(true)}
       />
     </div>
   );

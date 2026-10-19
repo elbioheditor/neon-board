@@ -40,6 +40,7 @@ interface OnboardingTutorialProps {
   stepIndex?: number;
   onStepIndexChange?: (nextIndex: number | ((prev: number) => number)) => void;
   isDraggingCard?: boolean;
+  onTutorialComplete?: () => void;
 }
 
 interface StepItem {
@@ -443,6 +444,7 @@ export function OnboardingTutorial({
   stepIndex,
   onStepIndexChange,
   isDraggingCard = false,
+  onTutorialComplete,
 }: OnboardingTutorialProps) {
   const [internalStepIndex, setInternalStepIndex] = useState(0);
   const currentStepIndex = stepIndex !== undefined ? stepIndex : internalStepIndex;
@@ -563,6 +565,9 @@ export function OnboardingTutorial({
       localStorage.setItem('neon_tutorial_completed_v1', 'true');
     } catch {
       // ignore
+    }
+    if (onTutorialComplete) {
+      onTutorialComplete();
     }
     onTabChange('board');
     onClose();
