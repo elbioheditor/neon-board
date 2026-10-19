@@ -62,8 +62,12 @@ import {
   saveUserBoardToCloud,
   createNewUserBoardState,
   getDidiStarterBoardState,
+  getSupabaseAuthClient,
+  upsertProfileSafely,
+  generateFriendCode,
   UserBoardPayload,
 } from './lib/neonAuth';
+import backupState from './data/backup_neon_sync_state.json';
 import {
   getSavedCloudConfig,
   saveCloudConfig,
@@ -330,9 +334,10 @@ export function App() {
         const isDidi = profile.username.toLowerCase().includes('didi');
         const hasExistingCards = state.cards.length > 0;
 
-        if (isElbioh && hasExistingCards) {
+        if (isElbioh) {
           // Elbioh's account: save ALL current local state (boards, cards, routines, history) to his Supabase account!
-          const elbiohBoard = state.boards.find((b) => b.owner.toLowerCase().includes('elbioh')) || {
+          const sourceState = hasExistingCards ? state : (backupState as any);
+          const elbiohBoard = sourceState.boards?.find((b: any) => b.owner?.toLowerCase().includes('elbioh')) || {
             id: 'elbioh-board',
             name: `${profile.username}'s Board`,
             owner: profile.username,
@@ -340,16 +345,16 @@ export function App() {
             accentFrom: '#c026d3',
             accentTo: '#3b82f6',
           };
-          const elbiohLists = state.lists.filter((l) => l.boardId === elbiohBoard.id || l.boardId === 'elbioh-board');
-          const elbiohCards = state.cards.filter((c) => c.boardId === elbiohBoard.id || c.boardId === 'elbioh-board');
+          const elbiohLists = (sourceState.lists || []).filter((l: any) => l.boardId === elbiohBoard.id || l.boardId === 'elbioh-board');
+          const elbiohCards = (sourceState.cards || []).filter((c: any) => c.boardId === elbiohBoard.id || c.boardId === 'elbioh-board');
 
           const payload: UserBoardPayload = {
             board: { ...elbiohBoard, name: `${profile.username}'s Board`, owner: profile.username },
             boards: [{ ...elbiohBoard, name: `${profile.username}'s Board`, owner: profile.username }],
-            lists: elbiohLists.length > 0 ? elbiohLists : state.lists.filter((l) => l.boardId !== 'didi-board'),
-            cards: elbiohCards.length > 0 ? elbiohCards : state.cards.filter((c) => c.boardId !== 'didi-board'),
-            customLabels: state.customLabels,
-            tagColors: state.tagColors,
+            lists: elbiohLists.length > 0 ? elbiohLists : (sourceState.lists || []).filter((l: any) => l.boardId !== 'didi-board'),
+            cards: elbiohCards.length > 0 ? elbiohCards : (sourceState.cards || []).filter((c: any) => c.boardId !== 'didi-board'),
+            customLabels: sourceState.customLabels || state.customLabels,
+            tagColors: sourceState.tagColors || state.tagColors,
           };
           await saveUserBoardToCloud(profile.id, payload);
           setState((prev) => ({
@@ -398,7 +403,28 @@ export function App() {
     getCurrentUser()
       .then(async (user) => {
         if (user) {
-          const profile = await fetchUserProfile(user.id);
+          let profile = await fetchUserProfile(user.id);
+          if (!profile) {
+            const rawUsername =
+              user.user_metadata?.username ||
+              user.email?.split('@')[0] ||
+              'Elbioh';
+            profile = {
+              id: user.id,
+              username: rawUsername,
+              friendCode: generateFriendCode(rawUsername),
+              avatarColor: user.user_metadata?.avatar_color || '#a855f7',
+              createdAt: new Date().toISOString(),
+            };
+            const client = getSupabaseAuthClient();
+            await upsertProfileSafely(client, {
+              id: profile.id,
+              username: profile.username,
+              friendCode: profile.friendCode,
+              avatarColor: profile.avatarColor,
+              email: user.email,
+            });
+          }
           if (profile) {
             setCurrentUserProfile(profile);
             await loadFriendsAndSyncBoards(profile);
@@ -1491,7 +1517,7 @@ export function App() {
 
   const isDraggingAnything = Boolean(draggedCardId || draggedListId);
   const appBrandName = window.neonDesktop?.brandName || 'NEON';
-  const appVersion = window.neonDesktop?.version || '1.3.1';
+  const appVersion = window.neonDesktop?.version || '1.3.2';
 
   if (isCheckingAuth) {
     return (

@@ -79,6 +79,44 @@ export function resolveAuthEmail(input: string): string {
   return `${clean || 'user'}@neon.app`;
 }
 
+export async function upsertProfileSafely(
+  client: SupabaseClient,
+  payload: { id: string; username: string; friendCode: string; avatarColor: string; email?: string }
+): Promise<boolean> {
+  const basePayload: any = {
+    id: payload.id,
+    username: payload.username,
+    friend_code: payload.friendCode,
+    avatar_color: payload.avatarColor,
+  };
+
+  if (payload.email) {
+    try {
+      const { error: errWithEmail } = await client.from('profiles').upsert({
+        ...basePayload,
+        email: payload.email,
+      });
+      if (!errWithEmail) {
+        return true;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  try {
+    const { error: baseErr } = await client.from('profiles').upsert(basePayload);
+    if (baseErr) {
+      console.error('Erro ao salvar perfil no Supabase:', baseErr);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error('Exceção ao salvar perfil no Supabase:', e);
+    return false;
+  }
+}
+
 export async function signUpUser(
   username: string,
   pass: string,
@@ -122,20 +160,13 @@ export async function signUpUser(
     createdAt: new Date().toISOString(),
   };
 
-  try {
-    const profPayload: any = {
-      id: data.user.id,
-      username: profile.username,
-      friend_code: profile.friendCode,
-      avatar_color: profile.avatarColor,
-    };
-    if (data.user.email) {
-      profPayload.email = data.user.email;
-    }
-    await client.from('profiles').upsert(profPayload);
-  } catch (profError) {
-    console.error('Erro ao salvar perfil no Supabase:', profError);
-  }
+  await upsertProfileSafely(client, {
+    id: profile.id,
+    username: profile.username,
+    friendCode: profile.friendCode,
+    avatarColor: profile.avatarColor,
+    email: data.user.email,
+  });
 
   return { user: data.user, profile };
 }
@@ -239,20 +270,13 @@ export async function signInUser(
       avatarColor: data.user.user_metadata?.avatar_color || '#a855f7',
       createdAt: new Date().toISOString(),
     };
-    try {
-      const profPayload: any = {
-        id: profile.id,
-        username: profile.username,
-        friend_code: profile.friendCode,
-        avatar_color: profile.avatarColor,
-      };
-      if (data.user.email) {
-        profPayload.email = data.user.email;
-      }
-      await client.from('profiles').upsert(profPayload);
-    } catch (e) {
-      console.error(e);
-    }
+    await upsertProfileSafely(client, {
+      id: profile.id,
+      username: profile.username,
+      friendCode: profile.friendCode,
+      avatarColor: profile.avatarColor,
+      email: data.user.email,
+    });
   }
 
   return { user: data.user, profile };
@@ -472,21 +496,47 @@ export async function saveUserBoardToCloud(
   payload: UserBoardPayload
 ): Promise<boolean> {
   const client = getSupabaseAuthClient();
-  const { error } = await client.from('user_boards').upsert(
-    {
-      owner_id: userId,
-      name: payload.board.name,
-      board_state: payload,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'owner_id' }
-  );
+  try {
+    const { data: existing } = await client
+      .from('user_boards')
+      .select('id')
+      .eq('owner_id', userId)
+      .maybeSingle();
 
-  if (error) {
-    console.error('Erro ao salvar board no Supabase:', error);
+    if (existing?.id) {
+      const { error } = await client
+        .from('user_boards')
+        .update({
+          name: payload.board.name,
+          board_state: payload,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existing.id);
+
+      if (error) {
+        console.error('Erro ao atualizar board no Supabase:', error);
+        return false;
+      }
+    } else {
+      const { error } = await client
+        .from('user_boards')
+        .insert({
+          owner_id: userId,
+          name: payload.board.name,
+          board_state: payload,
+          updated_at: new Date().toISOString(),
+        });
+
+      if (error) {
+        console.error('Erro ao inserir board no Supabase:', error);
+        return false;
+      }
+    }
+    return true;
+  } catch (err) {
+    console.error('Erro ao salvar board no Supabase:', err);
     return false;
   }
-  return true;
 }
 
 export function createNewUserBoardState(username: string): UserBoardPayload {
