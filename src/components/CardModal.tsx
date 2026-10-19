@@ -27,6 +27,7 @@ import {
   clampEndTime,
 } from '../utils/timeUtils';
 import { TimeInput24h } from './TimeInput24h';
+import { getUserInitials, getUserAvatarGradient } from '../lib/neonAuth';
 
 interface CardModalProps {
   card: TaskCard;
@@ -363,12 +364,18 @@ export const CardModal: React.FC<CardModalProps> = ({
                 <span>Criador da Tarefa</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-2.5 py-1.5 px-3 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-300 w-full">
-                  <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-cyan-500 to-purple-600 text-white font-bold text-[10px] flex items-center justify-center shadow-sm shadow-cyan-500/20">
-                    {(card.assignee || 'U').slice(0, 2).toUpperCase()}
-                  </div>
-                  <span>Criado por: <strong className="text-white">{card.assignee || 'Você'}</strong></span>
-                </div>
+                {(() => {
+                  const avatarStyle = getUserAvatarGradient(card.assignee);
+                  const initials = getUserInitials(card.assignee);
+                  return (
+                    <div className="flex items-center gap-2.5 py-1.5 px-3 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-300 w-full">
+                      <div className={`w-5 h-5 rounded-full text-white font-bold text-[10px] flex items-center justify-center shadow-sm shadow-black/40 border ${avatarStyle.bg} ${avatarStyle.border}`}>
+                        {initials}
+                      </div>
+                      <span>Criado por: <strong className="text-white">{card.assignee || 'Você'}</strong></span>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 

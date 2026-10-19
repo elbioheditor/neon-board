@@ -788,3 +788,34 @@ export function getDidiStarterBoardState(username: string): UserBoardPayload {
   };
 }
 
+export function getUserInitials(name?: string): string {
+  if (!name) return 'U';
+  const clean = name.trim();
+  const parts = clean.split(/\s+/);
+  if (parts.length >= 2 && parts[0] && parts[1]) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return clean.slice(0, 2).toUpperCase();
+}
+
+export function getUserAvatarGradient(name?: string): { bg: string; border: string } {
+  const palettes = [
+    { bg: 'bg-gradient-to-br from-fuchsia-600 to-pink-600', border: 'border-fuchsia-400/50' },
+    { bg: 'bg-gradient-to-br from-cyan-500 to-blue-600', border: 'border-cyan-300/50' },
+    { bg: 'bg-gradient-to-br from-emerald-500 to-teal-600', border: 'border-emerald-300/50' },
+    { bg: 'bg-gradient-to-br from-amber-500 to-orange-600', border: 'border-amber-300/50' },
+    { bg: 'bg-gradient-to-br from-purple-600 to-indigo-700', border: 'border-purple-400/50' },
+    { bg: 'bg-gradient-to-br from-rose-500 to-red-600', border: 'border-rose-400/50' },
+    { bg: 'bg-gradient-to-br from-blue-500 to-indigo-600', border: 'border-blue-400/50' },
+    { bg: 'bg-gradient-to-br from-teal-500 to-emerald-600', border: 'border-teal-400/50' },
+  ];
+  let hash = 0;
+  const str = (name || '').toLowerCase().trim();
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % palettes.length;
+  return palettes[index];
+}
+
+

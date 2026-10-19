@@ -20,6 +20,7 @@ import {
   getDayPeriodKey,
   PERIOD_ZONE_STYLES,
 } from '../utils/timeUtils';
+import { getUserInitials, getUserAvatarGradient } from '../lib/neonAuth';
 
 interface KanbanCardProps {
   card: TaskCard;
@@ -293,12 +294,18 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
           </button>
 
           {/* Creator Avatar */}
-          <div
-            title={`Criado por: ${card.assignee || 'Você'}`}
-            className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold tracking-tighter border bg-gradient-to-br from-cyan-500 to-purple-600 text-white border-cyan-400/40 shadow-sm"
-          >
-            {(card.assignee || 'U').slice(0, 2).toUpperCase()}
-          </div>
+          {(() => {
+            const avatarStyle = getUserAvatarGradient(card.assignee);
+            const initials = getUserInitials(card.assignee);
+            return (
+              <div
+                title={`Criado por: ${card.assignee || 'Você'}`}
+                className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold tracking-tighter border text-white shadow-sm shadow-black/40 ${avatarStyle.bg} ${avatarStyle.border}`}
+              >
+                {initials}
+              </div>
+            );
+          })()}
         </div>
       </div>
     </div>
