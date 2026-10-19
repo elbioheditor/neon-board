@@ -12,7 +12,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { TaskCard, CustomLabel } from '../types';
-import { resolveLabelInfo } from '../data/initialData';
+import { resolveLabelInfo, sanitizeCardLabels } from '../data/initialData';
 import {
   getLiveElapsedSeconds,
   formatStopwatch,
@@ -80,7 +80,7 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
       {/* Top Labels (Prioridades/Custom) + Category Tag with TagColor */}
       {(card.labels.length > 0 || card.categoryTag) && (
         <div className="flex flex-wrap items-center gap-1.5 mb-2">
-          {card.labels.map((lblKey) => {
+          {sanitizeCardLabels(card.labels, customLabels).map((lblKey) => {
             const info = resolveLabelInfo(lblKey, customLabels);
             return (
               <span

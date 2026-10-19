@@ -38,6 +38,8 @@ import {
   DEFAULT_CUSTOM_LABELS,
   DEFAULT_TAG_COLORS,
   resolveLabelInfo,
+  toggleLabelSelection,
+  sanitizeCardLabels,
 } from './data/initialData';
 import { NeonParticles } from './components/NeonParticles';
 import { KanbanCard } from './components/KanbanCard';
@@ -120,6 +122,10 @@ export function App() {
               parsed.tagColors && parsed.tagColors.length > 0
                 ? parsed.tagColors
                 : DEFAULT_TAG_COLORS,
+            cards: (parsed.cards || []).map((c: TaskCard) => ({
+              ...c,
+              labels: sanitizeCardLabels(c.labels, parsed.customLabels),
+            })),
           };
           const reconciled = reconcileStateWithBrasiliaTime(withDefaults);
           localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(reconciled));
@@ -473,6 +479,10 @@ export function App() {
           updated.tagColors && updated.tagColors.length > 0
             ? updated.tagColors
             : DEFAULT_TAG_COLORS,
+        cards: (updated.cards || []).map((c: TaskCard) => ({
+          ...c,
+          labels: sanitizeCardLabels(c.labels, updated.customLabels),
+        })),
       };
       const reconciled = reconcileStateWithBrasiliaTime(withDefaults);
       const next = {
@@ -2393,9 +2403,10 @@ export function App() {
                             <div className="flex flex-wrap gap-1">
                               {(state.customLabels || DEFAULT_CUSTOM_LABELS).map(
                                 (lbl) => {
-                                  const isSelected = newCardLabels.includes(
-                                    lbl.id
-                                  );
+                                  const isSelected = sanitizeCardLabels(
+                                    newCardLabels,
+                                    state.customLabels
+                                  ).includes(lbl.id);
                                   const isDefault = [
                                     'lbl-blue',
                                     'lbl-yellow',
@@ -2410,9 +2421,11 @@ export function App() {
                                         type="button"
                                         onClick={() => {
                                           setNewCardLabels((prev) =>
-                                            prev.includes(lbl.id)
-                                              ? prev.filter((id) => id !== lbl.id)
-                                              : [...prev, lbl.id]
+                                            toggleLabelSelection(
+                                              prev,
+                                              lbl.id,
+                                              state.customLabels
+                                            )
                                           );
                                         }}
                                         className={`px-2 py-0.5 rounded-md text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer border ${

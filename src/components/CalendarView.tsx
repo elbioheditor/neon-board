@@ -21,7 +21,12 @@ import {
   RecurrenceConfig,
   TaskCard,
 } from '../types';
-import { LABEL_CONFIG, resolveLabelInfo } from '../data/initialData';
+import {
+  LABEL_CONFIG,
+  resolveLabelInfo,
+  toggleLabelSelection,
+  sanitizeCardLabels,
+} from '../data/initialData';
 import {
   getBrasiliaNow,
   getTodayIsoDate,
@@ -584,15 +589,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             {/* Row 4: Priority Labels Row (matching Image 1) */}
             <div className="flex flex-wrap items-center justify-between gap-1.5 pt-1">
               {customLabels.map((lbl) => {
-                const active = newLabels.includes(lbl.id);
+                const active = sanitizeCardLabels(newLabels, customLabels).includes(lbl.id);
                 return (
                   <button
                     key={lbl.id}
                     type="button"
                     onClick={() => {
-                      const next = active
-                        ? newLabels.filter((l) => l !== lbl.id)
-                        : [...newLabels, lbl.id];
+                      const next = toggleLabelSelection(newLabels, lbl.id, customLabels);
                       setNewLabels(next);
                     }}
                     className={`flex-1 min-w-0 px-2 py-1 rounded-md text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${

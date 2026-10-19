@@ -17,7 +17,12 @@ import {
   Repeat,
 } from 'lucide-react';
 import { TaskCard, BoardList, CustomLabel, TagColorItem } from '../types';
-import { LABEL_CONFIG, resolveLabelInfo } from '../data/initialData';
+import {
+  LABEL_CONFIG,
+  resolveLabelInfo,
+  toggleLabelSelection,
+  sanitizeCardLabels,
+} from '../data/initialData';
 import {
   getLiveElapsedSeconds,
   formatStopwatch,
@@ -119,10 +124,7 @@ export const CardModal: React.FC<CardModalProps> = ({
   };
 
   const toggleLabel = (labelKey: string) => {
-    const exists = card.labels.includes(labelKey);
-    const nextLabels = exists
-      ? card.labels.filter((c) => c !== labelKey)
-      : [...card.labels, labelKey];
+    const nextLabels = toggleLabelSelection(card.labels, labelKey, customLabels);
     saveField({ labels: nextLabels });
   };
 
@@ -546,7 +548,7 @@ export const CardModal: React.FC<CardModalProps> = ({
 
           <div className="flex flex-wrap gap-2">
             {customLabels.map((lbl) => {
-              const selected = card.labels.includes(lbl.id);
+              const selected = sanitizeCardLabels(card.labels, customLabels).includes(lbl.id);
               return (
                 <div key={lbl.id} className="relative group/lbl inline-flex items-center">
                   <button

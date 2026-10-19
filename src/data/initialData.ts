@@ -119,6 +119,103 @@ export function resolveLabelInfo(
   };
 }
 
+export function isPriorityLabel(
+  labelIdOrName: string,
+  customLabels?: CustomLabel[]
+): boolean {
+  if (!labelIdOrName) return false;
+
+  // Default priority label IDs
+  if (['lbl-blue', 'lbl-yellow', 'lbl-red'].includes(labelIdOrName)) {
+    return true;
+  }
+
+  const custom = customLabels?.find(
+    (l) => l.id === labelIdOrName || l.name === labelIdOrName
+  );
+  if (custom) {
+    if (['lbl-blue', 'lbl-yellow', 'lbl-red'].includes(custom.id)) {
+      return true;
+    }
+    const cleanName = custom.name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+    if (
+      cleanName.includes('prioridade') ||
+      cleanName.includes('priority') ||
+      cleanName === 'alta' ||
+      cleanName === 'baixa' ||
+      cleanName === 'media' ||
+      cleanName === 'urgente' ||
+      cleanName === 'maxima'
+    ) {
+      return true;
+    }
+  }
+
+  const predefined = LABEL_CONFIG[labelIdOrName];
+  if (predefined) {
+    const cleanName = predefined.name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+    if (cleanName.includes('prioridade') || cleanName.includes('priority')) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export function sanitizeCardLabels(
+  labels: string[] = [],
+  customLabels?: CustomLabel[]
+): string[] {
+  if (!Array.isArray(labels)) return [];
+  let foundPriority = false;
+  const sanitized: string[] = [];
+
+  // Traverse backwards to preserve the most recent priority label if multiple were present
+  for (let i = labels.length - 1; i >= 0; i--) {
+    const id = labels[i];
+    if (isPriorityLabel(id, customLabels)) {
+      if (!foundPriority) {
+        sanitized.unshift(id);
+        foundPriority = true;
+      }
+    } else {
+      sanitized.unshift(id);
+    }
+  }
+
+  return sanitized;
+}
+
+export function toggleLabelSelection(
+  currentLabels: string[],
+  labelId: string,
+  customLabels?: CustomLabel[]
+): string[] {
+  const isPriority = isPriorityLabel(labelId, customLabels);
+  const exists = currentLabels.includes(labelId);
+
+  if (exists) {
+    const remaining = currentLabels.filter((id) => id !== labelId);
+    return sanitizeCardLabels(remaining, customLabels);
+  }
+
+  if (isPriority) {
+    const nonPriorityLabels = currentLabels.filter(
+      (id) => !isPriorityLabel(id, customLabels)
+    );
+    return [...nonPriorityLabels, labelId];
+  }
+
+  return [...currentLabels, labelId];
+}
+
+
 export const INITIAL_STATE: NeonStoreState = {
   activeBoardId: 'elbioh-board',
   lastUpdated: '1970-01-01T00:00:00.000Z',
