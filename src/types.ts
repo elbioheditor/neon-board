@@ -85,6 +85,7 @@ export interface UserProfile {
   username: string;
   friendCode: string;
   avatarColor: string;
+  email?: string;
   createdAt?: string;
 }
 

@@ -45,6 +45,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           return;
         }
 
+        if (!email.trim() || !email.includes('@')) {
+          setErrorMessage('Por favor, informe um e-mail válido (obrigatório para cadastro).');
+          setLoading(false);
+          return;
+        }
+
         const res = await signUpUser(username, password, email, avatarColor);
         if (res.error) {
           setErrorMessage(res.error);
@@ -221,15 +227,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  E-mail <span className="text-[10px] text-slate-400 font-normal">(opcional)</span>
+                  E-mail <span className="text-rose-400 font-bold">*</span>
                 </label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
                   <input
                     type="email"
+                    required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="seuemail@exemplo.com (ou deixe em branco)"
+                    placeholder="seuemail@exemplo.com"
                     className="w-full pl-9 pr-3 py-2 bg-[#05030a] border border-white/15 focus:border-cyan-400 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none transition-colors"
                   />
                 </div>

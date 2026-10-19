@@ -120,17 +120,19 @@ export async function upsertProfileSafely(
 export async function signUpUser(
   username: string,
   pass: string,
-  optionalEmail?: string,
+  email: string,
   avatarColor: string = '#a855f7'
 ): Promise<{ user: User | null; profile: UserProfile | null; error?: string }> {
   const client = getSupabaseAuthClient();
   const trimmedName = username.trim() || 'Usuário';
-  const email = (optionalEmail && optionalEmail.trim().includes('@'))
-    ? optionalEmail.trim().toLowerCase()
-    : usernameToAuthEmail(trimmedName);
+  const trimmedEmail = (email || '').trim().toLowerCase();
+
+  if (!trimmedEmail || !trimmedEmail.includes('@')) {
+    return { user: null, profile: null, error: 'Por favor, informe um e-mail válido (obrigatório para cadastro).' };
+  }
 
   const { data, error } = await client.auth.signUp({
-    email,
+    email: trimmedEmail,
     password: pass,
     options: {
       data: {
@@ -142,7 +144,7 @@ export async function signUpUser(
 
   if (error) {
     if (error.message.toLowerCase().includes('already registered')) {
-      return { user: null, profile: null, error: 'Este usuário ou e-mail já foi criado. Se já tem conta, use a aba "Entrar"!' };
+      return { user: null, profile: null, error: 'Este e-mail já está cadastrado. Use a aba "Entrar"!' };
     }
     return { user: null, profile: null, error: error.message };
   }
@@ -157,6 +159,7 @@ export async function signUpUser(
     username: trimmedName,
     friendCode,
     avatarColor,
+    email: trimmedEmail,
     createdAt: new Date().toISOString(),
   };
 
@@ -165,7 +168,7 @@ export async function signUpUser(
     username: profile.username,
     friendCode: profile.friendCode,
     avatarColor: profile.avatarColor,
-    email: data.user.email,
+    email: trimmedEmail,
   });
 
   return { user: data.user, profile };
@@ -312,11 +315,27 @@ export async function getCurrentUser(): Promise<User | null> {
 
 export async function fetchUserProfile(userId: string): Promise<UserProfile | null> {
   const client = getSupabaseAuthClient();
-  const { data, error } = await client
+  let data: any = null;
+  let error: any = null;
+
+  const resWithEmail = await client
     .from('profiles')
-    .select('id, username, friend_code, avatar_color, created_at')
+    .select('id, username, friend_code, avatar_color, email, created_at')
     .eq('id', userId)
-    .single();
+    .maybeSingle();
+
+  if (resWithEmail.error && resWithEmail.error.code === '42703') {
+    const resWithoutEmail = await client
+      .from('profiles')
+      .select('id, username, friend_code, avatar_color, created_at')
+      .eq('id', userId)
+      .maybeSingle();
+    data = resWithoutEmail.data;
+    error = resWithoutEmail.error;
+  } else {
+    data = resWithEmail.data;
+    error = resWithEmail.error;
+  }
 
   if (error || !data) {
     return null;
@@ -327,6 +346,7 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile | nu
     username: data.username,
     friendCode: data.friend_code,
     avatarColor: data.avatar_color,
+    email: data.email,
     createdAt: data.created_at,
   };
 }

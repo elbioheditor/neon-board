@@ -1517,7 +1517,7 @@ export function App() {
 
   const isDraggingAnything = Boolean(draggedCardId || draggedListId);
   const appBrandName = window.neonDesktop?.brandName || 'NEON';
-  const appVersion = window.neonDesktop?.version || '1.3.2';
+  const appVersion = window.neonDesktop?.version || '1.3.3';
 
   if (isCheckingAuth) {
     return (
