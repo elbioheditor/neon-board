@@ -486,13 +486,13 @@ export function App() {
       const withDefaults: NeonStoreState = {
         ...updated,
         customLabels:
-          updated.customLabels && updated.customLabels.length > 0
+          updated.customLabels !== undefined
             ? updated.customLabels
-            : DEFAULT_CUSTOM_LABELS,
+            : (prev.customLabels ?? DEFAULT_CUSTOM_LABELS),
         tagColors:
-          updated.tagColors && updated.tagColors.length > 0
+          updated.tagColors !== undefined
             ? updated.tagColors
-            : DEFAULT_TAG_COLORS,
+            : (prev.tagColors ?? DEFAULT_TAG_COLORS),
         cards: (updated.cards || []).map((c: TaskCard) => ({
           ...c,
           labels: sanitizeCardLabels(c.labels, updated.customLabels),
@@ -935,12 +935,25 @@ export function App() {
   };
 
   const handleDeleteTagColor = (colorId: string) => {
+    const target = (state.tagColors || DEFAULT_TAG_COLORS).find((c) => c.id === colorId);
     updateState((prev) => ({
       ...prev,
       tagColors: (prev.tagColors || DEFAULT_TAG_COLORS).filter(
         (c) => c.id !== colorId
       ),
     }));
+    if (target && newCardTagColor === target.hex) {
+      const remaining = (state.tagColors || DEFAULT_TAG_COLORS).filter((c) => c.id !== colorId);
+      setNewCardTagColor(remaining[0]?.hex || '#a855f7');
+    }
+  };
+
+  const handleResetTagColors = () => {
+    updateState((prev) => ({
+      ...prev,
+      tagColors: DEFAULT_TAG_COLORS,
+    }));
+    setNewCardTagColor(DEFAULT_TAG_COLORS[0]?.hex || '#a855f7');
   };
 
   const handleCreateLabel = (name: string, color: string) => {
@@ -956,6 +969,7 @@ export function App() {
   };
 
   const handleDeleteLabel = (labelId: string) => {
+    setNewCardLabels((prev) => prev.filter((id) => id !== labelId));
     updateState((prev) => ({
       ...prev,
       customLabels: (prev.customLabels || DEFAULT_CUSTOM_LABELS).filter(
@@ -965,6 +979,13 @@ export function App() {
         ...c,
         labels: c.labels.filter((lbl) => lbl !== labelId),
       })),
+    }));
+  };
+
+  const handleResetCustomLabels = () => {
+    updateState((prev) => ({
+      ...prev,
+      customLabels: DEFAULT_CUSTOM_LABELS,
     }));
   };
 
@@ -2515,22 +2536,29 @@ export function App() {
                                       style={{ backgroundColor: tc.hex }}
                                       title={tc.name}
                                     />
-                                    {!['purple', 'yellow', 'red', 'green', 'cyan'].includes(
-                                      tc.id
-                                    ) && (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleDeleteTagColor(tc.id);
-                                        }}
-                                        className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-600 text-white text-[8px] flex items-center justify-center opacity-0 group-hover/tagcol:opacity-100 transition-opacity"
-                                      >
-                                        ×
-                                      </button>
-                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteTagColor(tc.id);
+                                      }}
+                                      title={`Remover cor ${tc.name}`}
+                                      className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-rose-600 hover:bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center opacity-0 group-hover/tagcol:opacity-100 transition-all cursor-pointer shadow-sm z-10"
+                                    >
+                                      ×
+                                    </button>
                                   </div>
                                 )
+                              )}
+                              {(state.tagColors || DEFAULT_TAG_COLORS).length < DEFAULT_TAG_COLORS.length && (
+                                <button
+                                  type="button"
+                                  onClick={handleResetTagColors}
+                                  className="text-[9px] text-slate-500 hover:text-cyan-300 transition-colors underline cursor-pointer ml-auto"
+                                  title="Restaurar paleta padrão de cores"
+                                >
+                                  Restaurar
+                                </button>
                               )}
                             </div>
                           </div>
@@ -2627,11 +2655,6 @@ export function App() {
                                     newCardLabels,
                                     state.customLabels
                                   ).includes(lbl.id);
-                                  const isDefault = [
-                                    'lbl-blue',
-                                    'lbl-yellow',
-                                    'lbl-red',
-                                  ].includes(lbl.id);
                                   return (
                                     <div
                                       key={lbl.id}
@@ -2670,21 +2693,30 @@ export function App() {
                                         />
                                         <span>{lbl.name}</span>
                                       </button>
-                                      {!isDefault && (
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDeleteLabel(lbl.id);
-                                          }}
-                                          className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-600 text-white text-[8px] flex items-center justify-center opacity-0 group-hover/lbl:opacity-100 transition-opacity"
-                                        >
-                                          ×
-                                        </button>
-                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteLabel(lbl.id);
+                                        }}
+                                        title={`Remover etiqueta "${lbl.name}"`}
+                                        className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-rose-600 hover:bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center opacity-0 group-hover/lbl:opacity-100 transition-all cursor-pointer shadow-sm z-10"
+                                      >
+                                        ×
+                                      </button>
                                     </div>
                                   );
                                 }
+                              )}
+                              {(state.customLabels || DEFAULT_CUSTOM_LABELS).length < DEFAULT_CUSTOM_LABELS.length && (
+                                <button
+                                  type="button"
+                                  onClick={handleResetCustomLabels}
+                                  className="text-[9px] text-slate-500 hover:text-cyan-300 transition-colors underline cursor-pointer self-center"
+                                  title="Restaurar etiquetas padrão"
+                                >
+                                  Restaurar
+                                </button>
                               )}
                             </div>
                           </div>
@@ -2806,6 +2838,9 @@ export function App() {
               onAddCardForDate={handleAddCardFromCalendar}
               onAddTagColor={handleAddTagColor}
               onDeleteTagColor={handleDeleteTagColor}
+              onDeleteLabel={handleDeleteLabel}
+              onResetTagColors={handleResetTagColors}
+              onResetCustomLabels={handleResetCustomLabels}
               onCardDragStart={handleCardDragStart}
               onCardDragEnd={handleClearDragState}
               onMoveCardToDate={handleMoveCardToDate}
@@ -2921,6 +2956,8 @@ export function App() {
           onDeleteLabel={handleDeleteLabel}
           onAddTagColor={handleAddTagColor}
           onDeleteTagColor={handleDeleteTagColor}
+          onResetTagColors={handleResetTagColors}
+          onResetCustomLabels={handleResetCustomLabels}
           onAddDayToTask={handleAddDayToTask}
           onUpdateRecurrenceGroup={handleUpdateRecurrenceGroup}
         />

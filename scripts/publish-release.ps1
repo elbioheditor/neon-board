@@ -52,7 +52,7 @@ try {
     $releaseBody = @{
         tag_name = $tagName
         name = $tagName
-        body = "Release $tagName - Tutorial Alignment & UI Element Inconsistencies Fixed (+ Add a card, INICIAR, Drag to Complete, Routine Setup)"
+        body = "Release $tagName - Remocao flexivel de cores predefinidas e personalizadas de tags e labels"
         draft = $false
         prerelease = $false
     } | ConvertTo-Json

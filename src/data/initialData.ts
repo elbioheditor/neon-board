@@ -125,33 +125,37 @@ export function isPriorityLabel(
 ): boolean {
   if (!labelIdOrName) return false;
 
-  // Default priority label IDs
-  if (['lbl-blue', 'lbl-yellow', 'lbl-red'].includes(labelIdOrName)) {
-    return true;
+  // When customLabels is provided, check if it exists in the active labels list
+  if (customLabels) {
+    const custom = customLabels.find(
+      (l) => l.id === labelIdOrName || l.name === labelIdOrName
+    );
+    if (custom) {
+      if (['lbl-blue', 'lbl-yellow', 'lbl-red'].includes(custom.id)) {
+        return true;
+      }
+      const cleanName = custom.name
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+      if (
+        cleanName.includes('prioridade') ||
+        cleanName.includes('priority') ||
+        cleanName === 'alta' ||
+        cleanName === 'baixa' ||
+        cleanName === 'media' ||
+        cleanName === 'urgente' ||
+        cleanName === 'maxima'
+      ) {
+        return true;
+      }
+    }
+    return false;
   }
 
-  const custom = customLabels?.find(
-    (l) => l.id === labelIdOrName || l.name === labelIdOrName
-  );
-  if (custom) {
-    if (['lbl-blue', 'lbl-yellow', 'lbl-red'].includes(custom.id)) {
-      return true;
-    }
-    const cleanName = custom.name
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '');
-    if (
-      cleanName.includes('prioridade') ||
-      cleanName.includes('priority') ||
-      cleanName === 'alta' ||
-      cleanName === 'baixa' ||
-      cleanName === 'media' ||
-      cleanName === 'urgente' ||
-      cleanName === 'maxima'
-    ) {
-      return true;
-    }
+  // Default priority label IDs if customLabels is not passed
+  if (['lbl-blue', 'lbl-yellow', 'lbl-red'].includes(labelIdOrName)) {
+    return true;
   }
 
   const predefined = LABEL_CONFIG[labelIdOrName];

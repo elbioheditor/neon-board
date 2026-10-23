@@ -52,6 +52,8 @@ interface CardModalProps {
   onDeleteLabel?: (labelId: string) => void;
   onAddTagColor?: (hex: string, name?: string) => void;
   onDeleteTagColor?: (colorId: string) => void;
+  onResetTagColors?: () => void;
+  onResetCustomLabels?: () => void;
   onAddDayToTask?: (cardId: string) => void;
   onUpdateRecurrenceGroup?: (
     cardId: string,
@@ -81,6 +83,8 @@ export const CardModal: React.FC<CardModalProps> = ({
   onDeleteLabel,
   onAddTagColor,
   onDeleteTagColor,
+  onResetTagColors,
+  onResetCustomLabels,
   onAddDayToTask,
   onUpdateRecurrenceGroup,
 }) => {
@@ -432,22 +436,37 @@ export const CardModal: React.FC<CardModalProps> = ({
                             : 'opacity-55 hover:opacity-100 hover:scale-110'
                         }`}
                         style={{ backgroundColor: tc.hex }}
-                        title={tc.name}
+                        title={`${tc.name} (${tc.hex})`}
                       />
-                      {onDeleteTagColor && !['purple', 'yellow', 'red', 'green', 'cyan'].includes(tc.id) && (
+                      {onDeleteTagColor && (
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             onDeleteTagColor(tc.id);
+                            if (selectedTagColor === tc.hex) {
+                              setSelectedTagColor('');
+                              saveField({ tagColor: undefined });
+                            }
                           }}
-                          className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-600 text-white text-[8px] flex items-center justify-center opacity-0 group-hover/col:opacity-100 transition-opacity"
+                          title={`Remover cor ${tc.name}`}
+                          className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-rose-600 hover:bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center opacity-0 group-hover/col:opacity-100 transition-all cursor-pointer shadow-sm z-10"
                         >
                           ×
                         </button>
                       )}
                     </div>
                   ))}
+                  {onResetTagColors && tagColors.length < 5 && (
+                    <button
+                      type="button"
+                      onClick={onResetTagColors}
+                      className="text-[9px] text-slate-500 hover:text-cyan-300 transition-colors ml-auto underline cursor-pointer"
+                      title="Restaurar paleta padrão de cores"
+                    >
+                      Restaurar cores
+                    </button>
+                  )}
                 </div>
 
                 {showAddColor && (
@@ -512,14 +531,26 @@ export const CardModal: React.FC<CardModalProps> = ({
               <Tag className="w-3.5 h-3.5 text-fuchsia-400" />
               <span>Etiquetas (Labels / Prioridades)</span>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowCreateLabel(!showCreateLabel)}
-              className="text-[10px] text-cyan-300 hover:text-white font-bold flex items-center gap-1 cursor-pointer"
-            >
-              <Plus className="w-3 h-3" />
-              <span>Nova Label</span>
-            </button>
+            <div className="flex items-center gap-2">
+              {onResetCustomLabels && customLabels.length < 3 && (
+                <button
+                  type="button"
+                  onClick={onResetCustomLabels}
+                  className="text-[10px] text-slate-500 hover:text-cyan-300 font-medium transition-colors underline cursor-pointer mr-1"
+                  title="Restaurar etiquetas padrão"
+                >
+                  Restaurar padrões
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowCreateLabel(!showCreateLabel)}
+                className="text-[10px] text-cyan-300 hover:text-white font-bold flex items-center gap-1 cursor-pointer"
+              >
+                <Plus className="w-3 h-3" />
+                <span>Nova Label</span>
+              </button>
+            </div>
           </div>
 
           {showCreateLabel && (

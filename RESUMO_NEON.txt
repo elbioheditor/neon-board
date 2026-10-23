@@ -1,0 +1,125 @@
+================================================================================
+                    RESUMO COMPLETO DO PROJETO NEON
+================================================================================
+
+1. O QUE E O NEON
+O Neon e um organizador pessoal de rotina e Kanban Duo desenvolvido como aplicativo 
+desktop para Windows (Electron + React + TypeScript + Supabase + Tailwind CSS). 
+Possui identidade visual cyberpunk/neon escuro, foco em alta produtividade diaria, 
+cronometragem de tarefas e colaboracao em tempo real entre amigos.
+
+--------------------------------------------------------------------------------
+2. O CORE DO KANBAN E ROTINA DIARIA
+Diferente de um Kanban generico, o Neon organiza suas colunas por fluxo temporal:
+
+- Yesterday (Ontem/Atrasadas):
+  Pendencias nao concluidas dos dias anteriores. Possui indicador e aviso de atraso.
+
+- Today (Hoje):
+  O foco absoluto do seu dia atual de trabalho.
+
+- Tomorrow (Amanha):
+  Planejamento imediato para o proximo dia.
+
+- This Week (Esta Semana):
+  Demandas e metas distribuidas nos proximos dias da semana.
+
+- Future (Futuro/Backlog):
+  Projetos, ideias de longo prazo e tarefas futuras.
+
+* Rollover Automatico das 00:00 (Fuso de Brasilia):
+  O aplicativo possui um relogio interno sincronizado no horario de Brasilia.
+  Quando bate meia-noite (00:00):
+  - As tarefas de Tomorrow descem automaticamente para Today.
+  - Tarefas de Today que nao foram concluidas vao para Yesterday como atrasadas.
+  O usuario nao precisa reorganizar manualmente a rotina todo inicio de dia.
+
+--------------------------------------------------------------------------------
+3. RECURSOS DOS CARDS DE TAREFA
+Cada card de tarefa e completo e voltado para alta performance:
+
+- Cronometro / Stopwatch Integrado:
+  Voce pode dar Play no card para registrar o tempo exato trabalhado na tarefa.
+  Acumula segundos, pausa e salva no banco de dados.
+
+- Recorrencia Inteligente:
+  * Por dias da semana especificos (ex: Seg, Qua e Sex).
+  * Por sequencia continua de dias (ex: rotina de 4 dias seguidos).
+  * Por dias especificos do mes (ex: dias 5 e 20).
+
+- Checklists Dinamicas:
+  Sub-etapas com calculo e barra de porcentagem de progresso em tempo real.
+
+- Horarios 24h (Inicio e Fim):
+  Definicao de janelas de horario (ex: 09:00 as 10:30) com calculo automatico de duracao.
+
+- Tags de Categoria e Etiquetas:
+  Etiquetas com seletor de cores neon vibrantes para categorizar tarefas (ex: CODING, DESIGN, URGENTE).
+
+- Drag & Drop com Acoes Inferiores:
+  * Arrastar entre colunas.
+  * Arrastar para a lixeira inferior para deletar com confirmacao.
+  * Arrastar para a barra de conclusao inferior para finalizar com som, particulas e notificacao com tempo total trabalhado.
+
+--------------------------------------------------------------------------------
+4. AS 3 VISUALIZACOES DO APP
+1. Kanban Board:
+   Tela principal com colunas temporais, particulas neon opcionais e cards arrastaveis.
+
+2. Calendar View (Calendario):
+   Visao de calendario mensal e semanal que distribui visualmente as tarefas pelos dias, mostrando horas estimadas e status.
+
+3. Monthly History View (Historico Mensal):
+   Relatorio completo de produtividade com metricas de tarefas concluidas, tempo total cronometrado e graficos de desempenho ao longo dos meses.
+
+--------------------------------------------------------------------------------
+5. O SISTEMA DE CONTAS E AUTENTICACAO
+Baseado em Supabase (PostgreSQL + Supabase Auth + Supabase Realtime):
+
+- Cadastro:
+  Nome de usuario (Nick), E-mail e Senha (com confirmacao de senha e icone de olho para visualizar a senha digitada).
+
+- Login Flexivel:
+  O usuario pode fazer login digitando tanto o Nick quanto o E-mail + Senha.
+
+- Opcao Lembrar por 60 Dias:
+  Mantem a sessao salva de forma segura por 2 meses sem precisar digitar login novamente.
+
+- Isolamento Rigoroso de Dados:
+  O armazenamento local e cloud sao indexados pelo ID unico do usuario. Ao deslogar ou trocar de conta, as informacoes da conta anterior sao limpas da tela instantaneamente, evitando vazamento de dados em maquinas compartilhadas.
+
+--------------------------------------------------------------------------------
+6. O SISTEMA DE AMIGOS E DUO BOARD
+Recurso criado para permitir acompanhamento de rotina e colaboracao entre duas ou mais pessoas:
+
+- Friend Code Unico:
+  Cada perfil recebe automaticamente uma tag exclusiva no padrao NICK#1234 (ex: ELBIOH#4821).
+  Ha um botao de copiar de 1 clique para compartilhar facilmente.
+
+- Solicitacoes de Amizade (Friends Modal):
+  Menu com abas: Meus Amigos, Adicionar Amigo e Solicitacoes Pendentes.
+  Contador visual com badge no topo do app para novas solicitacoes recebidas.
+  O amigo pode Aceitar ou Recusar o pedido.
+
+- Abas de Amigos no Topo:
+  Assim que a amizade e aceita, surge uma aba no topo do app com o avatar e nome do amigo (ex: Didi's Board).
+
+- Visualizacao em Tempo Real:
+  Ao clicar na aba do amigo, voce ve o board dele, as tarefas que ele planejou para hoje e o status de conclusao.
+
+- Transferencia de Tarefas (Cross-Board Drag & Drop):
+  Voce pode arrastar um card do seu board diretamente para a aba do seu amigo no topo. O card e transferido imediatamente para o board dele com animacao visual de slot-in.
+
+- Sincronizacao em Nuvem:
+  Todas as alteracoes sao persistidas na tabela user_boards no Supabase, refletindo na maquina do amigo.
+
+--------------------------------------------------------------------------------
+7. TECNOLOGIA DESKTOP (ELECTRON) E ATUALIZACOES
+- App Desktop:
+  Janela sem bordas no estilo cyberpunk (titleBarStyle: hidden) com botoes de janela integrados.
+
+- Auto-Updater via GitHub Releases:
+  Conectado ao repositorio elbioheditor/neon-board no GitHub.
+  Checa atualizacoes a cada 30 segundos, na inicializacao e ao focar a janela.
+  Baixa a nova versao em segundo plano e oferece reiniciar com 1 clique sem perder tarefas nem configuracoes.
+================================================================================

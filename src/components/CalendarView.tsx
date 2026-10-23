@@ -69,6 +69,9 @@ interface CalendarViewProps {
   ) => void;
   onAddTagColor?: (hex: string, name?: string) => void;
   onDeleteTagColor?: (colorId: string) => void;
+  onDeleteLabel?: (labelId: string) => void;
+  onResetTagColors?: () => void;
+  onResetCustomLabels?: () => void;
   onCardDragStart?: (e: React.DragEvent, cardId: string) => void;
   onCardDragEnd?: () => void;
   onMoveCardToDate?: (cardId: string, targetIsoDate: string) => void;
@@ -119,6 +122,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   onAddCardForDate,
   onAddTagColor,
   onDeleteTagColor,
+  onDeleteLabel,
+  onResetTagColors,
+  onResetCustomLabels,
   onCardDragStart,
   onCardDragEnd,
   onMoveCardToDate,
@@ -540,22 +546,37 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                         : 'opacity-50 hover:opacity-100 hover:scale-110'
                     }`}
                     style={{ backgroundColor: tc.hex }}
-                    title={tc.name}
+                    title={`${tc.name} (${tc.hex})`}
                   />
-                  {onDeleteTagColor && !['purple', 'yellow', 'red', 'green', 'cyan'].includes(tc.id) && (
+                  {onDeleteTagColor && (
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         onDeleteTagColor(tc.id);
+                        if (newTagColor === tc.hex) {
+                          const remaining = tagColors.filter((c) => c.id !== tc.id);
+                          setNewTagColor(remaining[0]?.hex || '#06b6d4');
+                        }
                       }}
-                      className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-600 text-white text-[8px] flex items-center justify-center opacity-0 group-hover/calcol:opacity-100 transition-opacity"
+                      title={`Remover cor ${tc.name}`}
+                      className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-rose-600 hover:bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center opacity-0 group-hover/calcol:opacity-100 transition-all cursor-pointer shadow-sm z-10"
                     >
                       ×
                     </button>
                   )}
                 </div>
               ))}
+              {onResetTagColors && tagColors.length < 5 && (
+                <button
+                  type="button"
+                  onClick={onResetTagColors}
+                  className="text-[9px] text-slate-500 hover:text-cyan-300 transition-colors underline cursor-pointer ml-auto"
+                  title="Restaurar paleta padrão de cores"
+                >
+                  Restaurar cores
+                </button>
+              )}
             </div>
 
             {showAddColor && (
@@ -591,27 +612,52 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               {customLabels.map((lbl) => {
                 const active = sanitizeCardLabels(newLabels, customLabels).includes(lbl.id);
                 return (
-                  <button
-                    key={lbl.id}
-                    type="button"
-                    onClick={() => {
-                      const next = toggleLabelSelection(newLabels, lbl.id, customLabels);
-                      setNewLabels(next);
-                    }}
-                    className={`flex-1 min-w-0 px-2 py-1 rounded-md text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                      active
-                        ? 'border-cyan-400 text-white ring-1 ring-cyan-400/50 bg-cyan-950/40'
-                        : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    <span
-                      className="w-2 h-2 rounded-full inline-block flex-shrink-0"
-                      style={{ backgroundColor: lbl.color }}
-                    />
-                    <span className="truncate">{lbl.name}</span>
-                  </button>
+                  <div key={lbl.id} className="relative group/callbl flex-1 min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = toggleLabelSelection(newLabels, lbl.id, customLabels);
+                        setNewLabels(next);
+                      }}
+                      className={`w-full px-2 py-1 rounded-md text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                        active
+                          ? 'border-cyan-400 text-white ring-1 ring-cyan-400/50 bg-cyan-950/40'
+                          : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <span
+                        className="w-2 h-2 rounded-full inline-block flex-shrink-0"
+                        style={{ backgroundColor: lbl.color }}
+                      />
+                      <span className="truncate">{lbl.name}</span>
+                    </button>
+                    {onDeleteLabel && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteLabel(lbl.id);
+                          setNewLabels((prev) => prev.filter((id) => id !== lbl.id));
+                        }}
+                        title={`Remover etiqueta ${lbl.name}`}
+                        className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-rose-600 hover:bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center opacity-0 group-hover/callbl:opacity-100 transition-all cursor-pointer shadow-sm z-10"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
                 );
               })}
+              {onResetCustomLabels && customLabels.length < 3 && (
+                <button
+                  type="button"
+                  onClick={onResetCustomLabels}
+                  className="text-[9px] text-slate-500 hover:text-cyan-300 transition-colors underline cursor-pointer"
+                  title="Restaurar etiquetas padrão"
+                >
+                  Restaurar padrões
+                </button>
+              )}
             </div>
 
             {/* Row 5: Rotina on left, + Adicionar on right */}
