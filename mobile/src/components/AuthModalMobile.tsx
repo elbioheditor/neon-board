@@ -20,7 +20,8 @@ import {
 
 interface AuthModalMobileProps {
   visible: boolean;
-  onClose: () => void;
+  onClose?: () => void;
+  fullScreen?: boolean;
   onAuthenticated: (profile: UserProfile, isNewSignup: boolean) => void;
 }
 
@@ -37,6 +38,7 @@ const AVATAR_COLORS = [
 export const AuthModalMobile: React.FC<AuthModalMobileProps> = ({
   visible,
   onClose,
+  fullScreen = false,
   onAuthenticated,
 }) => {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
@@ -67,7 +69,7 @@ export const AuthModalMobile: React.FC<AuthModalMobileProps> = ({
           setErrorMsg(res.error || 'Falha ao entrar.');
         } else {
           onAuthenticated(res.profile, false);
-          onClose();
+          onClose?.();
         }
       } catch (e: unknown) {
         setErrorMsg(e instanceof Error ? e.message : 'Erro inesperado.');
@@ -100,7 +102,7 @@ export const AuthModalMobile: React.FC<AuthModalMobileProps> = ({
           setErrorMsg(res.error || 'Falha ao criar conta.');
         } else {
           onAuthenticated(res.profile, true);
-          onClose();
+          onClose?.();
         }
       } catch (e: unknown) {
         setErrorMsg(e instanceof Error ? e.message : 'Erro inesperado.');
@@ -110,185 +112,200 @@ export const AuthModalMobile: React.FC<AuthModalMobileProps> = ({
     }
   };
 
-  return (
-    <Modal visible={visible} animationType="slide" transparent>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.overlay}
-      >
-        <View style={styles.card}>
-          <View style={styles.headerRow}>
-            <Text style={styles.brandTitle}>⚡ NEON ACCOUNT</Text>
+  const content = (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={[styles.overlay, fullScreen && { backgroundColor: '#07050d' }]}
+    >
+      <View style={styles.card}>
+        <View style={styles.headerRow}>
+          <View>
+            <Text style={styles.brandTitle}>⚡ NEON</Text>
+            <Text style={styles.brandSubtitle}>
+              Sincronização em Tempo Real (PC & Mobile)
+            </Text>
+          </View>
+          {!fullScreen && onClose && (
             <Pressable onPress={onClose} style={styles.closeBtn}>
               <Text style={styles.closeText}>✕</Text>
             </Pressable>
-          </View>
-
-          <View style={styles.tabRow}>
-            <Pressable
-              onPress={() => {
-                setMode('login');
-                setErrorMsg(null);
-              }}
-              style={[styles.tabBtn, mode === 'login' && styles.tabBtnActive]}
-            >
-              <Text
-                style={[
-                  styles.tabText,
-                  mode === 'login' && styles.tabTextActive,
-                ]}
-              >
-                Entrar
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                setMode('signup');
-                setErrorMsg(null);
-              }}
-              style={[styles.tabBtn, mode === 'signup' && styles.tabBtnActive]}
-            >
-              <Text
-                style={[
-                  styles.tabText,
-                  mode === 'signup' && styles.tabTextActive,
-                ]}
-              >
-                Criar Conta
-              </Text>
-            </Pressable>
-          </View>
-
-          <ScrollView showsVerticalScrollIndicator={false}>
-            <Text style={styles.label}>
-              {mode === 'login' ? 'Nick ou E-mail' : 'Seu Nick (Username)'}
-            </Text>
-            <TextInput
-              style={styles.input}
-              placeholder={
-                mode === 'login' ? 'Ex: Elbioh ou email@...' : 'Ex: Elbioh'
-              }
-              placeholderTextColor="#64748b"
-              autoCapitalize="none"
-              value={username}
-              onChangeText={setUsername}
-            />
-
-            {mode === 'signup' && (
-              <>
-                <Text style={styles.label}>E-mail</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="seuemail@exemplo.com"
-                  placeholderTextColor="#64748b"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  value={email}
-                  onChangeText={setEmail}
-                />
-              </>
-            )}
-
-            <Text style={styles.label}>Senha</Text>
-            <View style={styles.passwordContainer}>
-              <TextInput
-                style={styles.passwordInput}
-                placeholder="••••••••"
-                placeholderTextColor="#64748b"
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                value={password}
-                onChangeText={setPassword}
-              />
-              <Pressable
-                onPress={() => setShowPassword(!showPassword)}
-                style={styles.eyeBtn}
-              >
-                <Text style={styles.eyeText}>
-                  {showPassword ? '🙈' : '👁️'}
-                </Text>
-              </Pressable>
-            </View>
-
-            {mode === 'signup' && (
-              <>
-                <Text style={styles.label}>Confirmar Senha</Text>
-                <View style={styles.passwordContainer}>
-                  <TextInput
-                    style={styles.passwordInput}
-                    placeholder="Repita sua senha"
-                    placeholderTextColor="#64748b"
-                    secureTextEntry={!showConfirmPassword}
-                    autoCapitalize="none"
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                  />
-                  <Pressable
-                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                    style={styles.eyeBtn}
-                  >
-                    <Text style={styles.eyeText}>
-                      {showConfirmPassword ? '🙈' : '👁️'}
-                    </Text>
-                  </Pressable>
-                </View>
-
-                <Text style={styles.label}>Cor do seu Avatar</Text>
-                <View style={styles.colorRow}>
-                  {AVATAR_COLORS.map((c) => (
-                    <Pressable
-                      key={c}
-                      onPress={() => setAvatarColor(c)}
-                      style={[
-                        styles.colorCircle,
-                        { backgroundColor: c },
-                        avatarColor === c && styles.colorCircleSelected,
-                      ]}
-                    />
-                  ))}
-                </View>
-              </>
-            )}
-
-            <Pressable
-              onPress={() => setRemember60Days(!remember60Days)}
-              style={styles.rememberRow}
-            >
-              <View
-                style={[
-                  styles.checkbox,
-                  remember60Days && styles.checkboxChecked,
-                ]}
-              >
-                {remember60Days && <Text style={styles.checkmark}>✓</Text>}
-              </View>
-              <Text style={styles.rememberText}>
-                Manter conectado por 60 dias
-              </Text>
-            </Pressable>
-
-            {errorMsg && (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{errorMsg}</Text>
-              </View>
-            )}
-
-            <Pressable
-              onPress={handleSubmit}
-              disabled={loading}
-              style={[styles.submitBtn, loading && { opacity: 0.6 }]}
-            >
-              {loading ? (
-                <ActivityIndicator color="#07050d" />
-              ) : (
-                <Text style={styles.submitText}>
-                  {mode === 'login' ? 'Entrar Agora' : 'Criar Minha Conta'}
-                </Text>
-              )}
-            </Pressable>
-          </ScrollView>
+          )}
         </View>
-      </KeyboardAvoidingView>
+
+        <View style={styles.tabRow}>
+          <Pressable
+            onPress={() => {
+              setMode('login');
+              setErrorMsg(null);
+            }}
+            style={[styles.tabBtn, mode === 'login' && styles.tabBtnActive]}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                mode === 'login' && styles.tabTextActive,
+              ]}
+            >
+              Entrar
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => {
+              setMode('signup');
+              setErrorMsg(null);
+            }}
+            style={[styles.tabBtn, mode === 'signup' && styles.tabBtnActive]}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                mode === 'signup' && styles.tabTextActive,
+              ]}
+            >
+              Criar Conta
+            </Text>
+          </Pressable>
+        </View>
+
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <Text style={styles.label}>
+            {mode === 'login' ? 'Nick ou E-mail' : 'Seu Nick (Username)'}
+          </Text>
+          <TextInput
+            style={styles.input}
+            placeholder={
+              mode === 'login' ? 'Ex: Elbioh ou email@...' : 'Ex: Elbioh'
+            }
+            placeholderTextColor="#64748b"
+            autoCapitalize="none"
+            value={username}
+            onChangeText={setUsername}
+          />
+
+          {mode === 'signup' && (
+            <>
+              <Text style={styles.label}>E-mail</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="seuemail@exemplo.com"
+                placeholderTextColor="#64748b"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                value={email}
+                onChangeText={setEmail}
+              />
+            </>
+          )}
+
+          <Text style={styles.label}>Senha</Text>
+          <View style={styles.passwordContainer}>
+            <TextInput
+              style={styles.passwordInput}
+              placeholder="••••••••"
+              placeholderTextColor="#64748b"
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              value={password}
+              onChangeText={setPassword}
+            />
+            <Pressable
+              onPress={() => setShowPassword(!showPassword)}
+              style={styles.eyeBtn}
+            >
+              <Text style={styles.eyeText}>
+                {showPassword ? '🙈' : '👁️'}
+              </Text>
+            </Pressable>
+          </View>
+
+          {mode === 'signup' && (
+            <>
+              <Text style={styles.label}>Confirmar Senha</Text>
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={styles.passwordInput}
+                  placeholder="Repita sua senha"
+                  placeholderTextColor="#64748b"
+                  secureTextEntry={!showConfirmPassword}
+                  autoCapitalize="none"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                />
+                <Pressable
+                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  style={styles.eyeBtn}
+                >
+                  <Text style={styles.eyeText}>
+                    {showConfirmPassword ? '🙈' : '👁️'}
+                  </Text>
+                </Pressable>
+              </View>
+
+              <Text style={styles.label}>Cor do seu Avatar</Text>
+              <View style={styles.colorRow}>
+                {AVATAR_COLORS.map((c) => (
+                  <Pressable
+                    key={c}
+                    onPress={() => setAvatarColor(c)}
+                    style={[
+                      styles.colorCircle,
+                      { backgroundColor: c },
+                      avatarColor === c && styles.colorCircleSelected,
+                    ]}
+                  />
+                ))}
+              </View>
+            </>
+          )}
+
+          <Pressable
+            onPress={() => setRemember60Days(!remember60Days)}
+            style={styles.rememberRow}
+          >
+            <View
+              style={[
+                styles.checkbox,
+                remember60Days && styles.checkboxChecked,
+              ]}
+            >
+              {remember60Days && <Text style={styles.checkmark}>✓</Text>}
+            </View>
+            <Text style={styles.rememberText}>
+              Manter conectado por 60 dias
+            </Text>
+          </Pressable>
+
+          {errorMsg && (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorText}>{errorMsg}</Text>
+            </View>
+          )}
+
+          <Pressable
+            onPress={handleSubmit}
+            disabled={loading}
+            style={[styles.submitBtn, loading && { opacity: 0.6 }]}
+          >
+            {loading ? (
+              <ActivityIndicator color="#07050d" />
+            ) : (
+              <Text style={styles.submitText}>
+                {mode === 'login' ? 'Entrar Agora' : 'Criar Minha Conta'}
+              </Text>
+            )}
+          </Pressable>
+        </ScrollView>
+      </View>
+    </KeyboardAvoidingView>
+  );
+
+  if (fullScreen) {
+    return visible ? content : null;
+  }
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      {content}
     </Modal>
   );
 };
@@ -316,9 +333,15 @@ const styles = StyleSheet.create({
   },
   brandTitle: {
     color: '#22d3ee',
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: '900',
-    letterSpacing: 1,
+    letterSpacing: 1.5,
+  },
+  brandSubtitle: {
+    color: '#94a3b8',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
   },
   closeBtn: {
     padding: 6,

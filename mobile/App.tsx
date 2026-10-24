@@ -747,6 +747,24 @@ export default function App() {
     );
   }
 
+  if (!currentUserProfile) {
+    return (
+      <SafeAreaProvider>
+        <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
+          <StatusBar barStyle="light-content" />
+          <AuthModalMobile
+            visible={true}
+            fullScreen={true}
+            onAuthenticated={async (prof) => {
+              setCurrentUserProfile(prof);
+              await loadFriendsAndSyncBoards(prof);
+            }}
+          />
+        </SafeAreaView>
+      </SafeAreaProvider>
+    );
+  }
+
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
