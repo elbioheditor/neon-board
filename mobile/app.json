@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "Neon",
+    "slug": "neon-mobile",
+    "version": "1.4.1",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#07050d",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#07050d",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.elbioh.neon",
+      "userInterfaceStyle": "dark"
+    },
+    "android": {
+      "package": "com.elbioh.neon",
+      "userInterfaceStyle": "dark",
+      "adaptiveIcon": {
+        "backgroundColor": "#07050d"
+      }
+    }
+  }
+}
