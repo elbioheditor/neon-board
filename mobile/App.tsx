@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import * as Updates from 'expo-updates';
 import {
   Board,
   BoardList,
@@ -298,6 +299,30 @@ export default function App() {
       console.error('Error syncing boards on mobile:', e);
     }
   };
+
+  // Automatic Over-The-Air (OTA) Update Check on Launch & Foreground
+  useEffect(() => {
+    const checkAndApplyOtaUpdate = async () => {
+      try {
+        if (__DEV__ || !Updates.isEnabled) return;
+        const update = await Updates.checkForUpdateAsync();
+        if (update.isAvailable) {
+          await Updates.fetchUpdateAsync();
+          await Updates.reloadAsync();
+        }
+      } catch {
+        // Ignore OTA check errors in dev/offline mode
+      }
+    };
+
+    checkAndApplyOtaUpdate();
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        checkAndApplyOtaUpdate();
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   // Initial Auth Check
   useEffect(() => {
