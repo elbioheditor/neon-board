@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   AppState,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -11,6 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import {
   Board,
@@ -737,17 +737,20 @@ export default function App() {
 
   if (isCheckingAuth) {
     return (
-      <SafeAreaView style={styles.loadingScreen}>
-        <StatusBar barStyle="light-content" />
-        <ActivityIndicator size="large" color="#22d3ee" />
-        <Text style={styles.loadingText}>Sincronizando Neon Mobile...</Text>
-      </SafeAreaView>
+      <SafeAreaProvider>
+        <SafeAreaView style={styles.loadingScreen} edges={['top', 'bottom', 'left', 'right']}>
+          <StatusBar barStyle="light-content" />
+          <ActivityIndicator size="large" color="#22d3ee" />
+          <Text style={styles.loadingText}>Sincronizando Neon Mobile...</Text>
+        </SafeAreaView>
+      </SafeAreaProvider>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
+    <SafeAreaProvider>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
+        <StatusBar barStyle="light-content" />
 
       {/* TOP BAR: Brand, Friends & Account */}
       <View style={styles.topHeader}>
@@ -1542,7 +1545,8 @@ export default function App() {
         onResetCustomLabels={handleResetCustomLabels}
         onTransferCardToBoard={handleTransferCardToBoard}
       />
-    </SafeAreaView>
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
 

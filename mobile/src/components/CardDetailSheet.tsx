@@ -646,9 +646,9 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderColor: 'rgba(34, 211, 238, 0.4)',
     paddingHorizontal: 18,
-    paddingBottom: 28,
+    paddingBottom: 44,
     paddingTop: 10,
-    maxHeight: '92%',
+    maxHeight: '88%',
   },
   handleBar: {
     width: 42,
