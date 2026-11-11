@@ -3,11 +3,14 @@
 @layer base {
   :root {
     color-scheme: dark;
+    --neon-primary: #a855f7;
+    --neon-secondary: #06b6d4;
+    --neon-bg: #07050d;
   }
 
   body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    background-color: #07050d;
+    background-color: var(--neon-bg, #07050d);
     color: #f1f5f9;
     user-select: none;
     overflow: hidden;
@@ -112,34 +115,106 @@
 @keyframes fade-in {
   from {
     opacity: 0;
-    transform: translateY(-4px);
+    transform: translateY(-4px) scale(0.99);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
 .animate-fade-in {
-  animation: fade-in 0.18s ease-out forwards;
+  animation: fade-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 /* Apple-style spring and slide animations */
 @keyframes slide-in-right {
   0% {
     opacity: 0;
-    transform: translateX(36px) scale(0.99);
+    transform: translateX(32px) scale(0.992);
+    filter: blur(3px);
   }
   100% {
     opacity: 1;
     transform: translateX(0) scale(1);
+    filter: blur(0px);
   }
 }
 
 @keyframes slide-in-left {
   0% {
     opacity: 0;
-    transform: translateX(-36px) scale(0.99);
+    transform: translateX(-32px) scale(0.992);
+    filter: blur(3px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    filter: blur(0px);
+  }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-slide-in-left {
+  animation: slide-in-left 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Late / Yesterday Panel Slide Open (grows toward the left) & Slide Close (slides toward the right) */
+@keyframes late-wrapper-expand-left {
+  0% {
+    width: 44px;
+    opacity: 0.75;
+  }
+  100% {
+    width: 335px;
+    opacity: 1;
+  }
+}
+
+@keyframes late-inner-grow-left {
+  0% {
+    opacity: 0;
+    transform: translateX(64px) scaleX(0.84);
+    filter: blur(2px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scaleX(1);
+    filter: blur(0px);
+  }
+}
+
+@keyframes late-wrapper-collapse-right {
+  0% {
+    width: 335px;
+    opacity: 1;
+  }
+  100% {
+    width: 44px;
+    opacity: 0.4;
+  }
+}
+
+@keyframes late-inner-slide-right {
+  0% {
+    opacity: 1;
+    transform: translateX(0) scaleX(1);
+    filter: blur(0px);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(85%) scaleX(0.82);
+    filter: blur(2px);
+  }
+}
+
+@keyframes late-pill-appear {
+  0% {
+    opacity: 0;
+    transform: translateX(-10px) scale(0.92);
   }
   100% {
     opacity: 1;
@@ -147,12 +222,85 @@
   }
 }
 
-.animate-slide-in-right {
-  animation: slide-in-right 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+.animate-late-open-wrapper {
+  animation: late-wrapper-expand-left 0.38s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
-.animate-slide-in-left {
-  animation: slide-in-left 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+.animate-late-open-inner {
+  transform-origin: right center;
+  animation: late-inner-grow-left 0.38s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.animate-late-close-wrapper {
+  animation: late-wrapper-collapse-right 0.34s cubic-bezier(0.32, 0, 0.2, 1) forwards;
+  pointer-events: none;
+}
+
+.animate-late-close-inner {
+  transform-origin: right center;
+  animation: late-inner-slide-right 0.34s cubic-bezier(0.32, 0, 0.2, 1) forwards;
+}
+
+.animate-late-pill-in {
+  animation: late-pill-appear 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Bottom Complete/Delete Drop Bar Slide-Up */
+@keyframes bottom-dock-slide-up {
+  0% {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-bottom-dock-up {
+  animation: bottom-dock-slide-up 0.32s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Smooth Drawer / Accordion Expand for Inline Forms */
+@keyframes drawer-expand {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px) scaleY(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+  }
+}
+
+.animate-drawer-open {
+  transform-origin: top center;
+  animation: drawer-expand 0.26s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Smooth Popover Up for Project Attribution Menu */
+@keyframes popover-spring-up {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-popover-up {
+  transform-origin: bottom right;
+  animation: popover-spring-up 0.22s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.neon-card-smooth {
+  transition:
+    transform 0.26s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.26s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.22s ease,
+    background-color 0.22s ease;
 }
 
 /* Staggered Pop-In Spring for Board Columns (Apple style) */
@@ -279,6 +427,12 @@
 .animate-pulse-ring {
   animation: pulse-ring 2.2s infinite ease-in-out;
 }
+
+/* Dynamic Theme Surface Overrides for Background Customization */
+.neon-app-shell {
+  background-color: var(--neon-bg, #07050d) !important;
+}
+
 
 
 

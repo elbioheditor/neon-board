@@ -265,7 +265,13 @@ export function formatShortDatePt(isoDate?: string): string {
 
 export function isYesterdayListTitle(title: string): boolean {
   const lower = title.trim().toLowerCase();
-  return lower.includes('yesterday') || lower.includes('ontem');
+  return (
+    lower === 'late' ||
+    lower.includes('late') ||
+    lower.includes('yesterday') ||
+    lower.includes('ontem') ||
+    lower.includes('atrasad')
+  );
 }
 
 export function isTodayListTitle(title: string): boolean {
@@ -389,11 +395,17 @@ export function reconcileStateWithBrasiliaTime(
       yesterdayList = {
         id: `${board.id}-yesterday`,
         boardId: board.id,
-        title: 'Yesterday',
+        title: 'Late',
         order: 0,
       };
       updatedLists.push(yesterdayList);
       bLists.push(yesterdayList);
+      listsChanged = true;
+    } else if (
+      yesterdayList.title.trim().toLowerCase() === 'yesterday' ||
+      yesterdayList.title.trim().toLowerCase() === 'ontem'
+    ) {
+      yesterdayList.title = 'Late';
       listsChanged = true;
     }
 
@@ -547,6 +559,8 @@ export function reconcileStateWithBrasiliaTime(
             elapsedSeconds: 0,
             labels: [...template.labels],
             categoryTag: template.categoryTag,
+            tagColor: template.tagColor,
+            projectId: template.projectId,
             checklist: template.checklist.map((item) => ({
               ...item,
               completed: false,
@@ -620,6 +634,7 @@ export function buildRecurringTaskCards(params: {
   label: LabelColor | string | string[];
   categoryTag?: string;
   tagColor?: string;
+  projectId?: string;
   assignee: string;
   baseOrder: number;
   recurrence?: RecurrenceConfig;
@@ -636,6 +651,7 @@ export function buildRecurringTaskCards(params: {
     label,
     categoryTag,
     tagColor,
+    projectId,
     assignee,
     baseOrder,
     recurrence,
@@ -666,6 +682,7 @@ export function buildRecurringTaskCards(params: {
         labels: cardLabels,
         categoryTag: categoryTag || undefined,
         tagColor: tagColor || undefined,
+        projectId: projectId || undefined,
         checklist: [],
         assignee,
         createdAt: nowIso,
@@ -696,6 +713,7 @@ export function buildRecurringTaskCards(params: {
         labels: cardLabels,
         categoryTag: categoryTag || undefined,
         tagColor: tagColor || undefined,
+        projectId: projectId || undefined,
         checklist: [],
         assignee,
         createdAt: nowIso,
@@ -743,6 +761,7 @@ export function buildRecurringTaskCards(params: {
         labels: cardLabels,
         categoryTag: categoryTag || undefined,
         tagColor: tagColor || undefined,
+        projectId: projectId || undefined,
         checklist: [],
         assignee,
         createdAt: nowIso,
@@ -788,6 +807,7 @@ export function buildRecurringTaskCards(params: {
         labels: cardLabels,
         categoryTag: categoryTag || undefined,
         tagColor: tagColor || undefined,
+        projectId: projectId || undefined,
         checklist: [],
         assignee,
         createdAt: nowIso,
@@ -802,4 +822,117 @@ export function buildRecurringTaskCards(params: {
   }
 
   return result;
+}
+
+/**
+ * Calculates the difference in calendar days (toIso - fromIso).
+ */
+export function diffDaysBetweenIsoDates(fromIso: string, toIso: string): number {
+  const p1 = fromIso.split('-').map(Number);
+  const p2 = toIso.split('-').map(Number);
+  if (p1.length !== 3 || p2.length !== 3) return 0;
+  const utc1 = Date.UTC(p1[0], p1[1] - 1, p1[2]);
+  const utc2 = Date.UTC(p2[0], p2[1] - 1, p2[2]);
+  return Math.round((utc2 - utc1) / (1000 * 60 * 60 * 24));
+}
+
+/**
+ * Moves `targetCardId` to `newScheduledDate`.
+ * If the card is part of a multi-day block (recurrence group with `days_count` or `specific_days`),
+ * all uncompleted cards in that group from the moved card onwards shift together as a contiguous block
+ * starting on `newScheduledDate` ("vai do dia q eu parei e ai sim conta os dias, em um bloco").
+ */
+export function shiftTaskAndGroupToDate(
+  cards: TaskCard[],
+  lists: BoardList[],
+  targetCardId: string,
+  newScheduledDate: string,
+  explicitTargetListId?: string
+): TaskCard[] {
+  const targetCard = cards.find((c) => c.id === targetCardId);
+  if (!targetCard) return cards;
+
+  const bLists = lists.filter((l) => l.boardId === targetCard.boardId);
+  const explicitList = explicitTargetListId
+    ? bLists.find((l) => l.id === explicitTargetListId)
+    : undefined;
+  const isCustomTargetList = Boolean(
+    explicitList && !isStandardDateSyncedList(explicitList.title)
+  );
+
+  const resolveListForDate = (dateIso: string, isTargetCard: boolean): string => {
+    if (isTargetCard && isCustomTargetList && explicitTargetListId) {
+      return explicitTargetListId;
+    }
+    return (
+      resolveSyncedListIdForDate(dateIso, bLists) ||
+      explicitTargetListId ||
+      targetCard.listId
+    );
+  };
+
+  const rec = targetCard.recurrence;
+  if (
+    rec?.groupId &&
+    (rec.mode === 'days_count' || rec.mode === 'specific_days')
+  ) {
+    const groupId = rec.groupId;
+    const baseDayIdx = rec.dayIndex ?? 1;
+    const baseOldDate = targetCard.scheduledDate || getTodayIsoDate();
+
+    const blockCards = cards
+      .filter((c) => {
+        if (c.status === 'completed') return false;
+        if (c.recurrence?.groupId !== groupId) return false;
+        if (c.id === targetCard.id) return true;
+        if (
+          typeof c.recurrence?.dayIndex === 'number' &&
+          typeof rec.dayIndex === 'number'
+        ) {
+          return c.recurrence.dayIndex >= baseDayIdx;
+        }
+        return (c.scheduledDate || '') >= baseOldDate;
+      })
+      .sort((a, b) => {
+        const idxA = a.recurrence?.dayIndex ?? 999;
+        const idxB = b.recurrence?.dayIndex ?? 999;
+        if (idxA !== idxB) return idxA - idxB;
+        const dA = a.scheduledDate || '9999-99-99';
+        const dB = b.scheduledDate || '9999-99-99';
+        if (dA !== dB) return dA.localeCompare(dB);
+        return a.order - b.order;
+      });
+
+    if (blockCards.length > 1) {
+      const shiftedDateById = new Map<string, string>();
+      const orderedBlock = [
+        targetCard,
+        ...blockCards.filter((c) => c.id !== targetCard.id),
+      ];
+
+      orderedBlock.forEach((c, idx) => {
+        const nextIso = addDaysToIsoDate(newScheduledDate, idx);
+        shiftedDateById.set(c.id, nextIso);
+      });
+
+      return cards.map((c) => {
+        const nextDate = shiftedDateById.get(c.id);
+        if (!nextDate) return c;
+        return {
+          ...c,
+          scheduledDate: nextDate,
+          listId: resolveListForDate(nextDate, c.id === targetCard.id),
+        };
+      });
+    }
+  }
+
+  return cards.map((c) => {
+    if (c.id !== targetCard.id) return c;
+    return {
+      ...c,
+      scheduledDate: newScheduledDate,
+      listId: resolveListForDate(newScheduledDate, true),
+    };
+  });
 }

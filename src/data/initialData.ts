@@ -1,8 +1,15 @@
-import { NeonStoreState, LabelColor, CustomLabel, TagColorItem } from '../types';
+import { NeonStoreState, LabelColor, CustomLabel, TagColorItem, ThemeColors } from '../types';
 import { getTodayIsoDate, getTomorrowIsoDate } from '../utils/timeUtils';
 
 const todayStr = getTodayIsoDate();
 const tomorrowStr = getTomorrowIsoDate();
+
+export const DEFAULT_THEME_COLORS: ThemeColors = {
+  primaryColor: '#a855f7',
+  secondaryColor: '#06b6d4',
+  backgroundColor: '#07050d',
+  usdToBrlRate: 5.8,
+};
 
 export const DEFAULT_CUSTOM_LABELS: CustomLabel[] = [
   { id: 'lbl-blue', name: 'Prioridade baixa', color: '#3b82f6' },
@@ -225,6 +232,8 @@ export const INITIAL_STATE: NeonStoreState = {
   lastUpdated: '1970-01-01T00:00:00.000Z',
   customLabels: DEFAULT_CUSTOM_LABELS,
   tagColors: DEFAULT_TAG_COLORS,
+  projects: [],
+  themeColors: DEFAULT_THEME_COLORS,
   boards: [
     {
       id: 'elbioh-board',
@@ -236,8 +245,8 @@ export const INITIAL_STATE: NeonStoreState = {
     },
   ],
   lists: [
-    // Elbioh's Lists (Yesterday -> Today -> Tomorrow -> This Week -> Future)
-    { id: 'elbioh-yesterday', boardId: 'elbioh-board', title: 'Yesterday', order: 0 },
+    // Elbioh's Lists (Late -> Today -> Tomorrow -> This Week -> Future)
+    { id: 'elbioh-yesterday', boardId: 'elbioh-board', title: 'Late', order: 0 },
     { id: 'elbioh-today', boardId: 'elbioh-board', title: 'Today', order: 1 },
     { id: 'elbioh-tomorrow', boardId: 'elbioh-board', title: 'Tomorrow', order: 2 },
     { id: 'elbioh-week', boardId: 'elbioh-board', title: 'This Week', order: 3 },

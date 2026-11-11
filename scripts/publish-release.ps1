@@ -52,7 +52,7 @@ try {
     $releaseBody = @{
         tag_name = $tagName
         name = $tagName
-        body = "Release $tagName - Remocao flexivel de cores predefinidas e personalizadas de tags e labels"
+        body = "Release $tagName - Aba Projetos e Ganhos (USD/BRL + Hora Media), Coluna de Horarios (08:00+), Aba Late com animacao slide, Arrasto de blocos multi-dias e Personalizacao de Cores"
         draft = $false
         prerelease = $false
     } | ConvertTo-Json

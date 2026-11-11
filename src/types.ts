@@ -59,7 +59,28 @@ export interface TaskCard {
   completedAt?: string; // ISO timestamp when marked as completed
   completedFromListTitle?: string;
   recurrence?: TaskRecurrence;
+  projectId?: string; // Optional ID of a WorkProject receiving this task's tracked hours
   order: number;
+}
+
+export interface WorkProject {
+  id: string;
+  boardId: string;
+  title: string;
+  description?: string;
+  amountUsd: number;
+  status: 'active' | 'completed';
+  manualSeconds?: number; // Accumulated seconds from deleted tasks or manual adjustments
+  color?: string;
+  createdAt: string;
+  completedAt?: string;
+}
+
+export interface ThemeColors {
+  primaryColor: string;
+  secondaryColor: string;
+  backgroundColor: string;
+  usdToBrlRate?: number;
 }
 
 export interface BoardList {
@@ -78,7 +99,7 @@ export interface Board {
   accentTo: string;
 }
 
-export type ActiveTab = 'board' | 'calendar' | 'history';
+export type ActiveTab = 'projects' | 'calendar' | 'board' | 'history';
 
 export interface UserProfile {
   id: string;
@@ -103,6 +124,8 @@ export interface NeonStoreState {
   activeBoardId: string;
   lists: BoardList[];
   cards: TaskCard[];
+  projects?: WorkProject[];
+  themeColors?: ThemeColors;
   customLabels?: CustomLabel[];
   tagColors?: TagColorItem[];
   lastUpdated: string;

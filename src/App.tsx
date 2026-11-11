@@ -22,6 +22,9 @@ import {
   LogIn,
   LogOut,
   HelpCircle,
+  Settings,
+  Briefcase,
+  Clock,
 } from 'lucide-react';
 import {
   NeonStoreState,
@@ -32,12 +35,15 @@ import {
   CustomLabel,
   TagColorItem,
   UserProfile,
+  WorkProject,
+  ThemeColors,
 } from './types';
 import {
   INITIAL_STATE,
   LABEL_CONFIG,
   DEFAULT_CUSTOM_LABELS,
   DEFAULT_TAG_COLORS,
+  DEFAULT_THEME_COLORS,
   resolveLabelInfo,
   toggleLabelSelection,
   sanitizeCardLabels,
@@ -47,6 +53,11 @@ import { KanbanCard } from './components/KanbanCard';
 import { CardModal } from './components/CardModal';
 import { MonthlyHistoryView } from './components/MonthlyHistoryView';
 import { CalendarView } from './components/CalendarView';
+import { ProjectsView } from './components/ProjectsView';
+import {
+  ThemeSettingsModal,
+  applyThemeColorsToDocument,
+} from './components/ThemeSettingsModal';
 import { CloudSyncModal } from './components/CloudSyncModal';
 import { AuthModal } from './components/AuthModal';
 import { FriendsModal } from './components/FriendsModal';
@@ -92,7 +103,10 @@ import {
   isTodayListTitle,
   isTomorrowListTitle,
   isWeekListTitle,
+  isFutureListTitle,
   isStandardDateSyncedList,
+  getEndOfWeekIsoDate,
+  getBrasiliaNow,
   syncEndTimeWithStart,
   clampEndTime,
   getDayPeriodKey,
@@ -101,6 +115,7 @@ import {
   buildRecurringTaskCards,
   addDaysToIsoDate,
   getWeekdayFromIsoDate,
+  shiftTaskAndGroupToDate,
 } from './utils/timeUtils';
 
 export const getUserBoardStorageKey = (userId?: string) =>
@@ -142,9 +157,10 @@ export function App() {
 
   const handleTabChange = (nextTab: ActiveTab) => {
     const tabOrder: Record<ActiveTab, number> = {
-      calendar: 0,
-      board: 1,
-      history: 2,
+      projects: 0,
+      calendar: 1,
+      board: 2,
+      history: 3,
     };
     if (nextTab !== activeTab) {
       setTabSlideDir(tabOrder[nextTab] >= tabOrder[activeTab] ? 'right' : 'left');
@@ -158,7 +174,28 @@ export function App() {
   // Modals & UI states
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [isCloudModalOpen, setIsCloudModalOpen] = useState(false);
+  const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
   const [showYesterday, setShowYesterday] = useState(false);
+  const [isClosingYesterday, setIsClosingYesterday] = useState(false);
+
+  const handleOpenYesterday = () => {
+    setIsClosingYesterday(false);
+    setShowYesterday(true);
+  };
+
+  const handleCloseYesterday = () => {
+    if (isClosingYesterday) return;
+    setIsClosingYesterday(true);
+    window.setTimeout(() => {
+      setShowYesterday(false);
+      setIsClosingYesterday(false);
+    }, 330);
+  };
+
+  // Apply dynamic theme colors (primary, secondary, background) to document
+  useEffect(() => {
+    applyThemeColorsToDocument(state.themeColors || DEFAULT_THEME_COLORS);
+  }, [state.themeColors]);
 
   // Adding card inline per column
   const [addingToListId, setAddingToListId] = useState<string | null>(null);
@@ -188,8 +225,9 @@ export function App() {
   const [editingListId, setEditingListId] = useState<string | null>(null);
   const [editingListTitle, setEditingListTitle] = useState('');
 
-  // Drag & Drop state (Cards & Lists)
+  // Drag & Drop state (Cards, Lists & Projects)
   const [draggedCardId, setDraggedCardId] = useState<string | null>(null);
+  const [draggedProjectId, setDraggedProjectId] = useState<string | null>(null);
   const [draggedListId, setDraggedListId] = useState<string | null>(null);
   const [dragOverListId, setDragOverListId] = useState<string | null>(null);
   const [dragOverBoardId, setDragOverBoardId] = useState<string | null>(null);
@@ -297,11 +335,18 @@ export function App() {
           const myBoardIds = new Set(myBoards.map((b) => b.id));
           const myLists = ownerBoard.lists.filter((l) => myBoardIds.has(l.boardId) || !l.boardId);
           const myCards = ownerBoard.cards.filter((c) => myBoardIds.has(c.boardId) || !c.boardId);
+          const myProjects = (ownerBoard.projects || prev.projects || []).filter(
+            (p) => myBoardIds.has(p.boardId) || !p.boardId
+          );
 
           // ONLY include friendsBoards if they were returned by fetchUserAndFriendsBoards (i.e. accepted friends)
           const allBoards = [...myBoards, ...friendsBoards.map((fb) => fb.board)];
           const allLists = [...myLists, ...friendsBoards.flatMap((fb) => fb.lists)];
           const allCards = [...myCards, ...friendsBoards.flatMap((fb) => fb.cards)];
+          const allProjects = [
+            ...myProjects,
+            ...friendsBoards.flatMap((fb) => fb.projects || []),
+          ];
 
           const validActiveBoardId = allBoards.some((b) => b.id === prev.activeBoardId)
             ? prev.activeBoardId
@@ -312,6 +357,8 @@ export function App() {
             boards: allBoards,
             lists: allLists,
             cards: allCards,
+            projects: allProjects,
+            themeColors: ownerBoard.themeColors || prev.themeColors || DEFAULT_THEME_COLORS,
             customLabels: ownerBoard.customLabels || prev.customLabels,
             tagColors: ownerBoard.tagColors || prev.tagColors,
             activeBoardId: validActiveBoardId,
@@ -330,6 +377,8 @@ export function App() {
               boards: myBoards,
               lists: myLists,
               cards: myCards,
+              projects: myProjects,
+              themeColors: nextState.themeColors,
               customLabels: nextState.customLabels,
               tagColors: nextState.tagColors,
             });
@@ -485,6 +534,11 @@ export function App() {
       const updated = updater(prev);
       const withDefaults: NeonStoreState = {
         ...updated,
+        projects: updated.projects !== undefined ? updated.projects : (prev.projects ?? []),
+        themeColors:
+          updated.themeColors !== undefined
+            ? updated.themeColors
+            : (prev.themeColors ?? DEFAULT_THEME_COLORS),
         customLabels:
           updated.customLabels !== undefined
             ? updated.customLabels
@@ -523,6 +577,8 @@ export function App() {
             boards: myBoards,
             lists: next.lists.filter((l) => myBoardIds.has(l.boardId)),
             cards: next.cards.filter((c) => myBoardIds.has(c.boardId)),
+            projects: (next.projects || []).filter((p) => myBoardIds.has(p.boardId)),
+            themeColors: next.themeColors,
             customLabels: next.customLabels,
             tagColors: next.tagColors,
           });
@@ -633,7 +689,7 @@ export function App() {
       ],
       lists: [
         ...prev.lists,
-        { id: `${newId}-yesterday`, boardId: newId, title: 'Yesterday', order: 0 },
+        { id: `${newId}-yesterday`, boardId: newId, title: 'Late', order: 0 },
         { id: `${newId}-today`, boardId: newId, title: 'Today', order: 1 },
         { id: `${newId}-tomorrow`, boardId: newId, title: 'Tomorrow', order: 2 },
         { id: `${newId}-week`, boardId: newId, title: 'This Week', order: 3 },
@@ -783,9 +839,151 @@ export function App() {
   };
 
   const handleUpdateCard = (updated: TaskCard) => {
+    updateState((prev) => {
+      const existing = prev.cards.find((c) => c.id === updated.id);
+      if (
+        existing &&
+        updated.scheduledDate &&
+        updated.scheduledDate !== existing.scheduledDate
+      ) {
+        const shifted = shiftTaskAndGroupToDate(
+          prev.cards,
+          prev.lists,
+          updated.id,
+          updated.scheduledDate,
+          updated.listId
+        );
+        return {
+          ...prev,
+          cards: shifted.map((c) =>
+            c.id === updated.id
+              ? {
+                  ...updated,
+                  scheduledDate: c.scheduledDate,
+                  listId: c.listId,
+                }
+              : c
+          ),
+        };
+      }
+      return {
+        ...prev,
+        cards: prev.cards.map((c) => (c.id === updated.id ? updated : c)),
+      };
+    });
+  };
+
+  const handleAssignCardProject = (
+    cardId: string,
+    projectId: string | undefined
+  ) => {
+    updateState((prev) => {
+      const target = prev.cards.find((c) => c.id === cardId);
+      if (!target) return prev;
+      const groupId = target.recurrence?.groupId;
+      return {
+        ...prev,
+        cards: prev.cards.map((c) => {
+          if (c.id === cardId || (groupId && c.recurrence?.groupId === groupId)) {
+            return {
+              ...c,
+              projectId,
+            };
+          }
+          return c;
+        }),
+      };
+    });
+  };
+
+  const handleCreateProject = (data: {
+    title: string;
+    description?: string;
+    amountUsd: number;
+    color?: string;
+  }) => {
+    const newProj: WorkProject = {
+      id: `proj-${Date.now()}`,
+      boardId: activeBoard.id,
+      title: data.title,
+      description: data.description,
+      amountUsd: data.amountUsd,
+      color: data.color || '#a855f7',
+      status: 'active',
+      manualSeconds: 0,
+      createdAt: new Date().toISOString(),
+    };
     updateState((prev) => ({
       ...prev,
-      cards: prev.cards.map((c) => (c.id === updated.id ? updated : c)),
+      projects: [newProj, ...(prev.projects || [])],
+    }));
+  };
+
+  const handleUpdateProject = (updated: WorkProject) => {
+    updateState((prev) => ({
+      ...prev,
+      projects: (prev.projects || []).map((p) =>
+        p.id === updated.id ? updated : p
+      ),
+    }));
+  };
+
+  const handleCompleteProject = (projectId: string) => {
+    fireNeonConfetti();
+    updateState((prev) => ({
+      ...prev,
+      projects: (prev.projects || []).map((p) =>
+        p.id === projectId
+          ? {
+              ...p,
+              status: 'completed',
+              completedAt: new Date().toISOString(),
+            }
+          : p
+      ),
+    }));
+  };
+
+  const handleRestoreProject = (projectId: string) => {
+    updateState((prev) => ({
+      ...prev,
+      projects: (prev.projects || []).map((p) =>
+        p.id === projectId
+          ? {
+              ...p,
+              status: 'active',
+              completedAt: undefined,
+            }
+          : p
+      ),
+    }));
+  };
+
+  const handleDeleteProject = (projectId: string) => {
+    updateState((prev) => ({
+      ...prev,
+      projects: (prev.projects || []).filter((p) => p.id !== projectId),
+      cards: prev.cards.map((c) =>
+        c.projectId === projectId ? { ...c, projectId: undefined } : c
+      ),
+    }));
+  };
+
+  const handleUpdateThemeColors = (nextTheme: ThemeColors) => {
+    applyThemeColorsToDocument(nextTheme);
+    updateState((prev) => ({
+      ...prev,
+      themeColors: nextTheme,
+    }));
+  };
+
+  const handleUpdateUsdToBrlRate = (rate: number) => {
+    updateState((prev) => ({
+      ...prev,
+      themeColors: {
+        ...(prev.themeColors || DEFAULT_THEME_COLORS),
+        usdToBrlRate: rate,
+      },
     }));
   };
 
@@ -793,10 +991,30 @@ export function App() {
     updateState((prev) => {
       const targetCard = prev.cards.find((c) => c.id === cardId);
       const groupId = targetCard?.recurrence?.groupId;
+      const cardsToRemove = groupId
+        ? prev.cards.filter((c) => c.recurrence?.groupId === groupId)
+        : targetCard
+          ? [targetCard]
+          : [];
+
+      // Preserve any tracked stopwatch seconds on linked projects before deleting card(s)
+      let updatedProjects = prev.projects || [];
+      cardsToRemove.forEach((rem) => {
+        const secs = getLiveElapsedSeconds(rem, Date.now());
+        if (rem.projectId && secs > 0) {
+          updatedProjects = updatedProjects.map((p) =>
+            p.id === rem.projectId
+              ? { ...p, manualSeconds: (p.manualSeconds || 0) + secs }
+              : p
+          );
+        }
+      });
+
       if (groupId) {
         notifyTutorialAction(12);
         return {
           ...prev,
+          projects: updatedProjects,
           cards: prev.cards.filter((c) => c.recurrence?.groupId !== groupId),
         };
       }
@@ -805,6 +1023,7 @@ export function App() {
       }
       return {
         ...prev,
+        projects: updatedProjects,
         cards: prev.cards.filter((c) => c.id !== cardId),
       };
     });
@@ -1303,30 +1522,15 @@ export function App() {
   };
 
   const handleMoveCardToDate = (cardId: string, targetIsoDate: string) => {
-    updateState((prev) => {
-      const card = prev.cards.find((c) => c.id === cardId);
-      if (!card) return prev;
-      const bLists = prev.lists.filter((l) => l.boardId === card.boardId);
-      const currentList = bLists.find((l) => l.id === card.listId);
-      const isCustom =
-        currentList && !isStandardDateSyncedList(currentList.title);
-      const nextListId = isCustom
-        ? card.listId
-        : resolveSyncedListIdForDate(targetIsoDate, bLists) || card.listId;
-
-      return {
-        ...prev,
-        cards: prev.cards.map((c) =>
-          c.id === cardId
-            ? {
-                ...c,
-                scheduledDate: targetIsoDate,
-                listId: nextListId,
-              }
-            : c
-        ),
-      };
-    });
+    updateState((prev) => ({
+      ...prev,
+      cards: shiftTaskAndGroupToDate(
+        prev.cards,
+        prev.lists,
+        cardId,
+        targetIsoDate
+      ),
+    }));
   };
 
   const handleAddList = (e: React.FormEvent) => {
@@ -1367,15 +1571,26 @@ export function App() {
     setEditingListId(null);
   };
 
-  // Drag & Drop handlers (Cards and Lists)
+  // Drag & Drop handlers (Cards, Lists and Projects)
   const handleCardDragStart = (e: React.DragEvent, cardId: string) => {
     setDraggedCardId(cardId);
+    setDraggedProjectId(null);
     setDraggedListId(null);
     e.dataTransfer.setData('text/plain', `card:${cardId}`);
   };
 
+  const handleProjectDragStart = (
+    e: React.DragEvent<HTMLDivElement>,
+    projectId: string
+  ) => {
+    setDraggedProjectId(projectId);
+    setDraggedCardId(null);
+    setDraggedListId(null);
+    e.dataTransfer.setData('text/plain', `project:${projectId}`);
+  };
+
   const handleListDragStart = (e: React.DragEvent, listId: string) => {
-    if (draggedCardId) return;
+    if (draggedCardId || draggedProjectId) return;
     setDraggedListId(listId);
     e.dataTransfer.setData('text/plain', `list:${listId}`);
   };
@@ -1387,6 +1602,7 @@ export function App() {
     }
     setHoverSwitchingBoardId(null);
     setDraggedCardId(null);
+    setDraggedProjectId(null);
     setDraggedListId(null);
     setDragOverListId(null);
     setDragOverBoardId(null);
@@ -1408,10 +1624,17 @@ export function App() {
   const handleDropCompleteCard = (e: React.DragEvent) => {
     e.preventDefault();
     const rawData = e.dataTransfer.getData('text/plain') || '';
+    const activeProjectId =
+      draggedProjectId ||
+      (rawData.startsWith('project:') ? rawData.replace('project:', '') : '');
     const activeCardId =
       draggedCardId ||
       (rawData.startsWith('card:') ? rawData.replace('card:', '') : '');
     handleClearDragState();
+    if (activeProjectId) {
+      handleCompleteProject(activeProjectId);
+      return;
+    }
     if (!activeCardId) return;
     handleCompleteCard(null, activeCardId);
   };
@@ -1419,10 +1642,17 @@ export function App() {
   const handleDropDeleteCard = (e: React.DragEvent) => {
     e.preventDefault();
     const rawData = e.dataTransfer.getData('text/plain') || '';
+    const activeProjectId =
+      draggedProjectId ||
+      (rawData.startsWith('project:') ? rawData.replace('project:', '') : '');
     const activeCardId =
       draggedCardId ||
       (rawData.startsWith('card:') ? rawData.replace('card:', '') : '');
     handleClearDragState();
+    if (activeProjectId) {
+      handleDeleteProject(activeProjectId);
+      return;
+    }
     if (!activeCardId) return;
     handleDeleteCard(activeCardId);
   };
@@ -1475,42 +1705,55 @@ export function App() {
     if (!activeCardId) return;
 
     const targetList = state.lists.find((l) => l.id === targetListId);
-    const targetBoard = targetList
-      ? state.boards.find((b) => b.id === targetList.boardId)
-      : null;
     const targetTitle = targetList?.title || '';
 
     updateState((prev) => {
+      const draggedCard = prev.cards.find((c) => c.id === activeCardId);
+      if (!draggedCard) return prev;
+
       const targetCards = prev.cards.filter(
         (c) => c.listId === targetListId && c.status !== 'completed'
       );
+
+      let nextDate = draggedCard.scheduledDate || getTodayIsoDate();
+      if (isYesterdayListTitle(targetTitle)) {
+        nextDate = getYesterdayIsoDate();
+      } else if (isTodayListTitle(targetTitle)) {
+        nextDate = getTodayIsoDate();
+      } else if (isTomorrowListTitle(targetTitle)) {
+        nextDate = getTomorrowIsoDate();
+        notifyTutorialAction(6);
+      } else if (isWeekListTitle(targetTitle)) {
+        if (nextDate <= getTomorrowIsoDate()) {
+          nextDate = getDayAfterTomorrowIsoDate();
+        }
+      } else if (isFutureListTitle(targetTitle)) {
+        const endOfWeek = getEndOfWeekIsoDate();
+        if (nextDate <= endOfWeek) {
+          nextDate = addDaysToIsoDate(endOfWeek, 1);
+        }
+      }
+
+      // Shift the card AND all subsequent uncompleted days of its multi-day block together!
+      const shiftedCards = shiftTaskAndGroupToDate(
+        prev.cards,
+        prev.lists,
+        activeCardId,
+        nextDate,
+        targetListId
+      );
+
       return {
         ...prev,
-        cards: prev.cards.map((c) => {
-          if (c.id !== activeCardId) return c;
-          let nextDate = c.scheduledDate || getTodayIsoDate();
-          if (isYesterdayListTitle(targetTitle)) {
-            nextDate = getYesterdayIsoDate();
-          } else if (isTodayListTitle(targetTitle)) {
-            nextDate = getTodayIsoDate();
-          } else if (isTomorrowListTitle(targetTitle)) {
-            nextDate = getTomorrowIsoDate();
-            notifyTutorialAction(6);
-          } else if (
-            isWeekListTitle(targetTitle) &&
-            nextDate <= getTomorrowIsoDate()
-          ) {
-            nextDate = getDayAfterTomorrowIsoDate();
-          }
-          return {
-            ...c,
-            boardId: targetList ? targetList.boardId : c.boardId,
-            assignee: c.assignee,
-            listId: targetListId,
-            scheduledDate: nextDate,
-            order: targetCards.length,
-          };
-        }),
+        cards: shiftedCards.map((c) =>
+          c.id === activeCardId
+            ? {
+                ...c,
+                boardId: targetList ? targetList.boardId : c.boardId,
+                order: targetCards.length,
+              }
+            : c
+        ),
       };
     });
   };
@@ -1719,7 +1962,7 @@ export function App() {
   const isDraggingAnything = Boolean(draggedCardId || draggedListId);
   const isDidiUser = Boolean(currentUserProfile?.username?.toLowerCase().includes('didi'));
   const appBrandName = isDidiUser ? 'SHADOWJOKER' : (window.neonDesktop?.brandName || 'NEON');
-  const appVersion = window.neonDesktop?.version || '1.4.0';
+  const appVersion = window.neonDesktop?.version || '1.5.0';
 
   if (isCheckingAuth || isSyncingUserData) {
     return (
@@ -1784,7 +2027,7 @@ export function App() {
   }
 
   return (
-    <div className="relative w-screen h-screen flex flex-col bg-[#07050d] text-slate-100 overflow-hidden select-none">
+    <div className="neon-app-shell relative w-screen h-screen flex flex-col bg-[#07050d] text-slate-100 overflow-hidden select-none">
       {/* Floating Purple & Cyan Particles (Neon FX toggle, NO purple/blue radial gradient background) */}
       <NeonParticles enabled={particlesEnabled} />
 
@@ -2076,18 +2319,28 @@ export function App() {
             <span>Sync</span>
           </button>
 
-          <span
-            title={`Versão instalada: v${appVersion}`}
-            className="px-2 py-1 rounded-lg bg-[#130d26]/90 border border-purple-500/30 text-[10px] font-mono font-bold text-purple-300/90 tracking-tight"
-          >
-            v{appVersion}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span
+              title={`Versão instalada: v${appVersion}`}
+              className="px-2 py-1 rounded-lg bg-[#130d26]/90 border border-purple-500/30 text-[10px] font-mono font-bold text-purple-300/90 tracking-tight"
+            >
+              v{appVersion}
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsThemeModalOpen(true)}
+              title="Configurações de Cores & Personalização"
+              className="p-1.5 rounded-lg bg-[#130d26]/90 hover:bg-purple-500/25 border border-purple-500/35 hover:border-cyan-400/60 text-purple-200 hover:text-cyan-300 transition-all cursor-pointer"
+            >
+              <Settings className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       </header>
 
-      {/* FULL-WIDTH BOTTOM DROP ZONES WHEN DRAGGING A TASK: COMPLETE ZONE (LEFT/MAIN) + TRASH ZONE (RIGHT) */}
-      {draggedCardId && (
-        <div className="fixed bottom-0 left-0 right-0 z-50 h-24 flex items-stretch select-none">
+      {/* FULL-WIDTH BOTTOM DROP ZONES WHEN DRAGGING A TASK OR PROJECT: COMPLETE ZONE (LEFT/MAIN) + TRASH ZONE (RIGHT) */}
+      {(draggedCardId || draggedProjectId) && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 h-24 flex items-stretch select-none animate-bottom-dock-up">
           {/* Green Complete Zone (Occupies the main bottom area) */}
           <div
             onDragOver={(e) => {
@@ -2126,7 +2379,9 @@ export function App() {
                     : 'text-emerald-100'
                 }`}
               >
-                Solte aqui para Finalizar Tarefa
+                {draggedProjectId
+                  ? 'Solte aqui para Concluir Projeto'
+                  : 'Solte aqui para Finalizar Tarefa'}
               </p>
               <p
                 className={`text-xs ${
@@ -2135,7 +2390,9 @@ export function App() {
                     : 'text-emerald-300/85'
                 }`}
               >
-                Concluir com confete e salvar tempo cronometrado no Dale
+                {draggedProjectId
+                  ? 'Concluir projeto com confete e contabilizar ganhos e horas no fim do mês'
+                  : 'Concluir com confete e salvar tempo cronometrado no Dale'}
               </p>
             </div>
           </div>
@@ -2181,7 +2438,7 @@ export function App() {
                     : 'text-rose-300/85'
                 }`}
               >
-                Jogar tarefa fora
+                {draggedProjectId ? 'Excluir projeto' : 'Jogar tarefa fora'}
               </p>
             </div>
           </div>
@@ -2215,11 +2472,132 @@ export function App() {
               : 'animate-slide-in-left'
           }`}
         >
+          {activeTab === 'projects' && (
+            <div
+              key={activeBoard.id}
+              className="w-full h-full px-6 pt-5 animate-board-switch"
+            >
+              <ProjectsView
+                boardId={activeBoard.id}
+                boardName={activeBoard.name}
+                projects={state.projects || []}
+                cards={state.cards}
+                nowMs={nowMs}
+                usdToBrlRate={
+                  state.themeColors?.usdToBrlRate ||
+                  DEFAULT_THEME_COLORS.usdToBrlRate ||
+                  5.8
+                }
+                onUpdateUsdToBrlRate={handleUpdateUsdToBrlRate}
+                onCreateProject={handleCreateProject}
+                onUpdateProject={handleUpdateProject}
+                onCompleteProject={handleCompleteProject}
+                onRestoreProject={handleRestoreProject}
+                onDeleteProject={handleDeleteProject}
+                onAssignCardProject={handleAssignCardProject}
+                onProjectDragStart={handleProjectDragStart}
+                onProjectDragEnd={handleClearDragState}
+                draggedProjectId={draggedProjectId}
+              />
+            </div>
+          )}
+
           {activeTab === 'board' && (
             <div
               key={activeBoard.id}
-              className="h-full overflow-x-auto overflow-y-hidden px-6 pt-5 pb-24 flex items-start gap-5"
+              className="h-full overflow-x-auto overflow-y-hidden px-6 pt-5 pb-24 flex items-start gap-4"
             >
+              {/* LEFT-MOST VERTICAL TIME COLUMN STARTING AT 08:00 AM */}
+              {(() => {
+                const hours = Array.from({ length: 16 }, (_, i) => i + 8); // 08:00 .. 23:00
+                const currentHourBr = getBrasiliaNow().getHours();
+                const todayList = boardLists.find((l) =>
+                  isTodayListTitle(l.title)
+                );
+                const todayCards = todayList
+                  ? activeBoardCards.filter((c) => c.listId === todayList.id)
+                  : [];
+
+                return (
+                  <div className="w-[104px] flex-shrink-0 max-h-full flex flex-col rounded-2xl bg-[#0d091a]/95 backdrop-blur-xl border border-purple-500/30 overflow-hidden shadow-2xl select-none animate-board-column">
+                    <div className="h-1 w-full bg-gradient-to-r from-cyan-400 via-purple-500 to-fuchsia-500 flex-shrink-0" />
+                    <div className="px-2.5 py-2.5 bg-[#0d091a] border-b border-white/10 flex items-center justify-center gap-1.5 flex-shrink-0">
+                      <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                      <span className="text-[11px] font-extrabold uppercase tracking-wider text-white">
+                        Horários
+                      </span>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto divide-y divide-white/5">
+                      {hours.map((h) => {
+                        const hourLabel = `${String(h).padStart(2, '0')}:00`;
+                        const nextHourLabel = `${String(Math.min(23, h + 1)).padStart(2, '0')}:00`;
+                        const isCurrentHour = currentHourBr === h;
+                        const matchingTodayCards = todayCards.filter((c) => {
+                          if (!c.startTime) return false;
+                          const startH = parseInt(
+                            c.startTime.split(':')[0],
+                            10
+                          );
+                          return startH === h;
+                        });
+
+                        const periodClass =
+                          h < 12
+                            ? 'bg-sky-500/15 text-cyan-200 hover:bg-sky-500/25'
+                            : h < 18
+                              ? 'bg-amber-500/15 text-amber-200 hover:bg-amber-500/25'
+                              : 'bg-indigo-950/50 text-blue-200 hover:bg-indigo-900/60';
+
+                        return (
+                          <button
+                            key={h}
+                            type="button"
+                            onClick={() => {
+                              if (todayList) {
+                                handleOpenAddInline(
+                                  todayList.id,
+                                  todayList.title
+                                );
+                                setNewCardStart(hourLabel);
+                                setNewCardEnd(nextHourLabel);
+                              }
+                            }}
+                            title={
+                              matchingTodayCards.length > 0
+                                ? `${hourLabel} — ${matchingTodayCards.map((c) => c.title).join(', ')} (Clique para criar tarefa às ${hourLabel})`
+                                : `Clique para criar tarefa hoje às ${hourLabel}`
+                            }
+                            className={`w-full px-2.5 py-2 flex flex-col items-center justify-center transition-all cursor-pointer relative ${periodClass} ${
+                              isCurrentHour
+                                ? 'ring-1 ring-inset ring-cyan-300 bg-cyan-500/30 font-extrabold shadow-[inset_0_0_12px_rgba(34,211,238,0.35)]'
+                                : ''
+                            }`}
+                          >
+                            <div className="flex items-center gap-1">
+                              {isCurrentHour && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-cyan-300 animate-ping" />
+                              )}
+                              <span className="text-xs font-mono font-bold tracking-tight">
+                                {hourLabel}
+                              </span>
+                            </div>
+
+                            {matchingTodayCards.length > 0 && (
+                              <span className="mt-0.5 px-1.5 py-0.2 rounded-full bg-black/45 border border-white/15 text-[9px] font-sans font-bold text-white max-w-full truncate">
+                                {matchingTodayCards.length === 1
+                                  ? matchingTodayCards[0].title
+                                  : `${matchingTodayCards.length} tarefas`}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {boardLists.map((list, colIdx) => {
               const listCards = activeBoardCards
                 .filter((c) => c.listId === list.id)
@@ -2233,23 +2611,23 @@ export function App() {
               const isTodayColumn = isTodayListTitle(list.title);
               const isYesterdayColumn = isYesterdayListTitle(list.title);
 
-              // Hidden side toggle button for "Yesterday" (Overdue tasks) so "Today" is visually first
-              if (isYesterdayColumn && !showYesterday) {
+              // Hidden side toggle button for "Late" (Overdue tasks) so "Today" is visually first
+              if (isYesterdayColumn && !showYesterday && !isClosingYesterday) {
                 const hasOverdue = listCards.length > 0;
                 return (
                   <button
-                    key={list.id}
+                    key={`${list.id}-pill`}
                     type="button"
-                    onClick={() => setShowYesterday(true)}
+                    onClick={handleOpenYesterday}
                     onDragOver={(e) => handleDragOverList(e, list.id)}
                     onDragLeave={() => setDragOverListId(null)}
                     onDrop={(e) => handleDropOnList(e, list.id)}
                     title={
                       hasOverdue
-                        ? `Mostrar Yesterday (${listCards.length} tarefas atrasadas)`
-                        : 'Mostrar aba Yesterday (tarefas atrasadas)'
+                        ? `Mostrar Late (${listCards.length} tarefas atrasadas)`
+                        : 'Mostrar aba Late (tarefas atrasadas)'
                     }
-                    className={`w-11 flex-shrink-0 py-4 px-1.5 rounded-2xl border backdrop-blur-xl flex flex-col items-center justify-between gap-3.5 transition-all cursor-pointer shadow-xl group ${
+                    className={`w-11 flex-shrink-0 py-4 px-1.5 rounded-2xl border backdrop-blur-xl flex flex-col items-center justify-between gap-3.5 transition-all cursor-pointer shadow-xl group animate-late-pill-in ${
                       isDragTarget
                         ? 'bg-cyan-950/60 border-cyan-400 ring-2 ring-cyan-400/30 scale-105'
                         : hasOverdue
@@ -2258,7 +2636,7 @@ export function App() {
                     }`}
                   >
                     <div
-                      className={`w-7 h-7 rounded-xl flex items-center justify-center border transition-transform group-hover:translate-x-0.5 ${
+                      className={`w-7 h-7 rounded-xl flex items-center justify-center border transition-transform duration-300 group-hover:-translate-x-0.5 ${
                         hasOverdue
                           ? 'bg-rose-500/20 border-rose-400/40 text-rose-200'
                           : 'bg-purple-500/15 border-purple-500/30 text-slate-300 group-hover:text-cyan-300'
@@ -2305,25 +2683,44 @@ export function App() {
               return (
                 <div
                   key={list.id}
-                  style={{ animationDelay: `${colIdx * 45}ms` }}
-                  draggable={editingListId !== list.id && !addingToListId}
-                  onDragStart={(e) => handleListDragStart(e, list.id)}
-                  onDragEnd={handleClearDragState}
-                  onDragOver={(e) => handleDragOverList(e, list.id)}
-                  onDragLeave={() => setDragOverListId(null)}
-                  onDrop={(e) => handleDropOnList(e, list.id)}
-                  className={`w-[335px] flex-shrink-0 max-h-full flex flex-col rounded-2xl bg-[#0d091a]/95 backdrop-blur-xl border overflow-hidden transition-all shadow-2xl animate-board-column ${
-                    isDragTarget
-                      ? 'border-cyan-400 ring-2 ring-cyan-400/30'
-                      : isYesterdayColumn && listCards.length > 0
-                      ? 'border-rose-500/40'
-                      : 'border-purple-500/25'
-                  } ${
-                    isListRecentlyTransferred || isYesterdayColumn
-                      ? 'animate-slot-in'
-                      : ''
-                  }`}
+                  className={
+                    isYesterdayColumn
+                      ? isClosingYesterday
+                        ? 'animate-late-close-wrapper overflow-hidden flex-shrink-0 max-h-full flex justify-end'
+                        : 'animate-late-open-wrapper overflow-hidden flex-shrink-0 max-h-full flex justify-end'
+                      : 'flex-shrink-0 max-h-full flex'
+                  }
                 >
+                  <div
+                    style={
+                      isYesterdayColumn
+                        ? undefined
+                        : { animationDelay: `${colIdx * 45}ms` }
+                    }
+                    draggable={editingListId !== list.id && !addingToListId}
+                    onDragStart={(e) => handleListDragStart(e, list.id)}
+                    onDragEnd={handleClearDragState}
+                    onDragOver={(e) => handleDragOverList(e, list.id)}
+                    onDragLeave={() => setDragOverListId(null)}
+                    onDrop={(e) => handleDropOnList(e, list.id)}
+                    className={`w-[335px] flex-shrink-0 max-h-full flex flex-col rounded-2xl bg-[#0d091a]/95 backdrop-blur-xl border overflow-hidden transition-all shadow-2xl ${
+                      isYesterdayColumn
+                        ? isClosingYesterday
+                          ? 'animate-late-close-inner pointer-events-none'
+                          : 'animate-late-open-inner'
+                        : 'animate-board-column'
+                    } ${
+                      isDragTarget
+                        ? 'border-cyan-400 ring-2 ring-cyan-400/30'
+                        : isYesterdayColumn && listCards.length > 0
+                        ? 'border-rose-500/40'
+                        : 'border-purple-500/25'
+                    } ${
+                      isListRecentlyTransferred && !isYesterdayColumn
+                        ? 'animate-slot-in'
+                        : ''
+                    }`}
+                  >
                   {/* Top Neon Strip on Each List */}
                   <div
                     className={`h-1 w-full flex-shrink-0 ${
@@ -2381,9 +2778,9 @@ export function App() {
                       {isYesterdayColumn ? (
                         <button
                           type="button"
-                          onClick={() => setShowYesterday(false)}
-                          title="Esconder lista Yesterday na lateral"
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 transition-colors cursor-pointer"
+                          onClick={handleCloseYesterday}
+                          title="Esconder lista Late na lateral"
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 transition-all hover:translate-x-0.5 cursor-pointer"
                         >
                           <ChevronLeft className="w-3 h-3" />
                           <span>Esconder</span>
@@ -2428,9 +2825,11 @@ export function App() {
                                 card.id
                               )}
                               customLabels={state.customLabels}
+                              projects={state.projects || []}
                               onOpenModal={(c) => setSelectedCardId(c.id)}
                               onToggleTimer={handleToggleTimer}
                               onResetTimer={handleResetTimer}
+                              onAssignProject={handleAssignCardProject}
                               onCompleteCard={handleCompleteCard}
                               onDragStart={handleCardDragStart}
                               onDragEnd={handleClearDragState}
@@ -2450,7 +2849,7 @@ export function App() {
 
                     {/* Inline Add Card Form */}
                     {addingToListId === list.id && (
-                      <div className="p-2.5 bg-[#0d091a] border-t border-white/10 flex-shrink-0">
+                      <div className="p-2.5 bg-[#0d091a] border-t border-white/10 flex-shrink-0 animate-drawer-open">
                         <form
                           onSubmit={(e) => handleAddCardInline(e, list.id)}
                           className="p-3.5 rounded-2xl bg-[#0b0717] border-2 border-cyan-400 space-y-3 shadow-2xl shadow-cyan-950/60 min-w-0"
@@ -2770,6 +3169,7 @@ export function App() {
                       </button>
                     </div>
                   )}
+                  </div>
                 </div>
               );
             })}
@@ -2779,7 +3179,7 @@ export function App() {
               {isAddingList ? (
                 <form
                   onSubmit={handleAddList}
-                  className="p-3.5 rounded-2xl bg-[#110b22]/95 border border-cyan-400/40 space-y-2.5 shadow-xl"
+                  className="p-3.5 rounded-2xl bg-[#110b22]/95 border border-cyan-400/40 space-y-2.5 shadow-xl animate-drawer-open"
                 >
                   <input
                     type="text"
@@ -2855,8 +3255,17 @@ export function App() {
               activeBoardId={activeBoard.id}
               completedCards={completedCards}
               allCards={state.cards}
+              projects={state.projects || []}
+              nowMs={nowMs}
+              usdToBrlRate={
+                state.themeColors?.usdToBrlRate ||
+                DEFAULT_THEME_COLORS.usdToBrlRate ||
+                5.8
+              }
               onRestoreCard={handleRestoreCard}
               onDeleteCard={handleDeleteCard}
+              onRestoreProject={handleRestoreProject}
+              onDeleteProject={handleDeleteProject}
             />
           </div>
         )}
@@ -2886,8 +3295,38 @@ export function App() {
         </div>
       )}
 
-      {/* SINGLE-LINE FLOATING BOTTOM NAVIGATION DOCK (Calendário | Board | Dale | Switch boards) */}
+      {/* SINGLE-LINE FLOATING BOTTOM NAVIGATION DOCK (Projetos | Calendário | Board | Dale) */}
       <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 flex flex-nowrap items-center gap-1.5 p-1.5 rounded-2xl bg-[#0d081a]/95 border border-purple-500/40 shadow-2xl shadow-purple-950/80 backdrop-blur-2xl whitespace-nowrap">
+        <button
+          type="button"
+          onClick={() => handleTabChange('projects')}
+          className={`dock-btn flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+            activeTab === 'projects'
+              ? 'bg-gradient-to-r from-emerald-500 via-cyan-500 to-purple-600 text-white shadow-lg shadow-emerald-500/30'
+              : 'text-slate-300 hover:text-white hover:bg-white/5'
+          }`}
+        >
+          <Briefcase className="w-4 h-4 flex-shrink-0" />
+          <span>Projetos</span>
+          {(state.projects || []).filter(
+            (p) => p.boardId === activeBoard.id && p.status === 'active'
+          ).length > 0 && (
+            <span
+              className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
+                activeTab === 'projects'
+                  ? 'bg-black/25 text-white'
+                  : 'bg-emerald-500/20 text-emerald-300'
+              }`}
+            >
+              {
+                (state.projects || []).filter(
+                  (p) => p.boardId === activeBoard.id && p.status === 'active'
+                ).length
+              }
+            </span>
+          )}
+        </button>
+
         <button
           type="button"
           onClick={() => handleTabChange('calendar')}
@@ -2943,10 +3382,14 @@ export function App() {
           card={selectedCard}
           nowMs={nowMs}
           lists={boardLists}
+          projects={(state.projects || []).filter(
+            (p) => p.boardId === activeBoard.id
+          )}
           customLabels={state.customLabels}
           tagColors={state.tagColors}
           onClose={() => setSelectedCardId(null)}
           onUpdateCard={handleUpdateCard}
+          onAssignProject={handleAssignCardProject}
           onToggleTimer={handleToggleTimer}
           onResetTimer={handleResetTimer}
           onCompleteCard={(id) => handleCompleteCard(null, id)}
@@ -2960,6 +3403,15 @@ export function App() {
           onResetCustomLabels={handleResetCustomLabels}
           onAddDayToTask={handleAddDayToTask}
           onUpdateRecurrenceGroup={handleUpdateRecurrenceGroup}
+        />
+      )}
+
+      {/* THEME & COLOR CUSTOMIZATION SETTINGS MODAL */}
+      {isThemeModalOpen && (
+        <ThemeSettingsModal
+          themeColors={state.themeColors || DEFAULT_THEME_COLORS}
+          onUpdateThemeColors={handleUpdateThemeColors}
+          onClose={() => setIsThemeModalOpen(false)}
         />
       )}
 

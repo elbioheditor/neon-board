@@ -15,8 +15,9 @@ import {
   Pause,
   RotateCcw,
   Repeat,
+  Briefcase,
 } from 'lucide-react';
-import { TaskCard, BoardList, CustomLabel, TagColorItem } from '../types';
+import { TaskCard, BoardList, CustomLabel, TagColorItem, WorkProject } from '../types';
 import {
   LABEL_CONFIG,
   resolveLabelInfo,
@@ -39,10 +40,12 @@ interface CardModalProps {
   card: TaskCard;
   nowMs: number;
   lists: BoardList[];
+  projects?: WorkProject[];
   customLabels?: CustomLabel[];
   tagColors?: TagColorItem[];
   onClose: () => void;
   onUpdateCard: (updated: TaskCard) => void;
+  onAssignProject?: (cardId: string, projectId: string | undefined) => void;
   onToggleTimer: (e: React.MouseEvent | null, cardId: string) => void;
   onResetTimer: (cardId: string) => void;
   onCompleteCard: (cardId: string) => void;
@@ -70,10 +73,12 @@ export const CardModal: React.FC<CardModalProps> = ({
   card,
   nowMs,
   lists,
+  projects = [],
   customLabels = [],
   tagColors = [],
   onClose,
   onUpdateCard,
+  onAssignProject,
   onToggleTimer,
   onResetTimer,
   onCompleteCard,
@@ -183,12 +188,12 @@ export const CardModal: React.FC<CardModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-fade-in"
       onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-[#0e091c] border border-purple-500/35 shadow-2xl shadow-purple-950/60 p-6 text-slate-100"
+        className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-[#0e091c] border border-purple-500/35 shadow-2xl shadow-purple-950/60 p-6 text-slate-100 animate-spring-pop"
       >
         {/* Top Neon Accent Line */}
         <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl bg-gradient-to-r from-fuchsia-500 via-purple-500 to-cyan-400" />
@@ -217,6 +222,32 @@ export const CardModal: React.FC<CardModalProps> = ({
                       {l.title}
                     </option>
                   ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <Briefcase className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Projeto:</span>
+                <select
+                  value={card.projectId || ''}
+                  onChange={(e) => {
+                    const nextProjId = e.target.value || undefined;
+                    if (onAssignProject) {
+                      onAssignProject(card.id, nextProjId);
+                    } else {
+                      saveField({ projectId: nextProjId });
+                    }
+                  }}
+                  className="bg-[#191130] text-emerald-300 border border-emerald-500/35 rounded-md px-2 py-0.5 text-xs focus:outline-none focus:border-emerald-400"
+                >
+                  <option value="">Sem projeto vinculado</option>
+                  {projects
+                    .filter((p) => p.status === 'active' || p.id === card.projectId)
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.title} (${p.amountUsd || 0})
+                      </option>
+                    ))}
                 </select>
               </div>
 

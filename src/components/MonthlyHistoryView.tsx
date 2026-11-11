@@ -9,18 +9,32 @@ import {
   Download,
   Filter,
   Timer,
+  Briefcase,
+  DollarSign,
+  TrendingUp,
 } from 'lucide-react';
-import { TaskCard, Board } from '../types';
+import { TaskCard, Board, WorkProject } from '../types';
 import { LABEL_CONFIG } from '../data/initialData';
 import { formatDurationHuman, formatStopwatch } from '../utils/timeUtils';
+import {
+  formatUsd,
+  formatBrl,
+  getProjectTotalSeconds,
+  getProjectMonthKey,
+} from './ProjectsView';
 
 interface MonthlyHistoryViewProps {
   boards: Board[];
   activeBoardId: string;
   completedCards: TaskCard[];
   allCards?: TaskCard[];
+  projects?: WorkProject[];
+  nowMs?: number;
+  usdToBrlRate?: number;
   onRestoreCard: (cardId: string) => void;
   onDeleteCard: (cardId: string) => void;
+  onRestoreProject?: (projectId: string) => void;
+  onDeleteProject?: (projectId: string) => void;
 }
 
 const MONTH_NAMES = [
@@ -43,8 +57,13 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
   activeBoardId,
   completedCards,
   allCards = [],
+  projects = [],
+  nowMs = Date.now(),
+  usdToBrlRate = 5.8,
   onRestoreCard,
   onDeleteCard,
+  onRestoreProject,
+  onDeleteProject,
 }) => {
   const now = new Date();
   const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -63,8 +82,13 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
         set.add(c.completedAt.slice(0, 7));
       }
     });
+    projects.forEach((p) => {
+      if (p.completedAt) {
+        set.add(p.completedAt.slice(0, 7));
+      }
+    });
     return Array.from(set).sort().reverse();
-  }, [completedCards, currentMonthKey]);
+  }, [completedCards, projects, currentMonthKey]);
 
   const formatMonthLabel = (ym: string) => {
     const [y, m] = ym.split('-');
@@ -103,6 +127,52 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
     [monthCards]
   );
 
+  const monthCompletedProjects = useMemo(() => {
+    return projects
+      .filter((p) => {
+        if (p.status !== 'completed') return false;
+        const ym = getProjectMonthKey(p);
+        const matchesMonth = ym === selectedMonth;
+        const matchesBoard =
+          boardFilter === 'all' ? true : p.boardId === boardFilter;
+        return matchesMonth && matchesBoard;
+      })
+      .sort((a, b) =>
+        (b.completedAt || b.createdAt).localeCompare(
+          a.completedAt || a.createdAt
+        )
+      );
+  }, [projects, selectedMonth, boardFilter]);
+
+  const monthProjectStats = useMemo(() => {
+    const earnedUsd = monthCompletedProjects.reduce(
+      (acc, p) => acc + (Number(p.amountUsd) || 0),
+      0
+    );
+    const earnedBrl = earnedUsd * usdToBrlRate;
+    const projectSeconds = monthCompletedProjects.reduce(
+      (acc, p) => acc + getProjectTotalSeconds(p, allCards, nowMs),
+      0
+    );
+    const hoursForRate =
+      projectSeconds > 0 ? projectSeconds / 3600 : totalMonthSeconds / 3600;
+    const avgHourlyUsd = hoursForRate > 0 ? earnedUsd / hoursForRate : 0;
+    const avgHourlyBrl = avgHourlyUsd * usdToBrlRate;
+    return {
+      earnedUsd,
+      earnedBrl,
+      projectSeconds,
+      avgHourlyUsd,
+      avgHourlyBrl,
+    };
+  }, [
+    monthCompletedProjects,
+    allCards,
+    nowMs,
+    usdToBrlRate,
+    totalMonthSeconds,
+  ]);
+
   const groupedByDay = useMemo(() => {
     const groups: Record<string, TaskCard[]> = {};
     monthCards.forEach((card) => {
@@ -120,10 +190,25 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
       `=============================================`,
       `NEON — DALE (${formatMonthLabel(selectedMonth)})`,
       `Total de tarefas finalizadas: ${monthCards.length}`,
+      `Projetos concluídos no mês: ${monthCompletedProjects.length}`,
+      `Ganhos no mês (USD): ${formatUsd(monthProjectStats.earnedUsd)}`,
+      `Ganhos no mês (Convertido BRL): ${formatBrl(monthProjectStats.earnedBrl)} (Cotação R$ ${usdToBrlRate.toFixed(2)})`,
+      `Valor da Hora Média: ${formatUsd(monthProjectStats.avgHourlyUsd)}/h (${formatBrl(monthProjectStats.avgHourlyBrl)}/h)`,
       `Tempo total cronometrado: ${formatDurationHuman(totalMonthSeconds)}`,
       `Dias produtivos: ${activeDaysCount}`,
       `=============================================\n`,
     ];
+
+    if (monthCompletedProjects.length > 0) {
+      lines.push(`PROJETOS CONCLUÍDOS NO MÊS (${monthCompletedProjects.length}):`);
+      monthCompletedProjects.forEach((p) => {
+        const pSecs = getProjectTotalSeconds(p, allCards, nowMs);
+        lines.push(
+          `  ★ ${p.title} — ${formatUsd(p.amountUsd || 0)} (${formatBrl((p.amountUsd || 0) * usdToBrlRate)}) | Horas no projeto: ${formatStopwatch(pSecs)}`
+        );
+      });
+      lines.push('');
+    }
 
     groupedByDay.forEach(([day, items]) => {
       lines.push(`DIA: ${day} (${items.length} tarefas)`);
@@ -260,7 +345,135 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Financial & Projects Summary KPIs */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+          <div className="p-4 rounded-xl bg-emerald-950/25 border border-emerald-500/35 shadow-lg">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-emerald-300 uppercase tracking-wider font-semibold">
+                Ganhos no Mês (USD + Convertido)
+              </span>
+              <DollarSign className="w-4 h-4 text-emerald-400" />
+            </div>
+            <div className="text-2xl font-extrabold font-mono text-emerald-300 mt-1">
+              {formatUsd(monthProjectStats.earnedUsd)}
+            </div>
+            <div className="text-xs font-mono font-bold text-emerald-200/90 mt-0.5">
+              {formatBrl(monthProjectStats.earnedBrl)}{' '}
+              <span className="text-[10px] text-slate-400 font-sans">
+                (US$ 1 = R$ {usdToBrlRate.toFixed(2)})
+              </span>
+            </div>
+          </div>
+
+          <div className="p-4 rounded-xl bg-cyan-950/25 border border-cyan-500/35 shadow-lg">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-cyan-300 uppercase tracking-wider font-semibold">
+                Valor da Hora Média do Usuário
+              </span>
+              <TrendingUp className="w-4 h-4 text-cyan-400" />
+            </div>
+            <div className="text-2xl font-extrabold font-mono text-cyan-300 mt-1">
+              {formatUsd(monthProjectStats.avgHourlyUsd)}
+              <span className="text-xs font-normal text-cyan-400/80"> /h</span>
+            </div>
+            <div className="text-xs font-mono font-bold text-cyan-200/90 mt-0.5">
+              {formatBrl(monthProjectStats.avgHourlyBrl)} /h
+            </div>
+          </div>
+
+          <div className="p-4 rounded-xl bg-purple-950/25 border border-purple-500/35 shadow-lg">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-purple-300 uppercase tracking-wider font-semibold">
+                Projetos Finalizados no Mês
+              </span>
+              <Briefcase className="w-4 h-4 text-purple-400" />
+            </div>
+            <div className="text-2xl font-extrabold font-mono text-purple-200 mt-1">
+              {monthCompletedProjects.length}{' '}
+              <span className="text-xs font-sans font-normal text-slate-400">
+                projeto(s)
+              </span>
+            </div>
+            <div className="text-xs font-mono text-purple-300/90 mt-0.5">
+              Horas em projetos:{' '}
+              {formatDurationHuman(monthProjectStats.projectSeconds)}
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* Completed Projects in the Month Section */}
+      {monthCompletedProjects.length > 0 && (
+        <div className="rounded-2xl bg-[#0f0a1e]/90 border border-emerald-500/30 p-5 mb-6 shadow-xl">
+          <div className="flex items-center justify-between pb-3 mb-3.5 border-b border-white/10">
+            <div className="flex items-center gap-2">
+              <Briefcase className="w-4 h-4 text-emerald-400" />
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                Projetos Concluídos no Fim do Mês ({monthCompletedProjects.length})
+              </h3>
+            </div>
+            <span className="text-xs font-mono font-bold text-emerald-300">
+              {formatUsd(monthProjectStats.earnedUsd)} •{' '}
+              {formatBrl(monthProjectStats.earnedBrl)}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {monthCompletedProjects.map((proj) => {
+              const pSecs = getProjectTotalSeconds(proj, allCards, nowMs);
+              const pHours = pSecs / 3600;
+              const pRateUsd = pHours > 0 ? (proj.amountUsd || 0) / pHours : 0;
+              return (
+                <div
+                  key={proj.id}
+                  className="p-3.5 rounded-xl bg-[#150e28]/90 border border-emerald-500/25 flex items-center justify-between gap-3"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span className="text-sm font-bold text-white truncate">
+                        {proj.title}
+                      </span>
+                    </div>
+                    {proj.description && (
+                      <p className="text-xs text-slate-400 mt-0.5 truncate">
+                        {proj.description}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-3 mt-1.5 text-[11px] font-mono text-cyan-300">
+                      <span>⏱ {formatStopwatch(pSecs)}</span>
+                      {pRateUsd > 0 && (
+                        <span className="text-emerald-300">
+                          • {formatUsd(pRateUsd)}/h
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <div className="text-sm font-mono font-extrabold text-emerald-300">
+                      {formatUsd(proj.amountUsd || 0)}
+                    </div>
+                    <div className="text-[11px] font-mono text-emerald-400/85">
+                      {formatBrl((proj.amountUsd || 0) * usdToBrlRate)}
+                    </div>
+                    {onRestoreProject && (
+                      <button
+                        type="button"
+                        onClick={() => onRestoreProject(proj.id)}
+                        className="mt-1 text-[10px] text-slate-400 hover:text-cyan-300 underline cursor-pointer"
+                      >
+                        Reativar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Completed Tasks List by Day */}
       {groupedByDay.length === 0 ? (

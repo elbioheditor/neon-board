@@ -1,7 +1,7 @@
 import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
 import { DEFAULT_SUPABASE_URL, DEFAULT_SUPABASE_ANON_KEY, getSavedCloudConfig } from './cloudSync';
-import { UserProfile, Friendship, Board, BoardList, TaskCard, CustomLabel, TagColorItem } from '../types';
-import { DEFAULT_CUSTOM_LABELS, DEFAULT_TAG_COLORS } from '../data/initialData';
+import { UserProfile, Friendship, Board, BoardList, TaskCard, CustomLabel, TagColorItem, WorkProject, ThemeColors } from '../types';
+import { DEFAULT_CUSTOM_LABELS, DEFAULT_TAG_COLORS, DEFAULT_THEME_COLORS } from '../data/initialData';
 import { getYesterdayIsoDate, getTodayIsoDate, getTomorrowIsoDate, addDaysToIsoDate } from '../utils/timeUtils';
 import backupState from '../data/backup_neon_sync_state.json';
 
@@ -550,6 +550,8 @@ export interface UserBoardPayload {
   boards?: Board[];
   lists: BoardList[];
   cards: TaskCard[];
+  projects?: WorkProject[];
+  themeColors?: ThemeColors;
   customLabels?: CustomLabel[];
   tagColors?: TagColorItem[];
 }
@@ -644,7 +646,7 @@ export function createNewUserBoardState(username: string): UserBoardPayload {
   const futureListId = `list-${boardId}-future`;
 
   const lists: BoardList[] = [
-    { id: yesterdayListId, boardId, title: 'Yesterday', order: 0 },
+    { id: yesterdayListId, boardId, title: 'Late', order: 0 },
     { id: todayListId, boardId, title: 'Today', order: 1 },
     { id: tomorrowListId, boardId, title: 'Tomorrow', order: 2 },
     { id: weekListId, boardId, title: 'This Week', order: 3 },
@@ -755,6 +757,8 @@ export function createNewUserBoardState(username: string): UserBoardPayload {
     },
     lists,
     cards,
+    projects: [],
+    themeColors: DEFAULT_THEME_COLORS,
     customLabels: DEFAULT_CUSTOM_LABELS,
     tagColors: DEFAULT_TAG_COLORS,
   };
