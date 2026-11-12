@@ -56,39 +56,50 @@ export function applyThemeColorsToDocument(theme?: ThemeColors): void {
   root.style.setProperty('--neon-primary', primary);
   root.style.setProperty('--neon-secondary', secondary);
   root.style.setProperty('--neon-bg', background);
+  root.style.setProperty('--neon-surface-deep', mixHex(background, primary, 0.04));
+  root.style.setProperty('--neon-surface-card', mixHex(background, primary, 0.08));
+  root.style.setProperty('--neon-surface-elevated', mixHex(background, primary, 0.15));
   document.body.style.backgroundColor = background;
 
-  // Dynamically map Tailwind v4 purple & fuchsia palettes to Primary Color
+  // Dynamically map Tailwind v4 purple, fuchsia & violet palettes to Primary Color
   const primaryScale: Record<string, string> = {
+    '50': mixHex(primary, '#ffffff', 0.9),
+    '100': mixHex(primary, '#ffffff', 0.78),
     '200': mixHex(primary, '#ffffff', 0.65),
     '300': mixHex(primary, '#ffffff', 0.45),
     '400': mixHex(primary, '#ffffff', 0.22),
     '500': primary,
     '600': mixHex(primary, '#000000', 0.16),
     '700': mixHex(primary, '#000000', 0.32),
-    '900': mixHex(primary, '#000000', 0.62),
-    '950': mixHex(primary, background, 0.78),
+    '800': mixHex(primary, '#000000', 0.48),
+    '900': mixHex(primary, background, 0.65),
+    '950': mixHex(primary, background, 0.82),
   };
 
   Object.entries(primaryScale).forEach(([shade, hexVal]) => {
     root.style.setProperty(`--color-purple-${shade}`, hexVal);
     root.style.setProperty(`--color-fuchsia-${shade}`, hexVal);
+    root.style.setProperty(`--color-violet-${shade}`, hexVal);
   });
 
-  // Dynamically map Tailwind v4 cyan palette to Secondary Color
+  // Dynamically map Tailwind v4 cyan & pink palettes to Secondary Color (so Calendar, Board, Dale & Projects all follow the chosen theme!)
   const secondaryScale: Record<string, string> = {
+    '50': mixHex(secondary, '#ffffff', 0.9),
     '100': mixHex(secondary, '#ffffff', 0.78),
     '200': mixHex(secondary, '#ffffff', 0.62),
     '300': mixHex(secondary, '#ffffff', 0.42),
     '400': mixHex(secondary, '#ffffff', 0.18),
     '500': secondary,
     '600': mixHex(secondary, '#000000', 0.18),
-    '900': mixHex(secondary, '#000000', 0.62),
-    '950': mixHex(secondary, background, 0.78),
+    '700': mixHex(secondary, '#000000', 0.34),
+    '800': mixHex(secondary, '#000000', 0.5),
+    '900': mixHex(secondary, background, 0.65),
+    '950': mixHex(secondary, background, 0.82),
   };
 
   Object.entries(secondaryScale).forEach(([shade, hexVal]) => {
     root.style.setProperty(`--color-cyan-${shade}`, hexVal);
+    root.style.setProperty(`--color-pink-${shade}`, hexVal);
   });
 }
 

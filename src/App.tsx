@@ -24,7 +24,6 @@ import {
   HelpCircle,
   Settings,
   Briefcase,
-  Clock,
 } from 'lucide-react';
 import {
   NeonStoreState,
@@ -106,7 +105,6 @@ import {
   isFutureListTitle,
   isStandardDateSyncedList,
   getEndOfWeekIsoDate,
-  getBrasiliaNow,
   syncEndTimeWithStart,
   clampEndTime,
   getDayPeriodKey,
@@ -1962,7 +1960,7 @@ export function App() {
   const isDraggingAnything = Boolean(draggedCardId || draggedListId);
   const isDidiUser = Boolean(currentUserProfile?.username?.toLowerCase().includes('didi'));
   const appBrandName = isDidiUser ? 'SHADOWJOKER' : (window.neonDesktop?.brandName || 'NEON');
-  const appVersion = window.neonDesktop?.version || '1.5.0';
+  const appVersion = window.neonDesktop?.version || '1.5.1';
 
   if (isCheckingAuth || isSyncingUserData) {
     return (
@@ -1986,8 +1984,12 @@ export function App() {
 
   if (!currentUserProfile) {
     return (
-      <div className="relative w-screen h-screen flex flex-col items-center justify-center bg-[#07050d] text-slate-100 overflow-hidden select-none">
-        <NeonParticles enabled={true} />
+      <div className="neon-app-shell relative w-screen h-screen flex flex-col items-center justify-center bg-[#07050d] text-slate-100 overflow-hidden select-none">
+        <NeonParticles
+          enabled={true}
+          primaryColor={state.themeColors?.primaryColor}
+          secondaryColor={state.themeColors?.secondaryColor}
+        />
         <AuthModal
           isOpen={true}
           isMandatory={true}
@@ -2028,8 +2030,12 @@ export function App() {
 
   return (
     <div className="neon-app-shell relative w-screen h-screen flex flex-col bg-[#07050d] text-slate-100 overflow-hidden select-none">
-      {/* Floating Purple & Cyan Particles (Neon FX toggle, NO purple/blue radial gradient background) */}
-      <NeonParticles enabled={particlesEnabled} />
+      {/* Floating Theme-Colored Particles (Neon FX toggle) */}
+      <NeonParticles
+        enabled={particlesEnabled}
+        primaryColor={state.themeColors?.primaryColor}
+        secondaryColor={state.themeColors?.secondaryColor}
+      />
 
       {/* TOP HEADER / DRAGGABLE TITLEBAR */}
       <header className="relative z-20 flex flex-wrap items-center justify-between gap-3 px-5 py-2.5 bg-[#090612]/95 border-b border-purple-500/25 backdrop-blur-xl app-drag-region pr-36">
@@ -2505,99 +2511,8 @@ export function App() {
           {activeTab === 'board' && (
             <div
               key={activeBoard.id}
-              className="h-full overflow-x-auto overflow-y-hidden px-6 pt-5 pb-24 flex items-start gap-4"
+              className="h-full overflow-x-auto overflow-y-hidden px-6 pt-5 pb-24 flex items-start gap-5"
             >
-              {/* LEFT-MOST VERTICAL TIME COLUMN STARTING AT 08:00 AM */}
-              {(() => {
-                const hours = Array.from({ length: 16 }, (_, i) => i + 8); // 08:00 .. 23:00
-                const currentHourBr = getBrasiliaNow().getHours();
-                const todayList = boardLists.find((l) =>
-                  isTodayListTitle(l.title)
-                );
-                const todayCards = todayList
-                  ? activeBoardCards.filter((c) => c.listId === todayList.id)
-                  : [];
-
-                return (
-                  <div className="w-[104px] flex-shrink-0 max-h-full flex flex-col rounded-2xl bg-[#0d091a]/95 backdrop-blur-xl border border-purple-500/30 overflow-hidden shadow-2xl select-none animate-board-column">
-                    <div className="h-1 w-full bg-gradient-to-r from-cyan-400 via-purple-500 to-fuchsia-500 flex-shrink-0" />
-                    <div className="px-2.5 py-2.5 bg-[#0d091a] border-b border-white/10 flex items-center justify-center gap-1.5 flex-shrink-0">
-                      <Clock className="w-3.5 h-3.5 text-cyan-400" />
-                      <span className="text-[11px] font-extrabold uppercase tracking-wider text-white">
-                        Horários
-                      </span>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto divide-y divide-white/5">
-                      {hours.map((h) => {
-                        const hourLabel = `${String(h).padStart(2, '0')}:00`;
-                        const nextHourLabel = `${String(Math.min(23, h + 1)).padStart(2, '0')}:00`;
-                        const isCurrentHour = currentHourBr === h;
-                        const matchingTodayCards = todayCards.filter((c) => {
-                          if (!c.startTime) return false;
-                          const startH = parseInt(
-                            c.startTime.split(':')[0],
-                            10
-                          );
-                          return startH === h;
-                        });
-
-                        const periodClass =
-                          h < 12
-                            ? 'bg-sky-500/15 text-cyan-200 hover:bg-sky-500/25'
-                            : h < 18
-                              ? 'bg-amber-500/15 text-amber-200 hover:bg-amber-500/25'
-                              : 'bg-indigo-950/50 text-blue-200 hover:bg-indigo-900/60';
-
-                        return (
-                          <button
-                            key={h}
-                            type="button"
-                            onClick={() => {
-                              if (todayList) {
-                                handleOpenAddInline(
-                                  todayList.id,
-                                  todayList.title
-                                );
-                                setNewCardStart(hourLabel);
-                                setNewCardEnd(nextHourLabel);
-                              }
-                            }}
-                            title={
-                              matchingTodayCards.length > 0
-                                ? `${hourLabel} — ${matchingTodayCards.map((c) => c.title).join(', ')} (Clique para criar tarefa às ${hourLabel})`
-                                : `Clique para criar tarefa hoje às ${hourLabel}`
-                            }
-                            className={`w-full px-2.5 py-2 flex flex-col items-center justify-center transition-all cursor-pointer relative ${periodClass} ${
-                              isCurrentHour
-                                ? 'ring-1 ring-inset ring-cyan-300 bg-cyan-500/30 font-extrabold shadow-[inset_0_0_12px_rgba(34,211,238,0.35)]'
-                                : ''
-                            }`}
-                          >
-                            <div className="flex items-center gap-1">
-                              {isCurrentHour && (
-                                <span className="w-1.5 h-1.5 rounded-full bg-cyan-300 animate-ping" />
-                              )}
-                              <span className="text-xs font-mono font-bold tracking-tight">
-                                {hourLabel}
-                              </span>
-                            </div>
-
-                            {matchingTodayCards.length > 0 && (
-                              <span className="mt-0.5 px-1.5 py-0.2 rounded-full bg-black/45 border border-white/15 text-[9px] font-sans font-bold text-white max-w-full truncate">
-                                {matchingTodayCards.length === 1
-                                  ? matchingTodayCards[0].title
-                                  : `${matchingTodayCards.length} tarefas`}
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })()}
-
               {boardLists.map((list, colIdx) => {
               const listCards = activeBoardCards
                 .filter((c) => c.listId === list.id)
@@ -3302,7 +3217,7 @@ export function App() {
           onClick={() => handleTabChange('projects')}
           className={`dock-btn flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
             activeTab === 'projects'
-              ? 'bg-gradient-to-r from-emerald-500 via-cyan-500 to-purple-600 text-white shadow-lg shadow-emerald-500/30'
+              ? 'bg-gradient-to-r from-fuchsia-600 via-purple-600 to-cyan-500 text-white shadow-lg shadow-purple-500/30'
               : 'text-slate-300 hover:text-white hover:bg-white/5'
           }`}
         >
@@ -3315,7 +3230,7 @@ export function App() {
               className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
                 activeTab === 'projects'
                   ? 'bg-black/25 text-white'
-                  : 'bg-emerald-500/20 text-emerald-300'
+                  : 'bg-purple-500/20 text-cyan-300'
               }`}
             >
               {

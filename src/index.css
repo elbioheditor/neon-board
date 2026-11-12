@@ -6,6 +6,9 @@
     --neon-primary: #a855f7;
     --neon-secondary: #06b6d4;
     --neon-bg: #07050d;
+    --neon-surface-deep: #0b0715;
+    --neon-surface-card: #110b20;
+    --neon-surface-elevated: #19102e;
   }
 
   body {
@@ -40,12 +43,20 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, rgba(168, 85, 247, 0.45), rgba(6, 182, 212, 0.45));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--neon-primary, #a855f7) 45%, transparent),
+    color-mix(in srgb, var(--neon-secondary, #06b6d4) 45%, transparent)
+  );
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, rgba(217, 70, 239, 0.8), rgba(34, 211, 238, 0.8));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--neon-primary, #a855f7) 80%, transparent),
+    color-mix(in srgb, var(--neon-secondary, #06b6d4) 80%, transparent)
+  );
 }
 
 /* Electron draggable titlebar region */
@@ -428,9 +439,52 @@
   animation: pulse-ring 2.2s infinite ease-in-out;
 }
 
-/* Dynamic Theme Surface Overrides for Background Customization */
+/* Dynamic Theme Surface Overrides for Background, Primary & Secondary Customization across ALL pages */
 .neon-app-shell {
   background-color: var(--neon-bg, #07050d) !important;
+}
+
+[class*="bg-[#07050d]"],
+[class*="bg-[#070412]"],
+[class*="bg-[#090612]"],
+[class*="bg-[#0b0618]"],
+[class*="bg-[#0b0716]"],
+[class*="bg-[#0b0717]"] {
+  background-color: var(--neon-surface-deep, #090612) !important;
+}
+
+[class*="bg-[#0d081a]"],
+[class*="bg-[#0d091a]"],
+[class*="bg-[#0e091c]"],
+[class*="bg-[#0e091d]"],
+[class*="bg-[#0e0a1c]"],
+[class*="bg-[#0f0a1e]"],
+[class*="bg-[#110b22]"],
+[class*="bg-[#120924]"],
+[class*="bg-[#120b24]"],
+[class*="bg-[#130d26]"] {
+  background-color: var(--neon-surface-card, #0d091a) !important;
+}
+
+[class*="bg-[#140e28]"],
+[class*="bg-[#150e28]"],
+[class*="bg-[#150e2a]"],
+[class*="bg-[#160f29]"],
+[class*="bg-[#160f2c]"],
+[class*="bg-[#171130]"],
+[class*="bg-[#181130]"],
+[class*="bg-[#191130]"],
+[class*="bg-[#1b1236]"],
+[class*="bg-[#1f1545]"] {
+  background-color: var(--neon-surface-elevated, #181130) !important;
+}
+
+[class*="via-[#0b0618]"],
+[class*="via-[#0e091d]"],
+[class*="via-[#120924]"],
+[class*="via-[#0d091a]"],
+[class*="via-[#160a1d]"] {
+  --tw-gradient-via: var(--neon-surface-card, #0d091a) !important;
 }
 
 

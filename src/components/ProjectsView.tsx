@@ -5,7 +5,6 @@ import {
   Clock,
   Plus,
   CheckCircle2,
-  Trash2,
   Edit3,
   RefreshCw,
   TrendingUp,
@@ -55,7 +54,7 @@ export function getProjectTotalSeconds(
   const linkedSeconds = allCards
     .filter((c) => c.projectId === project.id)
     .reduce((acc, c) => acc + getLiveElapsedSeconds(c, nowMs), 0);
-  return (project.manualSeconds || 0) + linkedSeconds;
+  return Math.max(0, (project.manualSeconds || 0) + linkedSeconds);
 }
 
 export function getProjectMonthKey(project: WorkProject): string {
@@ -157,6 +156,64 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
 
   // Linking existing task popover state
   const [linkingProjectId, setLinkingProjectId] = useState<string | null>(null);
+
+  // Manual hours addition / correction state
+  const [adjustingHoursProjectId, setAdjustingHoursProjectId] = useState<
+    string | null
+  >(null);
+  const [hoursInputH, setHoursInputH] = useState('');
+  const [hoursInputM, setHoursInputM] = useState('');
+
+  const openAdjustHours = (project: WorkProject) => {
+    if (readOnly) return;
+    if (adjustingHoursProjectId === project.id) {
+      setAdjustingHoursProjectId(null);
+      return;
+    }
+    setAdjustingHoursProjectId(project.id);
+    setHoursInputH('');
+    setHoursInputM('');
+  };
+
+  const handleAddManualHours = (project: WorkProject) => {
+    const h = parseFloat(hoursInputH.replace(',', '.')) || 0;
+    const m = parseFloat(hoursInputM.replace(',', '.')) || 0;
+    const deltaSecs = Math.round(h * 3600 + m * 60);
+    if (deltaSecs === 0) return;
+    onUpdateProject({
+      ...project,
+      manualSeconds: (project.manualSeconds || 0) + deltaSecs,
+    });
+    setHoursInputH('');
+    setHoursInputM('');
+    setAdjustingHoursProjectId(null);
+  };
+
+  const handleSetTotalHours = (project: WorkProject) => {
+    const h = Math.max(0, parseFloat(hoursInputH.replace(',', '.')) || 0);
+    const m = Math.max(0, parseFloat(hoursInputM.replace(',', '.')) || 0);
+    const targetSecs = Math.round(h * 3600 + m * 60);
+    const linkedSeconds = boardCards
+      .filter((c) => c.projectId === project.id)
+      .reduce((acc, c) => acc + getLiveElapsedSeconds(c, nowMs), 0);
+    onUpdateProject({
+      ...project,
+      manualSeconds: targetSecs - linkedSeconds,
+    });
+    setHoursInputH('');
+    setHoursInputM('');
+    setAdjustingHoursProjectId(null);
+  };
+
+  const handleResetManualHours = (project: WorkProject) => {
+    onUpdateProject({
+      ...project,
+      manualSeconds: 0,
+    });
+    setHoursInputH('');
+    setHoursInputM('');
+    setAdjustingHoursProjectId(null);
+  };
 
   // Exchange rate live fetch & edit state
   const [isFetchingRate, setIsFetchingRate] = useState(false);
@@ -698,7 +755,11 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
               return (
                 <div
                   key={project.id}
-                  draggable={!readOnly && !isEditing}
+                  draggable={
+                    !readOnly &&
+                    !isEditing &&
+                    adjustingHoursProjectId !== project.id
+                  }
                   onDragStart={(e) => onProjectDragStart(e, project.id)}
                   onDragEnd={onProjectDragEnd}
                   className={`group relative rounded-2xl border bg-[#0e0a1c]/90 backdrop-blur-xl p-4 neon-card-smooth animate-spring-pop flex flex-col justify-between ${
@@ -707,7 +768,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                       : hasRunningTimer
                         ? 'border-cyan-400/80 shadow-[0_0_25px_rgba(6,182,212,0.25)]'
                         : 'border-purple-500/30 hover:border-purple-400/60 hover:-translate-y-0.5 shadow-lg'
-                  } ${!readOnly && !isEditing ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                  } ${!readOnly && !isEditing && adjustingHoursProjectId !== project.id ? 'cursor-grab active:cursor-grabbing' : ''}`}
                   style={{
                     borderTopWidth: '3px',
                     borderTopColor: accentColor,
@@ -811,35 +872,146 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                         </div>
 
                         {/* Time & Hourly Rate Box */}
-                        <div className="mt-3 p-3 rounded-xl bg-black/45 border border-white/10 flex items-center justify-between">
-                          <div>
-                            <span className="text-[10px] uppercase tracking-wider text-slate-400 block">
-                              Horas Contabilizadas
-                            </span>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <Clock
-                                className={`w-3.5 h-3.5 ${
-                                  hasRunningTimer
-                                    ? 'text-cyan-400 animate-spin'
-                                    : 'text-purple-400'
-                                }`}
-                              />
-                              <span className="text-sm font-mono font-bold text-white">
-                                {formatStopwatch(totalSecs)}
+                        <div className="mt-3 p-3 rounded-xl bg-black/45 border border-white/10 space-y-2.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] uppercase tracking-wider text-slate-400">
+                                  Horas Contabilizadas
+                                </span>
+                                {!readOnly && (
+                                  <button
+                                    type="button"
+                                    onClick={() => openAdjustHours(project)}
+                                    className="px-1.5 py-0.5 rounded-md bg-purple-500/20 hover:bg-purple-500/35 border border-purple-400/40 text-[9px] font-bold text-cyan-300 transition-colors cursor-pointer"
+                                    title="Adicionar horas manualmente ou corrigir o total de horas do projeto"
+                                  >
+                                    + Horas / Ajustar
+                                  </button>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <Clock
+                                  className={`w-3.5 h-3.5 ${
+                                    hasRunningTimer
+                                      ? 'text-cyan-400 animate-spin'
+                                      : 'text-purple-400'
+                                  }`}
+                                />
+                                <span className="text-sm font-mono font-bold text-white">
+                                  {formatStopwatch(totalSecs)}
+                                </span>
+                                {(project.manualSeconds || 0) !== 0 && (
+                                  <span className="text-[10px] font-mono text-slate-400">
+                                    ({(project.manualSeconds || 0) > 0 ? '+' : '-'}
+                                    {formatDurationHuman(
+                                      Math.abs(project.manualSeconds || 0)
+                                    )}{' '}
+                                    manual)
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="text-right">
+                              <span className="text-[10px] uppercase tracking-wider text-slate-400 block">
+                                Valor / Hora no Projeto
+                              </span>
+                              <span className="text-xs font-mono font-bold text-cyan-300">
+                                {effectiveUsdPerHour > 0
+                                  ? `${formatUsd(effectiveUsdPerHour)}/h (${formatBrl(effectiveUsdPerHour * usdToBrlRate)}/h)`
+                                  : '—'}
                               </span>
                             </div>
                           </div>
 
-                          <div className="text-right">
-                            <span className="text-[10px] uppercase tracking-wider text-slate-400 block">
-                              Valor / Hora no Projeto
-                            </span>
-                            <span className="text-xs font-mono font-bold text-cyan-300">
-                              {effectiveUsdPerHour > 0
-                                ? `${formatUsd(effectiveUsdPerHour)}/h (${formatBrl(effectiveUsdPerHour * usdToBrlRate)}/h)`
-                                : '—'}
-                            </span>
-                          </div>
+                          {/* Inline Manual Hours Add / Override Panel */}
+                          {adjustingHoursProjectId === project.id &&
+                            !readOnly && (
+                              <div className="p-2.5 rounded-xl bg-black/75 border border-purple-400/40 space-y-2 animate-drawer-open">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-300">
+                                    Adicionar ou Corrigir Horas
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setAdjustingHoursProjectId(null)
+                                    }
+                                    className="text-slate-400 hover:text-white"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-1 flex-1">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="1"
+                                      placeholder="0"
+                                      value={hoursInputH}
+                                      onChange={(e) =>
+                                        setHoursInputH(e.target.value)
+                                      }
+                                      className="w-full px-2 py-1 rounded-lg bg-black/80 border border-purple-500/40 text-xs font-mono text-white focus:outline-none focus:border-cyan-400"
+                                    />
+                                    <span className="text-[10px] font-bold text-slate-400">
+                                      h
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1 flex-1">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max="59"
+                                      step="1"
+                                      placeholder="30"
+                                      value={hoursInputM}
+                                      onChange={(e) =>
+                                        setHoursInputM(e.target.value)
+                                      }
+                                      className="w-full px-2 py-1 rounded-lg bg-black/80 border border-purple-500/40 text-xs font-mono text-white focus:outline-none focus:border-cyan-400"
+                                    />
+                                    <span className="text-[10px] font-bold text-slate-400">
+                                      min
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleAddManualHours(project)
+                                    }
+                                    className="flex-1 px-2.5 py-1 rounded-lg bg-purple-600/35 hover:bg-purple-600/55 border border-purple-400/50 text-[10px] font-bold text-white transition-colors cursor-pointer"
+                                    title="Soma essas horas ao tempo atual do projeto"
+                                  >
+                                    + Somar Horas
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSetTotalHours(project)}
+                                    className="flex-1 px-2.5 py-1 rounded-lg bg-cyan-500/25 hover:bg-cyan-500/40 border border-cyan-400/50 text-[10px] font-bold text-cyan-200 transition-colors cursor-pointer"
+                                    title="Substitui o tempo total do projeto por exatamente esse valor (corrige erros)"
+                                  >
+                                    = Definir Total
+                                  </button>
+                                  {(project.manualSeconds || 0) !== 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleResetManualHours(project)
+                                      }
+                                      className="px-2 py-1 rounded-lg bg-white/5 hover:bg-rose-500/20 text-[10px] text-slate-400 hover:text-rose-300 transition-colors cursor-pointer"
+                                      title="Zerar ajuste manual"
+                                    >
+                                      Zerar Ajuste
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            )}
                         </div>
 
                         {/* Linked Tasks List */}
@@ -960,23 +1132,19 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                       {/* Card Footer Actions */}
                       {!readOnly && (
                         <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between">
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-2">
                             <button
                               type="button"
                               onClick={() => startEditing(project)}
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-                              title="Editar projeto"
+                              className="flex items-center gap-1 px-2 py-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 text-[11px] transition-colors cursor-pointer"
+                              title="Editar título, valor ou descrição do projeto"
                             >
                               <Edit3 className="w-3.5 h-3.5" />
+                              <span>Editar</span>
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => onDeleteProject(project.id)}
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
-                              title="Excluir projeto"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            <span className="text-[10px] text-slate-500 hidden sm:inline">
+                              • Arraste p/ baixo p/ concluir ou apagar
+                            </span>
                           </div>
 
                           <button
@@ -1029,11 +1197,19 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
               const hoursFloat = totalSecs / 3600;
               const effectiveRateUsd =
                 hoursFloat > 0 ? (project.amountUsd || 0) / hoursFloat : 0;
+              const isDragging = draggedProjectId === project.id;
 
               return (
                 <div
                   key={project.id}
-                  className="p-4 rounded-2xl border border-emerald-500/30 bg-emerald-950/15 flex flex-col justify-between gap-3"
+                  draggable={
+                    !readOnly && adjustingHoursProjectId !== project.id
+                  }
+                  onDragStart={(e) => onProjectDragStart(e, project.id)}
+                  onDragEnd={onProjectDragEnd}
+                  className={`p-4 rounded-2xl border border-emerald-500/30 bg-emerald-950/15 flex flex-col justify-between gap-3 transition-all ${
+                    isDragging ? 'opacity-40 scale-95 border-rose-400' : ''
+                  } ${!readOnly && adjustingHoursProjectId !== project.id ? 'cursor-grab active:cursor-grabbing' : ''}`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
@@ -1059,16 +1235,103 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between text-xs px-3 py-2 rounded-xl bg-black/40 border border-white/5">
-                    <span className="text-slate-300 font-mono">
-                      ⏱ {formatStopwatch(totalSecs)} (
-                      {formatDurationHuman(totalSecs)})
-                    </span>
-                    <span className="font-mono text-cyan-300 font-semibold">
-                      {effectiveRateUsd > 0
-                        ? `${formatUsd(effectiveRateUsd)}/h`
-                        : '—'}
-                    </span>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs px-3 py-2 rounded-xl bg-black/40 border border-white/5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-300 font-mono">
+                          ⏱ {formatStopwatch(totalSecs)} (
+                          {formatDurationHuman(totalSecs)})
+                        </span>
+                        {!readOnly && (
+                          <button
+                            type="button"
+                            onClick={() => openAdjustHours(project)}
+                            className="px-1.5 py-0.5 rounded bg-purple-500/20 hover:bg-purple-500/35 border border-purple-400/40 text-[9px] font-bold text-cyan-300 cursor-pointer"
+                            title="Adicionar ou corrigir horas deste projeto"
+                          >
+                            + Horas
+                          </button>
+                        )}
+                      </div>
+                      <span className="font-mono text-cyan-300 font-semibold">
+                        {effectiveRateUsd > 0
+                          ? `${formatUsd(effectiveRateUsd)}/h`
+                          : '—'}
+                      </span>
+                    </div>
+
+                    {adjustingHoursProjectId === project.id && !readOnly && (
+                      <div className="p-2.5 rounded-xl bg-black/75 border border-purple-400/40 space-y-2 animate-drawer-open">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-300">
+                            Adicionar ou Corrigir Horas
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setAdjustingHoursProjectId(null)}
+                            className="text-slate-400 hover:text-white"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1 flex-1">
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              placeholder="0"
+                              value={hoursInputH}
+                              onChange={(e) => setHoursInputH(e.target.value)}
+                              className="w-full px-2 py-1 rounded-lg bg-black/80 border border-purple-500/40 text-xs font-mono text-white focus:outline-none focus:border-cyan-400"
+                            />
+                            <span className="text-[10px] font-bold text-slate-400">
+                              h
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 flex-1">
+                            <input
+                              type="number"
+                              min="0"
+                              max="59"
+                              step="1"
+                              placeholder="30"
+                              value={hoursInputM}
+                              onChange={(e) => setHoursInputM(e.target.value)}
+                              className="w-full px-2 py-1 rounded-lg bg-black/80 border border-purple-500/40 text-xs font-mono text-white focus:outline-none focus:border-cyan-400"
+                            />
+                            <span className="text-[10px] font-bold text-slate-400">
+                              min
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                          <button
+                            type="button"
+                            onClick={() => handleAddManualHours(project)}
+                            className="flex-1 px-2.5 py-1 rounded-lg bg-purple-600/35 hover:bg-purple-600/55 border border-purple-400/50 text-[10px] font-bold text-white transition-colors cursor-pointer"
+                          >
+                            + Somar Horas
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSetTotalHours(project)}
+                            className="flex-1 px-2.5 py-1 rounded-lg bg-cyan-500/25 hover:bg-cyan-500/40 border border-cyan-400/50 text-[10px] font-bold text-cyan-200 transition-colors cursor-pointer"
+                          >
+                            = Definir Total
+                          </button>
+                          {(project.manualSeconds || 0) !== 0 && (
+                            <button
+                              type="button"
+                              onClick={() => handleResetManualHours(project)}
+                              className="px-2 py-1 rounded-lg bg-white/5 hover:bg-rose-500/20 text-[10px] text-slate-400 hover:text-rose-300 transition-colors cursor-pointer"
+                            >
+                              Zerar Ajuste
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {!readOnly && (
@@ -1076,18 +1339,14 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                       <button
                         type="button"
                         onClick={() => onRestoreProject(project.id)}
-                        className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-cyan-300"
+                        className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-cyan-300 cursor-pointer"
                       >
                         <RotateCcw className="w-3 h-3" />
                         Voltar para Ativos
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => onDeleteProject(project.id)}
-                        className="text-[11px] text-slate-500 hover:text-rose-400"
-                      >
-                        Excluir
-                      </button>
+                      <span className="text-[10px] text-slate-500">
+                        Arraste p/ Lixeira para apagar
+                      </span>
                     </div>
                   )}
                 </div>

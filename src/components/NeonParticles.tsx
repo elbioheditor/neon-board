@@ -10,7 +10,15 @@ interface Particle {
   alpha: number;
 }
 
-export const NeonParticles: React.FC<{ enabled: boolean }> = ({ enabled }) => {
+export const NeonParticles: React.FC<{
+  enabled: boolean;
+  primaryColor?: string;
+  secondaryColor?: string;
+}> = ({
+  enabled,
+  primaryColor = '#a855f7',
+  secondaryColor = '#06b6d4',
+}) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -33,11 +41,8 @@ export const NeonParticles: React.FC<{ enabled: boolean }> = ({ enabled }) => {
     window.addEventListener('resize', handleResize);
 
     const palette = [
-      '#d946ef', // Fuchsia / Pink-Purple
-      '#a855f7', // Electric Purple
-      '#06b6d4', // Cyan
-      '#22d3ee', // Bright Cyan
-      '#ec4899', // Neon Pink
+      primaryColor || '#a855f7',
+      secondaryColor || '#06b6d4',
     ];
 
     const particles: Particle[] = Array.from({ length: 48 }, () => ({
@@ -82,7 +87,7 @@ export const NeonParticles: React.FC<{ enabled: boolean }> = ({ enabled }) => {
       cancelAnimationFrame(animationFrameId);
       window.removeEventListener('resize', handleResize);
     };
-  }, [enabled]);
+  }, [enabled, primaryColor, secondaryColor]);
 
   if (!enabled) return null;
 

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Clock,
   CheckSquare,
@@ -57,6 +58,37 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
   onDragEnd,
 }) => {
   const [showProjectMenu, setShowProjectMenu] = useState(false);
+  const [menuPos, setMenuPos] = useState<{
+    left: number;
+    top?: number;
+    bottom?: number;
+  }>({ left: 0, bottom: 0 });
+  const projBtnRef = useRef<HTMLButtonElement | null>(null);
+  const projMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!showProjectMenu) return;
+    const handleOutside = (ev: MouseEvent) => {
+      const target = ev.target as Node;
+      if (
+        projMenuRef.current?.contains(target) ||
+        projBtnRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setShowProjectMenu(false);
+    };
+    const handleScrollOrResize = () => setShowProjectMenu(false);
+    window.addEventListener('mousedown', handleOutside);
+    window.addEventListener('resize', handleScrollOrResize);
+    window.addEventListener('scroll', handleScrollOrResize, true);
+    return () => {
+      window.removeEventListener('mousedown', handleOutside);
+      window.removeEventListener('resize', handleScrollOrResize);
+      window.removeEventListener('scroll', handleScrollOrResize, true);
+    };
+  }, [showProjectMenu]);
+
   const linkedProject = projects.find((p) => p.id === card.projectId);
   const activeProjects = projects.filter((p) => p.status === 'active');
   const isInProgress = card.status === 'in_progress';
@@ -280,9 +312,32 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
           {onAssignProject && (
             <div className="relative">
               <button
+                ref={projBtnRef}
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
+                  if (!showProjectMenu && projBtnRef.current) {
+                    const rect = projBtnRef.current.getBoundingClientRect();
+                    const menuWidth = 236;
+                    const left = Math.max(
+                      12,
+                      Math.min(
+                        window.innerWidth - menuWidth - 12,
+                        rect.left + rect.width / 2 - menuWidth / 2
+                      )
+                    );
+                    if (rect.top > 220) {
+                      setMenuPos({
+                        left,
+                        bottom: window.innerHeight - rect.top + 8,
+                      });
+                    } else {
+                      setMenuPos({
+                        left,
+                        top: rect.bottom + 8,
+                      });
+                    }
+                  }
                   setShowProjectMenu((v) => !v);
                 }}
                 title={
@@ -299,83 +354,100 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
                 <Briefcase className="w-3 h-3" />
               </button>
 
-              {showProjectMenu && (
-                <div
-                  onClick={(e) => e.stopPropagation()}
-                  className="absolute right-0 bottom-full mb-1.5 z-40 w-56 rounded-xl border border-purple-500/40 bg-[#0d091a] shadow-[0_10px_30px_rgba(0,0,0,0.9)] p-2 space-y-1 animate-popover-up"
-                >
-                  <div className="flex items-center justify-between px-1.5 py-1 border-b border-white/10">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-300 flex items-center gap-1">
-                      <Briefcase className="w-3 h-3" />
-                      Vincular a Projeto
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setShowProjectMenu(false)}
-                      className="text-slate-400 hover:text-white"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-
-                  {activeProjects.length === 0 ? (
-                    <div className="px-2 py-2 text-[11px] text-slate-400 text-center">
-                      Nenhum projeto ativo. Crie um na aba{' '}
-                      <strong className="text-cyan-300">Projetos</strong>!
+              {showProjectMenu &&
+                typeof document !== 'undefined' &&
+                createPortal(
+                  <div
+                    ref={projMenuRef}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      position: 'fixed',
+                      left: `${menuPos.left}px`,
+                      top:
+                        menuPos.top !== undefined
+                          ? `${menuPos.top}px`
+                          : undefined,
+                      bottom:
+                        menuPos.bottom !== undefined
+                          ? `${menuPos.bottom}px`
+                          : undefined,
+                      width: '236px',
+                    }}
+                    className="z-[9999] rounded-2xl border border-purple-500/50 bg-[#0d091a] shadow-[0_16px_45px_rgba(0,0,0,0.95)] p-2.5 space-y-1.5 animate-popover-up select-none"
+                  >
+                    <div className="flex items-center justify-between px-1.5 py-1 border-b border-white/10">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-300 flex items-center gap-1.5">
+                        <Briefcase className="w-3 h-3" />
+                        Vincular a Projeto
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowProjectMenu(false)}
+                        className="text-slate-400 hover:text-white p-0.5 rounded hover:bg-white/10"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
                     </div>
-                  ) : (
-                    <div className="max-h-40 overflow-y-auto space-y-0.5">
-                      {activeProjects.map((proj) => {
-                        const isSelected = card.projectId === proj.id;
-                        return (
-                          <button
-                            key={proj.id}
-                            type="button"
-                            onClick={() => {
-                              onAssignProject(
-                                card.id,
-                                isSelected ? undefined : proj.id
-                              );
-                              setShowProjectMenu(false);
-                            }}
-                            className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-left text-[11px] transition-colors ${
-                              isSelected
-                                ? 'bg-emerald-500/20 text-emerald-200 font-bold'
-                                : 'text-slate-200 hover:bg-white/10'
-                            }`}
-                          >
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <span
-                                className="w-2 h-2 rounded-full shrink-0"
-                                style={{
-                                  backgroundColor: proj.color || '#a855f7',
-                                }}
-                              />
-                              <span className="truncate">{proj.title}</span>
-                            </div>
-                            {isSelected && (
-                              <Check className="w-3 h-3 text-emerald-400 shrink-0" />
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
 
-                  {card.projectId && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onAssignProject(card.id, undefined);
-                        setShowProjectMenu(false);
-                      }}
-                      className="w-full text-center py-1 rounded-lg text-[10px] font-semibold text-rose-300 hover:bg-rose-500/15 border-t border-white/10 mt-1"
-                    >
-                      Desvincular Projeto
-                    </button>
-                  )}
-                </div>
-              )}
+                    {activeProjects.length === 0 ? (
+                      <div className="px-2 py-2.5 text-[11px] text-slate-300 text-center leading-relaxed">
+                        Nenhum projeto ativo. Crie um na aba{' '}
+                        <strong className="text-cyan-300">Projetos</strong>!
+                      </div>
+                    ) : (
+                      <div className="max-h-44 overflow-y-auto space-y-1 pr-0.5">
+                        {activeProjects.map((proj) => {
+                          const isSelected = card.projectId === proj.id;
+                          return (
+                            <button
+                              key={proj.id}
+                              type="button"
+                              onClick={() => {
+                                onAssignProject(
+                                  card.id,
+                                  isSelected ? undefined : proj.id
+                                );
+                                setShowProjectMenu(false);
+                              }}
+                              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-left text-xs transition-colors ${
+                                isSelected
+                                  ? 'bg-emerald-500/20 text-emerald-200 font-bold border border-emerald-400/35'
+                                  : 'text-slate-200 hover:bg-white/10'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span
+                                  className="w-2.5 h-2.5 rounded-full shrink-0"
+                                  style={{
+                                    backgroundColor: proj.color || '#a855f7',
+                                  }}
+                                />
+                                <span className="truncate">{proj.title}</span>
+                              </div>
+                              {isSelected && (
+                                <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {card.projectId && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onAssignProject(card.id, undefined);
+                          setShowProjectMenu(false);
+                        }}
+                        className="w-full text-center py-1.5 rounded-xl text-[11px] font-semibold text-rose-300 hover:bg-rose-500/15 border-t border-white/10 mt-1"
+                      >
+                        Desvincular Projeto
+                      </button>
+                    )}
+                  </div>,
+                  document.body
+                )}
             </div>
           )}
 

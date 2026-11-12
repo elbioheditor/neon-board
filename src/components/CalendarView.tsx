@@ -739,9 +739,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                     color: card.tagColor,
                                   }
                                 : {
-                                    backgroundColor: 'rgba(236,72,153,0.2)',
-                                    borderColor: 'rgba(244,114,182,0.4)',
-                                    color: '#f472b6',
+                                    backgroundColor:
+                                      'color-mix(in srgb, var(--neon-secondary, #06b6d4) 20%, transparent)',
+                                    borderColor:
+                                      'color-mix(in srgb, var(--neon-secondary, #06b6d4) 45%, transparent)',
+                                    color: 'var(--neon-secondary, #06b6d4)',
                                   }
                             }
                           >
