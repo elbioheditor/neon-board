@@ -43,6 +43,9 @@ import {
   DEFAULT_CUSTOM_LABELS,
   DEFAULT_TAG_COLORS,
   DEFAULT_THEME_COLORS,
+  DEFAULT_CLIENTS,
+  normalizeProjectsWithDefaultClient,
+  normalizeClientsList,
   resolveLabelInfo,
   toggleLabelSelection,
   sanitizeCardLabels,
@@ -333,8 +336,14 @@ export function App() {
           const myBoardIds = new Set(myBoards.map((b) => b.id));
           const myLists = ownerBoard.lists.filter((l) => myBoardIds.has(l.boardId) || !l.boardId);
           const myCards = ownerBoard.cards.filter((c) => myBoardIds.has(c.boardId) || !c.boardId);
-          const myProjects = (ownerBoard.projects || prev.projects || []).filter(
+          const rawMyProjects = (ownerBoard.projects || prev.projects || []).filter(
             (p) => myBoardIds.has(p.boardId) || !p.boardId
+          );
+          const { projects: myProjects, didBackfill } =
+            normalizeProjectsWithDefaultClient(rawMyProjects);
+          const myClients = normalizeClientsList(
+            ownerBoard.clients || prev.clients,
+            myProjects
           );
 
           // ONLY include friendsBoards if they were returned by fetchUserAndFriendsBoards (i.e. accepted friends)
@@ -343,7 +352,9 @@ export function App() {
           const allCards = [...myCards, ...friendsBoards.flatMap((fb) => fb.cards)];
           const allProjects = [
             ...myProjects,
-            ...friendsBoards.flatMap((fb) => fb.projects || []),
+            ...friendsBoards.flatMap(
+              (fb) => normalizeProjectsWithDefaultClient(fb.projects).projects
+            ),
           ];
 
           const validActiveBoardId = allBoards.some((b) => b.id === prev.activeBoardId)
@@ -356,6 +367,7 @@ export function App() {
             lists: allLists,
             cards: allCards,
             projects: allProjects,
+            clients: myClients,
             themeColors: ownerBoard.themeColors || prev.themeColors || DEFAULT_THEME_COLORS,
             customLabels: ownerBoard.customLabels || prev.customLabels,
             tagColors: ownerBoard.tagColors || prev.tagColors,
@@ -368,14 +380,19 @@ export function App() {
             console.error('Failed to update local storage', e);
           }
 
-          // If rawMyBoards contained other people's boards (like Didi's board), clean up cloud storage!
-          if (rawMyBoards.length !== myBoards.length) {
+          // If rawMyBoards contained other people's boards OR existing projects needed the 'Brody' client backfill, persist to cloud!
+          if (
+            rawMyBoards.length !== myBoards.length ||
+            didBackfill ||
+            !ownerBoard.clients
+          ) {
             saveUserBoardToCloud(profile.id, {
               board: myBoards[0],
               boards: myBoards,
               lists: myLists,
               cards: myCards,
               projects: myProjects,
+              clients: myClients,
               themeColors: nextState.themeColors,
               customLabels: nextState.customLabels,
               tagColors: nextState.tagColors,
@@ -530,9 +547,19 @@ export function App() {
   const updateState = (updater: (prev: NeonStoreState) => NeonStoreState) => {
     setState((prev) => {
       const updated = updater(prev);
+      const normalizedProjects = normalizeProjectsWithDefaultClient(
+        updated.projects !== undefined ? updated.projects : (prev.projects ?? [])
+      ).projects;
+      const normalizedClients = normalizeClientsList(
+        updated.clients !== undefined
+          ? updated.clients
+          : (prev.clients ?? DEFAULT_CLIENTS),
+        normalizedProjects
+      );
       const withDefaults: NeonStoreState = {
         ...updated,
-        projects: updated.projects !== undefined ? updated.projects : (prev.projects ?? []),
+        projects: normalizedProjects,
+        clients: normalizedClients,
         themeColors:
           updated.themeColors !== undefined
             ? updated.themeColors
@@ -576,6 +603,7 @@ export function App() {
             lists: next.lists.filter((l) => myBoardIds.has(l.boardId)),
             cards: next.cards.filter((c) => myBoardIds.has(c.boardId)),
             projects: (next.projects || []).filter((p) => myBoardIds.has(p.boardId)),
+            clients: next.clients,
             themeColors: next.themeColors,
             customLabels: next.customLabels,
             tagColors: next.tagColors,
@@ -894,16 +922,45 @@ export function App() {
     });
   };
 
+  const handleAddClient = (clientName: string) => {
+    const trimmed = clientName.trim();
+    if (!trimmed) return;
+    updateState((prev) => {
+      const current = prev.clients || DEFAULT_CLIENTS;
+      if (
+        current.some((c) => c.toLowerCase() === trimmed.toLowerCase())
+      ) {
+        return prev;
+      }
+      return {
+        ...prev,
+        clients: [...current, trimmed],
+      };
+    });
+  };
+
+  const handleDeleteClient = (clientName: string) => {
+    updateState((prev) => ({
+      ...prev,
+      clients: (prev.clients || DEFAULT_CLIENTS).filter(
+        (c) => c !== clientName
+      ),
+    }));
+  };
+
   const handleCreateProject = (data: {
     title: string;
+    clientName: string;
     description?: string;
     amountUsd: number;
     color?: string;
   }) => {
+    const cleanClient = data.clientName.trim() || 'Brody';
     const newProj: WorkProject = {
       id: `proj-${Date.now()}`,
       boardId: activeBoard.id,
       title: data.title,
+      clientName: cleanClient,
       description: data.description,
       amountUsd: data.amountUsd,
       color: data.color || '#a855f7',
@@ -911,10 +968,19 @@ export function App() {
       manualSeconds: 0,
       createdAt: new Date().toISOString(),
     };
-    updateState((prev) => ({
-      ...prev,
-      projects: [newProj, ...(prev.projects || [])],
-    }));
+    updateState((prev) => {
+      const currentClients = prev.clients || DEFAULT_CLIENTS;
+      const nextClients = currentClients.some(
+        (c) => c.toLowerCase() === cleanClient.toLowerCase()
+      )
+        ? currentClients
+        : [...currentClients, cleanClient];
+      return {
+        ...prev,
+        clients: nextClients,
+        projects: [newProj, ...(prev.projects || [])],
+      };
+    });
   };
 
   const handleUpdateProject = (updated: WorkProject) => {
@@ -1960,7 +2026,7 @@ export function App() {
   const isDraggingAnything = Boolean(draggedCardId || draggedListId);
   const isDidiUser = Boolean(currentUserProfile?.username?.toLowerCase().includes('didi'));
   const appBrandName = isDidiUser ? 'SHADOWJOKER' : (window.neonDesktop?.brandName || 'NEON');
-  const appVersion = window.neonDesktop?.version || '1.5.1';
+  const appVersion = window.neonDesktop?.version || '1.5.2';
 
   if (isCheckingAuth || isSyncingUserData) {
     return (
@@ -2487,6 +2553,7 @@ export function App() {
                 boardId={activeBoard.id}
                 boardName={activeBoard.name}
                 projects={state.projects || []}
+                clients={state.clients || DEFAULT_CLIENTS}
                 cards={state.cards}
                 nowMs={nowMs}
                 usdToBrlRate={
@@ -2495,6 +2562,8 @@ export function App() {
                   5.8
                 }
                 onUpdateUsdToBrlRate={handleUpdateUsdToBrlRate}
+                onAddClient={handleAddClient}
+                onDeleteClient={handleDeleteClient}
                 onCreateProject={handleCreateProject}
                 onUpdateProject={handleUpdateProject}
                 onCompleteProject={handleCompleteProject}
@@ -3358,6 +3427,11 @@ export function App() {
                   boards: myBoards,
                   lists: state.lists.filter((l) => myBoardIds.has(l.boardId)),
                   cards: state.cards.filter((c) => myBoardIds.has(c.boardId)),
+                  projects: (state.projects || []).filter((p) =>
+                    myBoardIds.has(p.boardId)
+                  ),
+                  clients: state.clients,
+                  themeColors: state.themeColors,
                   customLabels: state.customLabels,
                   tagColors: state.tagColors,
                 });

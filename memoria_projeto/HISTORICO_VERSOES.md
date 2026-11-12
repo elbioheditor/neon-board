@@ -1,5 +1,9 @@
 # Histórico de Versões e Atualizações — NEON
 
+## v1.5.2 (2026-11-11)
+- **Botão e Visão `"Graphs"` na aba Dale (à esquerda do mês escolhido)**: gráfico de barras anual mostrando os ganhos de cada mês (`Jan` a `Dez`), com tooltip rico ao passar o mouse exibindo os projetos feitos no mês, valor da hora média de ganhos (`$/h` e `R$/h`), horas trabalhadas e quais clientes foram atendidos naquele mês.
+- **Sistema de Clientes Obrigatório em Projetos**: opção de cadastrar/selecionar clientes para cada projeto (obrigatório ao criar projeto), e atribuição automática dos projetos já realizados pelo usuário ao cliente **`Brody`**.
+
 ## v1.5.1 (2026-11-11)
 - **Remoção da coluna `"Horários"`** na aba Board a pedido do usuário.
 - **Aplicação completa das Cores do Tema em todas as páginas** (incluindo Calendário, superfícies escuras `#0d091a`/`#120924`, gradientes `pink-*` e partículas `NeonParticles`).

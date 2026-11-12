@@ -44,6 +44,18 @@
   - Todo projeto possui o botão **`+ Horas / Ajustar`** para que o usuário possa **+ Somar Horas** (caso tenha esquecido de ligar o cronômetro) ou **= Definir Total** (caso tenha cometido algum erro no cronômetro e queira fixar o total exato de horas do projeto).
 - **Exclusão de Projetos APENAS Arrastando (Sem Clique Único):**
   - **Não existe botão de apagar projeto com 1 clique** nos cards de projetos ativos ou concluídos para evitar *missclick* e perda acidental de projeto. Para excluir um projeto, o usuário deve **arrastar o projeto até a zona "Lixeira"** na parte inferior da tela.
+- **Sistema de Clientes Obrigatório por Projeto (`clientName`):**
+  - Todo projeto **obrigatoriamente** pertence a um cliente (`clientName: string`). Não é possível criar um projeto sem informar/selecionar um cliente.
+  - A aba **Projetos** conta com um gerenciador de **Clientes** e pílulas de seleção rápida no formulário de criação/edição.
+  - **Regra dos Projetos Existentes (`Brody`):** Os dois projetos já criados pelo usuário (e qualquer projeto anterior sem cliente definido) recebem automaticamente o cliente **`Brody`** (`normalizeProjectsWithDefaultClient`).
+- **Opção `"Graphs"` na Aba Dale (Ao Lado Esquerdo do Mês Escolhido):**
+  - Na aba **Dale** (`src/components/MonthlyHistoryView.tsx`), imediatamente à esquerda do seletor de mês escolhido, há o botão **`Graphs`**.
+  - Ao abrir **`Graphs`**, é exibido um **gráfico de barras anual** mostrando os ganhos de cada mês do ano selecionado (`Jan` a `Dez`), acompanhado de seletor de ano e resumo anual.
+  - **Tooltip Rico ao Passar o Mouse (`onMouseEnter` via `createPortal`):** Ao posicionar o mouse sobre qualquer mês no gráfico de barras, aparece um card flutuante detalhado com:
+    1. Ganhos daquele mês em Dólar (`$`) e convertido em Reais (`R$`).
+    2. Hora média de ganhos (`$/h` e `R$/h`) e total de horas trabalhadas no mês.
+    3. Quais **clientes** foram atendidos naquele mês (ex.: `Brody`, quantidade de projetos e valor por cliente).
+    4. Lista dos **projetos feitos** naquele mês com título, cliente, tempo e valor.
 - **Conclusão Arrastando para Baixo:**
   - Quando o usuário termina um projeto na aba **Projetos**, ele pode **arrastar o card do projeto para a barra inferior da tela** (zona verde de conclusão, igual ao Board) para finalizar o projeto no mês.
 - **Sistema Financeiro (`USD $` + Conversão `BRL R$`) e Hora Média:**

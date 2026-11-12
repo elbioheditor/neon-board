@@ -551,6 +551,7 @@ export interface UserBoardPayload {
   lists: BoardList[];
   cards: TaskCard[];
   projects?: WorkProject[];
+  clients?: string[];
   themeColors?: ThemeColors;
   customLabels?: CustomLabel[];
   tagColors?: TagColorItem[];

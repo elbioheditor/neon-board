@@ -67,6 +67,7 @@ export interface WorkProject {
   id: string;
   boardId: string;
   title: string;
+  clientName: string; // Required client name (e.g. "Brody")
   description?: string;
   amountUsd: number;
   status: 'active' | 'completed';
@@ -125,6 +126,7 @@ export interface NeonStoreState {
   lists: BoardList[];
   cards: TaskCard[];
   projects?: WorkProject[];
+  clients?: string[];
   themeColors?: ThemeColors;
   customLabels?: CustomLabel[];
   tagColors?: TagColorItem[];

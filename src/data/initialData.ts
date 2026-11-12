@@ -1,8 +1,47 @@
-import { NeonStoreState, LabelColor, CustomLabel, TagColorItem, ThemeColors } from '../types';
+import { NeonStoreState, LabelColor, CustomLabel, TagColorItem, ThemeColors, WorkProject } from '../types';
 import { getTodayIsoDate, getTomorrowIsoDate } from '../utils/timeUtils';
 
 const todayStr = getTodayIsoDate();
 const tomorrowStr = getTomorrowIsoDate();
+
+export const DEFAULT_CLIENTS: string[] = ['Brody'];
+
+export function normalizeProjectsWithDefaultClient(
+  projects?: WorkProject[]
+): { projects: WorkProject[]; didBackfill: boolean } {
+  if (!projects || !Array.isArray(projects)) {
+    return { projects: [], didBackfill: false };
+  }
+  let didBackfill = false;
+  const normalized = projects.map((p) => {
+    const cleanClient = (p.clientName || '').trim();
+    if (!cleanClient) {
+      didBackfill = true;
+      return {
+        ...p,
+        clientName: 'Brody',
+      };
+    }
+    return p;
+  });
+  return { projects: normalized, didBackfill };
+}
+
+export function normalizeClientsList(
+  clients?: string[],
+  projects?: WorkProject[]
+): string[] {
+  const set = new Set<string>(DEFAULT_CLIENTS);
+  (clients || []).forEach((c) => {
+    const trimmed = (c || '').trim();
+    if (trimmed) set.add(trimmed);
+  });
+  (projects || []).forEach((p) => {
+    const trimmed = (p.clientName || '').trim();
+    if (trimmed) set.add(trimmed);
+  });
+  return Array.from(set);
+}
 
 export const DEFAULT_THEME_COLORS: ThemeColors = {
   primaryColor: '#a855f7',
@@ -464,4 +503,5 @@ export const INITIAL_STATE: NeonStoreState = {
       order: 3,
     },
   ],
+  clients: DEFAULT_CLIENTS,
 };

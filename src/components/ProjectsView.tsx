@@ -17,6 +17,8 @@ import {
   Link2,
   Unlink,
   ArrowDownCircle,
+  User,
+  Users,
 } from 'lucide-react';
 import { TaskCard, WorkProject } from '../types';
 import {
@@ -93,12 +95,16 @@ interface ProjectsViewProps {
   boardId: string;
   boardName: string;
   projects: WorkProject[];
+  clients: string[];
   cards: TaskCard[];
   nowMs: number;
   usdToBrlRate: number;
   onUpdateUsdToBrlRate: (rate: number) => void;
+  onAddClient: (clientName: string) => void;
+  onDeleteClient: (clientName: string) => void;
   onCreateProject: (data: {
     title: string;
+    clientName: string;
     description?: string;
     amountUsd: number;
     color?: string;
@@ -121,10 +127,13 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
   boardId,
   boardName,
   projects,
+  clients,
   cards,
   nowMs,
   usdToBrlRate,
   onUpdateUsdToBrlRate,
+  onAddClient,
+  onDeleteClient,
   onCreateProject,
   onUpdateProject,
   onCompleteProject,
@@ -142,14 +151,22 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
 
   // New project form state
   const [newTitle, setNewTitle] = useState('');
+  const [newClientName, setNewClientName] = useState<string>(
+    () => clients[0] || 'Brody'
+  );
   const [newAmountUsd, setNewAmountUsd] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [newColor, setNewColor] = useState(PROJECT_COLORS[0]);
   const [isCreating, setIsCreating] = useState(false);
 
+  // Client manager state
+  const [isManagingClients, setIsManagingClients] = useState(false);
+  const [newClientInput, setNewClientInput] = useState('');
+
   // Editing project state
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
+  const [editClientName, setEditClientName] = useState('');
   const [editAmountUsd, setEditAmountUsd] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editColor, setEditColor] = useState(PROJECT_COLORS[0]);
@@ -368,10 +385,12 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
     e.preventDefault();
     if (readOnly) return;
     const trimmed = newTitle.trim();
-    if (!trimmed) return;
+    const trimmedClient = newClientName.trim();
+    if (!trimmed || !trimmedClient) return;
     const parsedUsd = parseFloat(newAmountUsd.replace(',', '.')) || 0;
     onCreateProject({
       title: trimmed,
+      clientName: trimmedClient,
       description: newDescription.trim() || undefined,
       amountUsd: Math.max(0, parsedUsd),
       color: newColor,
@@ -386,6 +405,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
     if (readOnly) return;
     setEditingId(project.id);
     setEditTitle(project.title);
+    setEditClientName(project.clientName || 'Brody');
     setEditAmountUsd(String(project.amountUsd || 0));
     setEditDescription(project.description || '');
     setEditColor(project.color || PROJECT_COLORS[0]);
@@ -393,11 +413,14 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
 
   const saveEdit = (project: WorkProject) => {
     const trimmed = editTitle.trim();
-    if (!trimmed) return;
+    const trimmedClient = editClientName.trim();
+    if (!trimmed || !trimmedClient) return;
     const parsedUsd = parseFloat(editAmountUsd.replace(',', '.')) || 0;
+    onAddClient(trimmedClient);
     onUpdateProject({
       ...project,
       title: trimmed,
+      clientName: trimmedClient,
       description: editDescription.trim() || undefined,
       amountUsd: Math.max(0, parsedUsd),
       color: editColor,
@@ -503,17 +526,105 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
           </div>
 
           {!readOnly && (
-            <button
-              type="button"
-              onClick={() => setIsCreating((v) => !v)}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-cyan-500 hover:from-purple-500 hover:to-cyan-400 text-xs font-bold text-white shadow-[0_0_20px_rgba(168,85,247,0.35)] transition-all cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              Novo Projeto
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => setIsManagingClients((v) => !v)}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                  isManagingClients
+                    ? 'bg-cyan-500/25 border-cyan-400 text-cyan-200'
+                    : 'bg-black/40 border-purple-500/30 text-slate-200 hover:border-cyan-400/50 hover:text-white'
+                }`}
+                title="Adicionar ou gerenciar clientes"
+              >
+                <Users className="w-4 h-4 text-cyan-400" />
+                <span>Clientes ({clients.length})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (!newClientName && clients.length > 0) {
+                    setNewClientName(clients[0]);
+                  }
+                  setIsCreating((v) => !v);
+                }}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-cyan-500 hover:from-purple-500 hover:to-cyan-400 text-xs font-bold text-white shadow-[0_0_20px_rgba(168,85,247,0.35)] transition-all cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                Novo Projeto
+              </button>
+            </>
           )}
         </div>
       </div>
+
+      {/* Inline Client Manager Panel */}
+      {isManagingClients && !readOnly && (
+        <div className="p-4 rounded-2xl border border-cyan-400/40 bg-[#120b24]/95 shadow-lg space-y-3 animate-drawer-open">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-cyan-300 flex items-center gap-2">
+              <Users className="w-4 h-4 text-cyan-400" />
+              Clientes Cadastrados
+            </h3>
+            <button
+              type="button"
+              onClick={() => setIsManagingClients(false)}
+              className="text-slate-400 hover:text-white p-1"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {clients.map((cl) => (
+              <div
+                key={cl}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400/40 text-xs font-bold text-white"
+              >
+                <User className="w-3 h-3 text-cyan-300" />
+                <span>{cl}</span>
+                {clients.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => onDeleteClient(cl)}
+                    className="ml-1 text-slate-400 hover:text-rose-400 text-xs leading-none cursor-pointer"
+                    title={`Remover cliente ${cl}`}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const trimmed = newClientInput.trim();
+              if (!trimmed) return;
+              onAddClient(trimmed);
+              setNewClientName(trimmed);
+              setNewClientInput('');
+            }}
+            className="flex items-center gap-2 max-w-md"
+          >
+            <input
+              type="text"
+              placeholder="Nome do novo cliente (ex: Brody, Cliente Y...)"
+              value={newClientInput}
+              onChange={(e) => setNewClientInput(e.target.value)}
+              className="flex-1 px-3 py-1.5 rounded-xl bg-black/60 border border-purple-500/35 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400"
+            />
+            <button
+              type="submit"
+              className="px-3.5 py-1.5 rounded-xl bg-cyan-500/25 hover:bg-cyan-500/40 border border-cyan-400/50 text-xs font-bold text-cyan-200 cursor-pointer transition-colors"
+            >
+              + Adicionar Cliente
+            </button>
+          </form>
+        </div>
+      )}
 
       {/* Financial & Hourly Rate Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
@@ -622,19 +733,61 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="md:col-span-2">
+            <div>
               <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
                 Título do Projeto *
               </label>
               <input
                 type="text"
                 required
-                placeholder="Ex: Edição de Vídeo NFL - Cliente X"
+                placeholder="Ex: Edição de Vídeo NFL"
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
                 className="w-full px-3.5 py-2 rounded-xl bg-black/50 border border-purple-500/30 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400"
                 autoFocus
               />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-cyan-300 mb-1">
+                Cliente do Projeto * (Obrigatório)
+              </label>
+              <div className="relative">
+                <User className="w-3.5 h-3.5 text-cyan-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  required
+                  placeholder="Selecione abaixo ou digite o cliente..."
+                  value={newClientName}
+                  onChange={(e) => setNewClientName(e.target.value)}
+                  className="w-full pl-8 pr-3.5 py-2 rounded-xl bg-black/50 border border-cyan-500/40 text-sm font-semibold text-cyan-200 placeholder-slate-500 focus:outline-none focus:border-cyan-400"
+                />
+              </div>
+              {clients.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                  <span className="text-[10px] text-slate-400 mr-0.5">
+                    Clientes:
+                  </span>
+                  {clients.map((cl) => {
+                    const isSelected =
+                      newClientName.trim().toLowerCase() === cl.toLowerCase();
+                    return (
+                      <button
+                        key={cl}
+                        type="button"
+                        onClick={() => setNewClientName(cl)}
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-cyan-500/30 border-cyan-300 text-white shadow-sm'
+                            : 'bg-white/5 border-white/15 text-slate-300 hover:border-cyan-400/50 hover:text-cyan-200'
+                        }`}
+                      >
+                        {cl}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <div>
@@ -781,8 +934,41 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                         value={editTitle}
                         onChange={(e) => setEditTitle(e.target.value)}
                         className="w-full px-3 py-1.5 rounded-lg bg-black/60 border border-purple-500/40 text-xs font-bold text-white"
-                        placeholder="Título do projeto"
+                        placeholder="Título do projeto *"
                       />
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold uppercase text-cyan-300">
+                            Cliente *
+                          </span>
+                          <input
+                            type="text"
+                            value={editClientName}
+                            onChange={(e) => setEditClientName(e.target.value)}
+                            className="flex-1 px-2.5 py-1 rounded-lg bg-black/60 border border-cyan-500/40 text-xs font-semibold text-cyan-200"
+                            placeholder="Nome do cliente *"
+                          />
+                        </div>
+                        {clients.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-1">
+                            {clients.map((cl) => (
+                              <button
+                                key={cl}
+                                type="button"
+                                onClick={() => setEditClientName(cl)}
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold border cursor-pointer ${
+                                  editClientName.trim().toLowerCase() ===
+                                  cl.toLowerCase()
+                                    ? 'bg-cyan-500/30 border-cyan-300 text-white'
+                                    : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
+                                }`}
+                              >
+                                {cl}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold text-emerald-400">
                           USD $
@@ -842,7 +1028,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                       <div>
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <span
                                 className="w-2.5 h-2.5 rounded-full shrink-0"
                                 style={{ backgroundColor: accentColor }}
@@ -850,6 +1036,10 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                               <h4 className="text-sm font-bold text-white truncate">
                                 {project.title}
                               </h4>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-400/35 text-[10px] font-bold text-cyan-300">
+                                <User className="w-2.5 h-2.5" />
+                                {project.clientName || 'Brody'}
+                              </span>
                             </div>
                             {project.description && (
                               <p className="text-xs text-slate-400 mt-1 line-clamp-2">
@@ -1213,11 +1403,15 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                         <h4 className="text-sm font-bold text-white">
                           {project.title}
                         </h4>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-400/35 text-[10px] font-bold text-cyan-300">
+                          <User className="w-2.5 h-2.5" />
+                          {project.clientName || 'Brody'}
+                        </span>
                       </div>
                       {project.description && (
                         <p className="text-xs text-slate-400 mt-1">

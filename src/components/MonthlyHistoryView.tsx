@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Trophy,
   Calendar,
@@ -12,6 +13,11 @@ import {
   Briefcase,
   DollarSign,
   TrendingUp,
+  BarChart3,
+  ChevronLeft,
+  ChevronRight,
+  User,
+  Users,
 } from 'lucide-react';
 import { TaskCard, Board, WorkProject } from '../types';
 import { LABEL_CONFIG } from '../data/initialData';
@@ -52,6 +58,21 @@ const MONTH_NAMES = [
   'Dezembro',
 ];
 
+const MONTH_SHORT_NAMES = [
+  'Jan',
+  'Fev',
+  'Mar',
+  'Abr',
+  'Mai',
+  'Jun',
+  'Jul',
+  'Ago',
+  'Set',
+  'Out',
+  'Nov',
+  'Dez',
+];
+
 export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
   boards,
   activeBoardId,
@@ -70,10 +91,25 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
 
   const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthKey);
   const [boardFilter, setBoardFilter] = useState<string>(activeBoardId);
+  const [showGraphs, setShowGraphs] = useState<boolean>(false);
+  const [selectedYear, setSelectedYear] = useState<number>(() =>
+    parseInt(currentMonthKey.slice(0, 4), 10) || now.getFullYear()
+  );
+  const [hoveredMonthData, setHoveredMonthData] = useState<{
+    monthIndex: number;
+    rect: DOMRect;
+  } | null>(null);
 
   useEffect(() => {
     setBoardFilter(activeBoardId);
   }, [activeBoardId]);
+
+  useEffect(() => {
+    const yr = parseInt(selectedMonth.slice(0, 4), 10);
+    if (!isNaN(yr)) {
+      setSelectedYear(yr);
+    }
+  }, [selectedMonth]);
 
   const availableMonths = useMemo(() => {
     const set = new Set<string>([currentMonthKey]);
@@ -83,9 +119,8 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
       }
     });
     projects.forEach((p) => {
-      if (p.completedAt) {
-        set.add(p.completedAt.slice(0, 7));
-      }
+      const ym = getProjectMonthKey(p);
+      if (ym) set.add(ym);
     });
     return Array.from(set).sort().reverse();
   }, [completedCards, projects, currentMonthKey]);
@@ -128,21 +163,151 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
   );
 
   const monthCompletedProjects = useMemo(() => {
-    return projects
-      .filter((p) => {
-        if (p.status !== 'completed') return false;
-        const ym = getProjectMonthKey(p);
-        const matchesMonth = ym === selectedMonth;
-        const matchesBoard =
-          boardFilter === 'all' ? true : p.boardId === boardFilter;
-        return matchesMonth && matchesBoard;
-      })
-      .sort((a, b) =>
-        (b.completedAt || b.createdAt).localeCompare(
-          a.completedAt || a.createdAt
-        )
-      );
+    const completedInMonth = projects.filter((p) => {
+      if (p.status !== 'completed') return false;
+      const ym = getProjectMonthKey(p);
+      const matchesMonth = ym === selectedMonth;
+      const matchesBoard =
+        boardFilter === 'all' ? true : p.boardId === boardFilter;
+      return matchesMonth && matchesBoard;
+    });
+    const sourceList =
+      completedInMonth.length > 0
+        ? completedInMonth
+        : projects.filter((p) => {
+            const ym = getProjectMonthKey(p);
+            const matchesMonth = ym === selectedMonth;
+            const matchesBoard =
+              boardFilter === 'all' ? true : p.boardId === boardFilter;
+            return matchesMonth && matchesBoard;
+          });
+    return sourceList.sort((a, b) =>
+      (b.completedAt || b.createdAt).localeCompare(
+        a.completedAt || a.createdAt
+      )
+    );
   }, [projects, selectedMonth, boardFilter]);
+
+  // 12-Month Yearly Bar Chart Data for the "Graphs" tab
+  const yearlyMonthsData = useMemo(() => {
+    const months = Array.from({ length: 12 }, (_, mIdx) => {
+      const mm = String(mIdx + 1).padStart(2, '0');
+      const ym = `${selectedYear}-${mm}`;
+
+      const mProjects = projects
+        .filter((p) => {
+          const matchesBoard =
+            boardFilter === 'all' ? true : p.boardId === boardFilter;
+          return matchesBoard && getProjectMonthKey(p) === ym;
+        })
+        .sort((a, b) =>
+          (b.completedAt || b.createdAt).localeCompare(
+            a.completedAt || a.createdAt
+          )
+        );
+
+      const mCards = completedCards.filter((c) => {
+        const matchesBoard =
+          boardFilter === 'all' ? true : c.boardId === boardFilter;
+        return (
+          matchesBoard && (c.completedAt || c.createdAt).slice(0, 7) === ym
+        );
+      });
+
+      const earnedUsd = mProjects.reduce(
+        (acc, p) => acc + (Number(p.amountUsd) || 0),
+        0
+      );
+      const earnedBrl = earnedUsd * usdToBrlRate;
+
+      const projectSeconds = mProjects.reduce(
+        (acc, p) => acc + getProjectTotalSeconds(p, allCards, nowMs),
+        0
+      );
+      const taskSeconds = mCards.reduce(
+        (acc, c) => acc + (c.elapsedSeconds || 0),
+        0
+      );
+      const totalSeconds = projectSeconds > 0 ? projectSeconds : taskSeconds;
+      const hoursFloat = totalSeconds / 3600;
+      const avgHourlyUsd = hoursFloat > 0 ? earnedUsd / hoursFloat : 0;
+      const avgHourlyBrl = avgHourlyUsd * usdToBrlRate;
+
+      // Group clients for this month
+      const clientMap = new Map<
+        string,
+        { clientName: string; count: number; totalUsd: number }
+      >();
+      mProjects.forEach((p) => {
+        const cName = (p.clientName || 'Brody').trim() || 'Brody';
+        const key = cName.toLowerCase();
+        const existing = clientMap.get(key) || {
+          clientName: cName,
+          count: 0,
+          totalUsd: 0,
+        };
+        existing.count += 1;
+        existing.totalUsd += Number(p.amountUsd) || 0;
+        clientMap.set(key, existing);
+      });
+
+      const clientsBreakdown = Array.from(clientMap.values()).sort(
+        (a, b) => b.totalUsd - a.totalUsd
+      );
+
+      return {
+        monthIndex: mIdx,
+        ym,
+        monthName: MONTH_NAMES[mIdx],
+        shortName: MONTH_SHORT_NAMES[mIdx],
+        projects: mProjects,
+        tasksCount: mCards.length,
+        earnedUsd,
+        earnedBrl,
+        totalSeconds,
+        avgHourlyUsd,
+        avgHourlyBrl,
+        clientsBreakdown,
+      };
+    });
+
+    const maxMonthUsd = Math.max(...months.map((m) => m.earnedUsd), 1);
+    const yearTotalUsd = months.reduce((acc, m) => acc + m.earnedUsd, 0);
+    const yearTotalBrl = yearTotalUsd * usdToBrlRate;
+    const yearTotalProjects = months.reduce(
+      (acc, m) => acc + m.projects.length,
+      0
+    );
+    const yearTotalSeconds = months.reduce((acc, m) => acc + m.totalSeconds, 0);
+    const yearAvgHourlyUsd =
+      yearTotalSeconds > 0 ? yearTotalUsd / (yearTotalSeconds / 3600) : 0;
+    const yearAvgHourlyBrl = yearAvgHourlyUsd * usdToBrlRate;
+
+    const yearClientsSet = new Set<string>();
+    months.forEach((m) =>
+      m.clientsBreakdown.forEach((cl) => yearClientsSet.add(cl.clientName))
+    );
+
+    return {
+      months,
+      maxMonthUsd,
+      yearTotalUsd,
+      yearTotalBrl,
+      yearTotalProjects,
+      yearTotalSeconds,
+      yearAvgHourlyUsd,
+      yearAvgHourlyBrl,
+      yearClients: Array.from(yearClientsSet),
+    };
+  }, [
+    projects,
+    completedCards,
+    allCards,
+    nowMs,
+    selectedYear,
+    boardFilter,
+    usdToBrlRate,
+  ]);
 
   const monthProjectStats = useMemo(() => {
     const earnedUsd = monthCompletedProjects.reduce(
@@ -204,7 +369,7 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
       monthCompletedProjects.forEach((p) => {
         const pSecs = getProjectTotalSeconds(p, allCards, nowMs);
         lines.push(
-          `  ★ ${p.title} — ${formatUsd(p.amountUsd || 0)} (${formatBrl((p.amountUsd || 0) * usdToBrlRate)}) | Horas no projeto: ${formatStopwatch(pSecs)}`
+          `  ★ ${p.title} [Cliente: ${p.clientName || 'Brody'}] — ${formatUsd(p.amountUsd || 0)} (${formatBrl((p.amountUsd || 0) * usdToBrlRate)}) | Horas no projeto: ${formatStopwatch(pSecs)}`
         );
       });
       lines.push('');
@@ -251,11 +416,29 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
 
           {/* Month & Board Filters */}
           <div className="flex flex-wrap items-center gap-2.5">
+            {/* Graphs Button (to the left of the chosen month) */}
+            <button
+              type="button"
+              onClick={() => setShowGraphs((v) => !v)}
+              className={`apple-bounce inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                showGraphs
+                  ? 'bg-gradient-to-r from-fuchsia-600 via-purple-600 to-cyan-500 text-white border-cyan-300/60 shadow-lg shadow-cyan-500/25'
+                  : 'bg-[#090612] text-cyan-300 border-purple-500/35 hover:border-cyan-400/60 hover:text-white'
+              }`}
+              title="Ver gráfico de barras de ganhos por mês no ano"
+            >
+              <BarChart3 className="w-4 h-4" />
+              <span>Graphs</span>
+            </button>
+
             <div className="flex items-center gap-2 bg-[#090612] px-3 py-1.5 rounded-xl border border-purple-500/30">
               <Calendar className="w-4 h-4 text-cyan-400" />
               <select
                 value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
+                onChange={(e) => {
+                  setSelectedMonth(e.target.value);
+                  setShowGraphs(false);
+                }}
                 className="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer"
               >
                 {availableMonths.map((ym) => (
@@ -403,6 +586,367 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
         </div>
       </div>
 
+      {/* GRAPHS VIEW: Annual Bar Chart by Month with Rich Hover Tooltip */}
+      {showGraphs && (
+        <div className="rounded-2xl bg-[#0f0a1e]/95 border border-cyan-500/40 p-6 mb-6 shadow-2xl space-y-5 animate-drawer-open">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-gradient-to-br from-purple-600/30 to-cyan-500/30 border border-cyan-400/40">
+                <BarChart3 className="w-5 h-5 text-cyan-300" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  Graphs — Ganhos por Mês ({selectedYear})
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Passe o mouse em cima de qualquer mês para ver projetos
+                  feitos, hora média de ganhos e clientes daquele mês!
+                </p>
+              </div>
+            </div>
+
+            {/* Year Selector */}
+            <div className="flex items-center gap-2 bg-[#090612] px-3 py-1.5 rounded-xl border border-purple-500/35">
+              <button
+                type="button"
+                onClick={() => setSelectedYear((y) => y - 1)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-purple-500/20 transition-colors cursor-pointer"
+                title="Ano anterior"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-sm font-extrabold font-mono text-cyan-300 min-w-[60px] text-center">
+                {selectedYear}
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedYear((y) => y + 1)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-purple-500/20 transition-colors cursor-pointer"
+                title="Próximo ano"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Yearly Summary Mini-KPIs */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+            <div className="p-3.5 rounded-xl bg-emerald-950/25 border border-emerald-500/30">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300 block">
+                Total Ganho em {selectedYear}
+              </span>
+              <div className="text-xl font-extrabold font-mono text-emerald-300 mt-0.5">
+                {formatUsd(yearlyMonthsData.yearTotalUsd)}
+              </div>
+              <div className="text-xs font-mono text-emerald-200/85">
+                {formatBrl(yearlyMonthsData.yearTotalBrl)}
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-cyan-950/25 border border-cyan-500/30">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-300 block">
+                Hora Média no Ano
+              </span>
+              <div className="text-xl font-extrabold font-mono text-cyan-300 mt-0.5">
+                {formatUsd(yearlyMonthsData.yearAvgHourlyUsd)}
+                <span className="text-xs font-normal text-cyan-400/80">/h</span>
+              </div>
+              <div className="text-xs font-mono text-cyan-200/85">
+                {formatBrl(yearlyMonthsData.yearAvgHourlyBrl)}/h
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-purple-950/25 border border-purple-500/30">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-purple-300 block">
+                Projetos Feitos em {selectedYear}
+              </span>
+              <div className="text-xl font-extrabold font-mono text-purple-200 mt-0.5">
+                {yearlyMonthsData.yearTotalProjects}
+              </div>
+              <div className="text-xs font-mono text-purple-300/85">
+                ⏱ {formatDurationHuman(yearlyMonthsData.yearTotalSeconds)}
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-fuchsia-950/25 border border-fuchsia-500/30">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-fuchsia-300 block">
+                Clientes do Ano ({yearlyMonthsData.yearClients.length})
+              </span>
+              <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                {yearlyMonthsData.yearClients.length === 0 ? (
+                  <span className="text-xs text-slate-400">—</span>
+                ) : (
+                  yearlyMonthsData.yearClients.map((cl) => (
+                    <span
+                      key={cl}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-400/40 text-[10px] font-bold text-cyan-200"
+                    >
+                      <User className="w-2.5 h-2.5" />
+                      {cl}
+                    </span>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* 12-Month Bar Chart */}
+          <div className="p-5 rounded-2xl bg-[#090612]/90 border border-purple-500/25">
+            <div className="grid grid-cols-12 gap-2 sm:gap-3 items-end h-64 pt-8 pb-2">
+              {yearlyMonthsData.months.map((m) => {
+                const heightPct =
+                  m.earnedUsd > 0
+                    ? Math.max(
+                        14,
+                        Math.round(
+                          (m.earnedUsd / yearlyMonthsData.maxMonthUsd) * 100
+                        )
+                      )
+                    : 5;
+                const isHovered = hoveredMonthData?.monthIndex === m.monthIndex;
+                const isCurrentSelected = m.ym === selectedMonth;
+
+                return (
+                  <div
+                    key={m.ym}
+                    onMouseEnter={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setHoveredMonthData({ monthIndex: m.monthIndex, rect });
+                    }}
+                    onMouseLeave={() => setHoveredMonthData(null)}
+                    onClick={() => {
+                      setSelectedMonth(m.ym);
+                    }}
+                    className="group relative h-full flex flex-col items-center justify-end cursor-pointer select-none"
+                  >
+                    {/* Value above bar */}
+                    <div
+                      className={`mb-1.5 text-center transition-all ${
+                        m.earnedUsd > 0
+                          ? 'opacity-100'
+                          : 'opacity-40 group-hover:opacity-90'
+                      }`}
+                    >
+                      <div
+                        className={`text-[10px] sm:text-[11px] font-mono font-extrabold ${
+                          m.earnedUsd > 0
+                            ? 'text-emerald-300'
+                            : 'text-slate-500'
+                        }`}
+                      >
+                        {m.earnedUsd > 0 ? formatUsd(m.earnedUsd) : '$0'}
+                      </div>
+                      {m.earnedUsd > 0 && (
+                        <div className="text-[9px] font-mono text-cyan-300/85 hidden md:block">
+                          {formatBrl(m.earnedBrl)}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Bar track & fill */}
+                    <div className="w-full max-w-[44px] h-40 bg-white/[0.03] rounded-t-xl border border-white/5 flex items-end p-0.5 overflow-hidden">
+                      <div
+                        style={{ height: `${heightPct}%` }}
+                        className={`w-full rounded-t-lg transition-all duration-300 ${
+                          m.earnedUsd > 0
+                            ? isHovered
+                              ? 'bg-gradient-to-t from-purple-500 via-cyan-400 to-emerald-300 shadow-[0_0_24px_rgba(6,182,212,0.75)] scale-y-[1.02]'
+                              : 'bg-gradient-to-t from-purple-600 via-fuchsia-500 to-cyan-400 shadow-[0_0_15px_rgba(168,85,247,0.45)]'
+                            : isHovered
+                              ? 'bg-purple-500/40'
+                              : 'bg-white/10'
+                        }`}
+                      />
+                    </div>
+
+                    {/* Month short label & project count */}
+                    <div
+                      className={`mt-2 text-center px-1.5 py-0.5 rounded-lg transition-colors ${
+                        isHovered || isCurrentSelected
+                          ? 'bg-purple-500/30 text-white font-extrabold'
+                          : 'text-slate-400 font-semibold'
+                      }`}
+                    >
+                      <div className="text-[11px]">{m.shortName}</div>
+                      {m.projects.length > 0 && (
+                        <div className="text-[9px] font-mono text-cyan-300">
+                          {m.projects.length} proj
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Floating Rich Hover Tooltip (rendered via Portal so it never clips) */}
+          {hoveredMonthData !== null &&
+            (() => {
+              const m = yearlyMonthsData.months[hoveredMonthData.monthIndex];
+              if (!m) return null;
+              const tooltipWidth = 340;
+              const viewportW =
+                typeof window !== 'undefined' ? window.innerWidth : 1280;
+              const rawLeft =
+                hoveredMonthData.rect.left +
+                hoveredMonthData.rect.width / 2 -
+                tooltipWidth / 2;
+              const clampedLeft = Math.max(
+                12,
+                Math.min(rawLeft, viewportW - tooltipWidth - 12)
+              );
+              const placeBelow = hoveredMonthData.rect.top < 270;
+              const topPos = placeBelow
+                ? hoveredMonthData.rect.bottom + 10
+                : Math.max(12, hoveredMonthData.rect.top - 10);
+
+              return createPortal(
+                <div
+                  style={{
+                    position: 'fixed',
+                    left: `${clampedLeft}px`,
+                    top: `${topPos}px`,
+                    transform: placeBelow ? 'none' : 'translateY(-100%)',
+                    width: `${tooltipWidth}px`,
+                  }}
+                  className="z-[9999] pointer-events-none p-4 rounded-2xl bg-[#0e091d]/98 border border-cyan-400/60 shadow-[0_16px_50px_rgba(0,0,0,0.92),0_0_30px_rgba(6,182,212,0.3)] backdrop-blur-2xl space-y-3"
+                >
+                  {/* Header: Month & Total Earnings */}
+                  <div className="flex items-start justify-between gap-2 border-b border-white/10 pb-2.5">
+                    <div>
+                      <div className="text-xs font-extrabold uppercase tracking-wider text-cyan-300">
+                        {m.monthName} de {selectedYear}
+                      </div>
+                      <div className="text-[11px] text-slate-400 mt-0.5">
+                        {m.projects.length} projeto(s) • {m.tasksCount} tarefa(s)
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-mono font-extrabold text-emerald-300">
+                        {formatUsd(m.earnedUsd)}
+                      </div>
+                      <div className="text-[11px] font-mono text-emerald-400/90">
+                        {formatBrl(m.earnedBrl)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Average Hourly Rate & Total Hours */}
+                  <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-black/50 border border-white/10">
+                    <div>
+                      <span className="text-[9px] uppercase tracking-wider text-slate-400 block">
+                        Hora Média de Ganhos
+                      </span>
+                      <span className="text-xs font-mono font-extrabold text-cyan-300">
+                        {m.avgHourlyUsd > 0
+                          ? `${formatUsd(m.avgHourlyUsd)}/h`
+                          : '—'}
+                      </span>
+                      {m.avgHourlyBrl > 0 && (
+                        <span className="text-[10px] font-mono text-cyan-400/80 block">
+                          {formatBrl(m.avgHourlyBrl)}/h
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[9px] uppercase tracking-wider text-slate-400 block">
+                        Horas Trabalhadas
+                      </span>
+                      <span className="text-xs font-mono font-bold text-white">
+                        ⏱ {formatStopwatch(m.totalSeconds)}
+                      </span>
+                      <span className="text-[10px] text-slate-400 block">
+                        {formatDurationHuman(m.totalSeconds)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Clients of the Month */}
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-purple-300 mb-1.5 flex items-center gap-1">
+                      <Users className="w-3 h-3 text-cyan-400" />
+                      Clientes Daquele Mês ({m.clientsBreakdown.length})
+                    </div>
+                    {m.clientsBreakdown.length === 0 ? (
+                      <div className="text-[11px] text-slate-500 italic">
+                        Nenhum cliente registrado neste mês.
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5">
+                        {m.clientsBreakdown.map((cl) => (
+                          <div
+                            key={cl.clientName}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-500/15 border border-cyan-400/40 text-[11px]"
+                          >
+                            <User className="w-3 h-3 text-cyan-300" />
+                            <span className="font-bold text-white">
+                              {cl.clientName}
+                            </span>
+                            <span className="text-[10px] font-mono text-emerald-300">
+                              ({cl.count}x • {formatUsd(cl.totalUsd)})
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Projects Done in the Month */}
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-300 mb-1.5 flex items-center gap-1">
+                      <Briefcase className="w-3 h-3 text-emerald-400" />
+                      Projetos Feitos no Mês ({m.projects.length})
+                    </div>
+                    {m.projects.length === 0 ? (
+                      <div className="text-[11px] text-slate-500 italic">
+                        Nenhum projeto neste mês.
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5 max-h-40 overflow-hidden">
+                        {m.projects.slice(0, 6).map((p) => {
+                          const pSecs = getProjectTotalSeconds(
+                            p,
+                            allCards,
+                            nowMs
+                          );
+                          return (
+                            <div
+                              key={p.id}
+                              className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-white/[0.04] border border-white/5 text-[11px]"
+                            >
+                              <div className="min-w-0">
+                                <div className="font-bold text-white truncate">
+                                  {p.title}
+                                </div>
+                                <div className="text-[10px] text-cyan-300 flex items-center gap-1.5">
+                                  <span>👤 {p.clientName || 'Brody'}</span>
+                                  <span>• ⏱ {formatDurationHuman(pSecs)}</span>
+                                </div>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <div className="font-mono font-bold text-emerald-300">
+                                  {formatUsd(p.amountUsd || 0)}
+                                </div>
+                                <div className="text-[9px] font-mono text-emerald-400/80">
+                                  {formatBrl(
+                                    (p.amountUsd || 0) * usdToBrlRate
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>,
+                document.body
+              );
+            })()}
+        </div>
+      )}
+
       {/* Completed Projects in the Month Section */}
       {monthCompletedProjects.length > 0 && (
         <div className="rounded-2xl bg-[#0f0a1e]/90 border border-emerald-500/30 p-5 mb-6 shadow-xl">
@@ -430,10 +974,14 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
                   className="p-3.5 rounded-xl bg-[#150e28]/90 border border-emerald-500/25 flex items-center justify-between gap-3"
                 >
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                       <span className="text-sm font-bold text-white truncate">
                         {proj.title}
+                      </span>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-400/35 text-[10px] font-bold text-cyan-300">
+                        <User className="w-2.5 h-2.5" />
+                        {proj.clientName || 'Brody'}
                       </span>
                     </div>
                     {proj.description && (

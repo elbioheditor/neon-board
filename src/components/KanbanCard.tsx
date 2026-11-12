@@ -422,7 +422,12 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
                                     backgroundColor: proj.color || '#a855f7',
                                   }}
                                 />
-                                <span className="truncate">{proj.title}</span>
+                                <div className="min-w-0">
+                                  <div className="truncate">{proj.title}</div>
+                                  <div className="text-[10px] text-cyan-300/90 font-normal truncate">
+                                    👤 {proj.clientName || 'Brody'}
+                                  </div>
+                                </div>
                               </div>
                               {isSelected && (
                                 <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
