@@ -174,6 +174,32 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
   // Linking existing task popover state
   const [linkingProjectId, setLinkingProjectId] = useState<string | null>(null);
 
+  // Quick inline value ($ USD) editing state
+  const [editingValueProjectId, setEditingValueProjectId] = useState<
+    string | null
+  >(null);
+  const [valueInputUsd, setValueInputUsd] = useState('');
+
+  const openEditValue = (project: WorkProject) => {
+    if (readOnly) return;
+    if (editingValueProjectId === project.id) {
+      setEditingValueProjectId(null);
+      return;
+    }
+    setEditingValueProjectId(project.id);
+    setValueInputUsd(String(project.amountUsd ?? 0));
+  };
+
+  const saveQuickValue = (project: WorkProject) => {
+    const parsedUsd = parseFloat(valueInputUsd.replace(',', '.'));
+    if (isNaN(parsedUsd) || parsedUsd < 0) return;
+    onUpdateProject({
+      ...project,
+      amountUsd: Math.max(0, parsedUsd),
+    });
+    setEditingValueProjectId(null);
+  };
+
   // Manual hours addition / correction state
   const [adjustingHoursProjectId, setAdjustingHoursProjectId] = useState<
     string | null
@@ -911,7 +937,8 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                   draggable={
                     !readOnly &&
                     !isEditing &&
-                    adjustingHoursProjectId !== project.id
+                    adjustingHoursProjectId !== project.id &&
+                    editingValueProjectId !== project.id
                   }
                   onDragStart={(e) => onProjectDragStart(e, project.id)}
                   onDragEnd={onProjectDragEnd}
@@ -921,7 +948,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                       : hasRunningTimer
                         ? 'border-cyan-400/80 shadow-[0_0_25px_rgba(6,182,212,0.25)]'
                         : 'border-purple-500/30 hover:border-purple-400/60 hover:-translate-y-0.5 shadow-lg'
-                  } ${!readOnly && !isEditing && adjustingHoursProjectId !== project.id ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                  } ${!readOnly && !isEditing && adjustingHoursProjectId !== project.id && editingValueProjectId !== project.id ? 'cursor-grab active:cursor-grabbing' : ''}`}
                   style={{
                     borderTopWidth: '3px',
                     borderTopColor: accentColor,
@@ -1048,16 +1075,93 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                             )}
                           </div>
 
-                          {/* Value Badge */}
+                          {/* Value Badge (Click to edit project value directly!) */}
                           <div className="text-right shrink-0">
-                            <div className="px-2.5 py-1 rounded-xl bg-emerald-500/15 border border-emerald-400/40 text-xs font-mono font-extrabold text-emerald-300">
-                              {formatUsd(project.amountUsd || 0)}
-                            </div>
-                            <div className="text-[10px] font-mono text-emerald-400/80 mt-0.5">
-                              {formatBrl(
-                                (project.amountUsd || 0) * usdToBrlRate
-                              )}
-                            </div>
+                            {editingValueProjectId === project.id && !readOnly ? (
+                              <div className="p-2 rounded-xl bg-black/85 border border-emerald-400/60 space-y-1.5 shadow-lg">
+                                <div className="flex items-center gap-1">
+                                  <span className="text-xs font-bold text-emerald-400">
+                                    $
+                                  </span>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={valueInputUsd}
+                                    onChange={(e) =>
+                                      setValueInputUsd(e.target.value)
+                                    }
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        saveQuickValue(project);
+                                      } else if (e.key === 'Escape') {
+                                        setEditingValueProjectId(null);
+                                      }
+                                    }}
+                                    className="w-20 px-1.5 py-0.5 rounded bg-black border border-emerald-500/50 text-xs font-mono font-bold text-emerald-200 focus:outline-none focus:border-emerald-300"
+                                    autoFocus
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => saveQuickValue(project)}
+                                    className="p-1 rounded bg-emerald-500 text-slate-950 hover:bg-emerald-400 cursor-pointer"
+                                    title="Salvar novo valor"
+                                  >
+                                    <Check className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setEditingValueProjectId(null)
+                                    }
+                                    className="p-1 rounded bg-white/10 text-slate-300 hover:text-white cursor-pointer"
+                                    title="Cancelar"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </div>
+                                {!isNaN(
+                                  parseFloat(valueInputUsd.replace(',', '.'))
+                                ) && (
+                                  <div className="text-[9px] font-mono text-emerald-400/90 text-right">
+                                    ≈{' '}
+                                    {formatBrl(
+                                      Math.max(
+                                        0,
+                                        parseFloat(
+                                          valueInputUsd.replace(',', '.')
+                                        ) || 0
+                                      ) * usdToBrlRate
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  disabled={readOnly}
+                                  onClick={() => openEditValue(project)}
+                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-400/40 hover:border-emerald-300 text-xs font-mono font-extrabold text-emerald-300 transition-all ${
+                                    readOnly ? '' : 'cursor-pointer'
+                                  }`}
+                                  title="Clique para mudar o valor ($) deste projeto"
+                                >
+                                  <span>
+                                    {formatUsd(project.amountUsd || 0)}
+                                  </span>
+                                  {!readOnly && (
+                                    <Edit3 className="w-3 h-3 text-emerald-400/80" />
+                                  )}
+                                </button>
+                                <div className="text-[10px] font-mono text-emerald-400/80 mt-0.5">
+                                  {formatBrl(
+                                    (project.amountUsd || 0) * usdToBrlRate
+                                  )}
+                                </div>
+                              </>
+                            )}
                           </div>
                         </div>
 
@@ -1393,13 +1497,15 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                 <div
                   key={project.id}
                   draggable={
-                    !readOnly && adjustingHoursProjectId !== project.id
+                    !readOnly &&
+                    adjustingHoursProjectId !== project.id &&
+                    editingValueProjectId !== project.id
                   }
                   onDragStart={(e) => onProjectDragStart(e, project.id)}
                   onDragEnd={onProjectDragEnd}
                   className={`p-4 rounded-2xl border border-emerald-500/30 bg-emerald-950/15 flex flex-col justify-between gap-3 transition-all ${
                     isDragging ? 'opacity-40 scale-95 border-rose-400' : ''
-                  } ${!readOnly && adjustingHoursProjectId !== project.id ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                  } ${!readOnly && adjustingHoursProjectId !== project.id && editingValueProjectId !== project.id ? 'cursor-grab active:cursor-grabbing' : ''}`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
@@ -1420,12 +1526,82 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                       )}
                     </div>
                     <div className="text-right shrink-0">
-                      <div className="text-xs font-mono font-extrabold text-emerald-300">
-                        {formatUsd(project.amountUsd || 0)}
-                      </div>
-                      <div className="text-[10px] font-mono text-emerald-400/80">
-                        {formatBrl((project.amountUsd || 0) * usdToBrlRate)}
-                      </div>
+                      {editingValueProjectId === project.id && !readOnly ? (
+                        <div className="p-2 rounded-xl bg-black/85 border border-emerald-400/60 space-y-1 shadow-lg">
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs font-bold text-emerald-400">
+                              $
+                            </span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={valueInputUsd}
+                              onChange={(e) => setValueInputUsd(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  saveQuickValue(project);
+                                } else if (e.key === 'Escape') {
+                                  setEditingValueProjectId(null);
+                                }
+                              }}
+                              className="w-20 px-1.5 py-0.5 rounded bg-black border border-emerald-500/50 text-xs font-mono font-bold text-emerald-200 focus:outline-none focus:border-emerald-300"
+                              autoFocus
+                            />
+                            <button
+                              type="button"
+                              onClick={() => saveQuickValue(project)}
+                              className="p-1 rounded bg-emerald-500 text-slate-950 hover:bg-emerald-400 cursor-pointer"
+                              title="Salvar novo valor"
+                            >
+                              <Check className="w-3 h-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingValueProjectId(null)}
+                              className="p-1 rounded bg-white/10 text-slate-300 hover:text-white cursor-pointer"
+                              title="Cancelar"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                          {!isNaN(
+                            parseFloat(valueInputUsd.replace(',', '.'))
+                          ) && (
+                            <div className="text-[9px] font-mono text-emerald-400/90 text-right">
+                              ≈{' '}
+                              {formatBrl(
+                                Math.max(
+                                  0,
+                                  parseFloat(valueInputUsd.replace(',', '.')) ||
+                                    0
+                                ) * usdToBrlRate
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            disabled={readOnly}
+                            onClick={() => openEditValue(project)}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-400/40 hover:border-emerald-300 text-xs font-mono font-extrabold text-emerald-300 transition-all ${
+                              readOnly ? '' : 'cursor-pointer'
+                            }`}
+                            title="Clique para mudar o valor ($) deste projeto"
+                          >
+                            <span>{formatUsd(project.amountUsd || 0)}</span>
+                            {!readOnly && (
+                              <Edit3 className="w-3 h-3 text-emerald-400/80" />
+                            )}
+                          </button>
+                          <div className="text-[10px] font-mono text-emerald-400/80 mt-0.5">
+                            {formatBrl((project.amountUsd || 0) * usdToBrlRate)}
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -1530,16 +1706,27 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
 
                   {!readOnly && (
                     <div className="flex items-center justify-between pt-1">
-                      <button
-                        type="button"
-                        onClick={() => onRestoreProject(project.id)}
-                        className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-cyan-300 cursor-pointer"
-                      >
-                        <RotateCcw className="w-3 h-3" />
-                        Voltar para Ativos
-                      </button>
+                      <div className="flex items-center gap-2.5">
+                        <button
+                          type="button"
+                          onClick={() => openEditValue(project)}
+                          className="flex items-center gap-1 text-[11px] text-emerald-300 hover:text-emerald-200 font-semibold cursor-pointer"
+                          title="Alterar o valor em dólar deste projeto"
+                        >
+                          <Edit3 className="w-3 h-3" />
+                          Mudar Valor ($)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onRestoreProject(project.id)}
+                          className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-cyan-300 cursor-pointer"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          Voltar p/ Ativos
+                        </button>
+                      </div>
                       <span className="text-[10px] text-slate-500">
-                        Arraste p/ Lixeira para apagar
+                        Arraste p/ Lixeira p/ apagar
                       </span>
                     </div>
                   )}

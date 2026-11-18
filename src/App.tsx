@@ -2026,7 +2026,7 @@ export function App() {
   const isDraggingAnything = Boolean(draggedCardId || draggedListId);
   const isDidiUser = Boolean(currentUserProfile?.username?.toLowerCase().includes('didi'));
   const appBrandName = isDidiUser ? 'SHADOWJOKER' : (window.neonDesktop?.brandName || 'NEON');
-  const appVersion = window.neonDesktop?.version || '1.5.2';
+  const appVersion = window.neonDesktop?.version || '1.5.3';
 
   if (isCheckingAuth || isSyncingUserData) {
     return (
@@ -3248,6 +3248,7 @@ export function App() {
               }
               onRestoreCard={handleRestoreCard}
               onDeleteCard={handleDeleteCard}
+              onUpdateProject={handleUpdateProject}
               onRestoreProject={handleRestoreProject}
               onDeleteProject={handleDeleteProject}
             />

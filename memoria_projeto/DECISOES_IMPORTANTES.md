@@ -56,6 +56,8 @@
     2. Hora média de ganhos (`$/h` e `R$/h`) e total de horas trabalhadas no mês.
     3. Quais **clientes** foram atendidos naquele mês (ex.: `Brody`, quantidade de projetos e valor por cliente).
     4. Lista dos **projetos feitos** naquele mês com título, cliente, tempo e valor.
+- **Edição Direta do Valor em Dólar (`$ USD`) de Qualquer Projeto (Ativo ou Concluído):**
+  - O usuário pode alterar o valor (`amountUsd`) de qualquer projeto (tanto nos **Projetos Ativos** quanto nos **Projetos Concluídos no Mês** e na aba **Dale**) clicando diretamente no badge de valor **`$XX.XX ✏️`** ou em **`Mudar Valor ($)`**.
 - **Conclusão Arrastando para Baixo:**
   - Quando o usuário termina um projeto na aba **Projetos**, ele pode **arrastar o card do projeto para a barra inferior da tela** (zona verde de conclusão, igual ao Board) para finalizar o projeto no mês.
 - **Sistema Financeiro (`USD $` + Conversão `BRL R$`) e Hora Média:**

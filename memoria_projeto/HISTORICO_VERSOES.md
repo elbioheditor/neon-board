@@ -1,5 +1,8 @@
 # Histórico de Versões e Atualizações — NEON
 
+## v1.5.3 (2026-11-18)
+- **Edição rápida e direta do valor (`$ USD`) de qualquer projeto**: agora basta clicar diretamente no badge do valor em dólar (`$XX.XX ✏️`) ou no botão **`Mudar Valor ($)`** em qualquer projeto (seja ativo, concluído na aba Projetos ou concluído na aba Dale) para alterar o valor na hora, recalculando automaticamente a conversão em Reais (`R$`), os ganhos do mês, a hora média (`$/h`) e o gráfico anual (`Graphs`).
+
 ## v1.5.2 (2026-11-11)
 - **Botão e Visão `"Graphs"` na aba Dale (à esquerda do mês escolhido)**: gráfico de barras anual mostrando os ganhos de cada mês (`Jan` a `Dez`), com tooltip rico ao passar o mouse exibindo os projetos feitos no mês, valor da hora média de ganhos (`$/h` e `R$/h`), horas trabalhadas e quais clientes foram atendidos naquele mês.
 - **Sistema de Clientes Obrigatório em Projetos**: opção de cadastrar/selecionar clientes para cada projeto (obrigatório ao criar projeto), e atribuição automática dos projetos já realizados pelo usuário ao cliente **`Brody`**.

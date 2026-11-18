@@ -18,6 +18,9 @@ import {
   ChevronRight,
   User,
   Users,
+  Edit3,
+  Check,
+  X,
 } from 'lucide-react';
 import { TaskCard, Board, WorkProject } from '../types';
 import { LABEL_CONFIG } from '../data/initialData';
@@ -39,6 +42,7 @@ interface MonthlyHistoryViewProps {
   usdToBrlRate?: number;
   onRestoreCard: (cardId: string) => void;
   onDeleteCard: (cardId: string) => void;
+  onUpdateProject?: (updated: WorkProject) => void;
   onRestoreProject?: (projectId: string) => void;
   onDeleteProject?: (projectId: string) => void;
 }
@@ -83,6 +87,7 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
   usdToBrlRate = 5.8,
   onRestoreCard,
   onDeleteCard,
+  onUpdateProject,
   onRestoreProject,
   onDeleteProject,
 }) => {
@@ -92,6 +97,31 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
   const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthKey);
   const [boardFilter, setBoardFilter] = useState<string>(activeBoardId);
   const [showGraphs, setShowGraphs] = useState<boolean>(false);
+  const [editingValueProjectId, setEditingValueProjectId] = useState<
+    string | null
+  >(null);
+  const [valueInputUsd, setValueInputUsd] = useState('');
+
+  const openEditValue = (proj: WorkProject) => {
+    if (!onUpdateProject) return;
+    if (editingValueProjectId === proj.id) {
+      setEditingValueProjectId(null);
+      return;
+    }
+    setEditingValueProjectId(proj.id);
+    setValueInputUsd(String(proj.amountUsd ?? 0));
+  };
+
+  const saveQuickValue = (proj: WorkProject) => {
+    if (!onUpdateProject) return;
+    const parsedUsd = parseFloat(valueInputUsd.replace(',', '.'));
+    if (isNaN(parsedUsd) || parsedUsd < 0) return;
+    onUpdateProject({
+      ...proj,
+      amountUsd: Math.max(0, parsedUsd),
+    });
+    setEditingValueProjectId(null);
+  };
   const [selectedYear, setSelectedYear] = useState<number>(() =>
     parseInt(currentMonthKey.slice(0, 4), 10) || now.getFullYear()
   );
@@ -1000,21 +1030,85 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
                   </div>
 
                   <div className="text-right shrink-0">
-                    <div className="text-sm font-mono font-extrabold text-emerald-300">
-                      {formatUsd(proj.amountUsd || 0)}
-                    </div>
-                    <div className="text-[11px] font-mono text-emerald-400/85">
-                      {formatBrl((proj.amountUsd || 0) * usdToBrlRate)}
-                    </div>
-                    {onRestoreProject && (
-                      <button
-                        type="button"
-                        onClick={() => onRestoreProject(proj.id)}
-                        className="mt-1 text-[10px] text-slate-400 hover:text-cyan-300 underline cursor-pointer"
-                      >
-                        Reativar
-                      </button>
+                    {editingValueProjectId === proj.id && onUpdateProject ? (
+                      <div className="p-2 rounded-xl bg-black/85 border border-emerald-400/60 space-y-1 shadow-lg">
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs font-bold text-emerald-400">
+                            $
+                          </span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={valueInputUsd}
+                            onChange={(e) => setValueInputUsd(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                saveQuickValue(proj);
+                              } else if (e.key === 'Escape') {
+                                setEditingValueProjectId(null);
+                              }
+                            }}
+                            className="w-20 px-1.5 py-0.5 rounded bg-black border border-emerald-500/50 text-xs font-mono font-bold text-emerald-200 focus:outline-none focus:border-emerald-300"
+                            autoFocus
+                          />
+                          <button
+                            type="button"
+                            onClick={() => saveQuickValue(proj)}
+                            className="p-1 rounded bg-emerald-500 text-slate-950 hover:bg-emerald-400 cursor-pointer"
+                            title="Salvar novo valor"
+                          >
+                            <Check className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingValueProjectId(null)}
+                            className="p-1 rounded bg-white/10 text-slate-300 hover:text-white cursor-pointer"
+                            title="Cancelar"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => openEditValue(proj)}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-400/35 text-sm font-mono font-extrabold text-emerald-300 cursor-pointer transition-all"
+                          title="Clique para mudar o valor ($) deste projeto"
+                        >
+                          <span>{formatUsd(proj.amountUsd || 0)}</span>
+                          {onUpdateProject && (
+                            <Edit3 className="w-3 h-3 text-emerald-400/80" />
+                          )}
+                        </button>
+                        <div className="text-[11px] font-mono text-emerald-400/85 mt-0.5">
+                          {formatBrl((proj.amountUsd || 0) * usdToBrlRate)}
+                        </div>
+                      </>
                     )}
+                    <div className="flex items-center justify-end gap-2 mt-1">
+                      {onUpdateProject && editingValueProjectId !== proj.id && (
+                        <button
+                          type="button"
+                          onClick={() => openEditValue(proj)}
+                          className="text-[10px] text-emerald-300 hover:text-emerald-200 underline cursor-pointer"
+                        >
+                          Mudar Valor
+                        </button>
+                      )}
+                      {onRestoreProject && (
+                        <button
+                          type="button"
+                          onClick={() => onRestoreProject(proj.id)}
+                          className="text-[10px] text-slate-400 hover:text-cyan-300 underline cursor-pointer"
+                        >
+                          Reativar
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
