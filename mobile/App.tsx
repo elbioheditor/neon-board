@@ -1,7 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   AppState,
+  Modal,
   Pressable,
   ScrollView,
   StatusBar,
@@ -14,6 +16,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import * as Updates from 'expo-updates';
 import {
+  ActiveTab,
   Board,
   BoardList,
   CustomLabel,
@@ -21,8 +24,10 @@ import {
   RecurrenceConfig,
   TagColorItem,
   TaskCard,
+  ThemeColors,
   UserBoardPayload,
   UserProfile,
+  WorkProject,
 } from './src/core/types';
 import {
   DEFAULT_CUSTOM_LABELS,
@@ -47,15 +52,21 @@ import {
   isTodayListTitle,
   isTomorrowListTitle,
   isYesterdayListTitle,
+  pauseAllRunningTimers,
   reconcileStateWithBrasiliaTime,
+  shiftTaskAndGroupToDate,
   syncEndTimeWithStart,
   toggleCardTimerState,
 } from './src/core/timeUtils';
 import {
   createNewUserBoardState,
+  DEFAULT_CLIENTS,
+  DEFAULT_THEME_COLORS,
   generateFriendCode,
   getUserInitials,
   mergeCardsByTimestamp,
+  normalizeClientsList,
+  normalizeProjectsWithDefaultClient,
 } from './src/core/syncMerge';
 import {
   fetchFriendshipsMobile,
@@ -73,6 +84,9 @@ import {
 import { AuthModalMobile } from './src/components/AuthModalMobile';
 import { FriendsModalMobile } from './src/components/FriendsModalMobile';
 import { CardDetailSheet } from './src/components/CardDetailSheet';
+import { ProjectsTabMobile } from './src/components/ProjectsTabMobile';
+import { DaleTabMobile } from './src/components/DaleTabMobile';
+import { ThemeSettingsModalMobile } from './src/components/ThemeSettingsModalMobile';
 
 const DEFAULT_RECURRENCE: RecurrenceConfig = {
   enabled: false,
@@ -98,9 +112,13 @@ export default function App() {
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
   const currentBrasiliaIso = useMemo(() => getTodayIsoDate(), [nowMs]);
 
-  const [activeTab, setActiveTab] = useState<'board' | 'calendar' | 'history'>('board');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('board');
   const [activeListId, setActiveListId] = useState<string>('');
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const [linkingCardIdForProject, setLinkingCardIdForProject] = useState<
+    string | null
+  >(null);
+  const [isThemeModalOpen, setIsThemeModalOpen] = useState<boolean>(false);
 
   // Auth & Friends
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
@@ -243,6 +261,18 @@ export default function App() {
             true
           );
 
+          const rawMyProjects = (
+            ownerBoard.projects ||
+            prev.projects ||
+            []
+          ).filter((p) => myBoardIds.has(p.boardId) || !p.boardId);
+          const { projects: myProjects, didBackfill } =
+            normalizeProjectsWithDefaultClient(rawMyProjects);
+          const myClients = normalizeClientsList(
+            ownerBoard.clients || prev.clients,
+            myProjects
+          );
+
           const allBoards = [
             ...myBoards,
             ...friendsBoards.map((fb) => fb.board),
@@ -254,6 +284,12 @@ export default function App() {
           const allCards = [
             ...mergedMyCards,
             ...friendsBoards.flatMap((fb) => fb.cards),
+          ];
+          const allProjects = [
+            ...myProjects,
+            ...friendsBoards.flatMap(
+              (fb) => normalizeProjectsWithDefaultClient(fb.projects).projects
+            ),
           ];
 
           const validActiveBoardId = allBoards.some(
@@ -267,6 +303,12 @@ export default function App() {
             boards: allBoards,
             lists: allLists,
             cards: allCards,
+            projects: allProjects,
+            clients: myClients,
+            themeColors:
+              ownerBoard.themeColors ||
+              prev.themeColors ||
+              DEFAULT_THEME_COLORS,
             customLabels:
               ownerBoard.customLabels !== undefined
                 ? ownerBoard.customLabels
@@ -280,6 +322,21 @@ export default function App() {
           });
 
           saveLocalBoardState(profile.id, JSON.stringify(nextState));
+
+          if (didBackfill || !ownerBoard.clients) {
+            saveUserBoardToCloudMobile(profile.id, {
+              board: myBoards[0],
+              boards: myBoards,
+              lists: myLists,
+              cards: mergedMyCards,
+              projects: myProjects,
+              clients: myClients,
+              themeColors: nextState.themeColors,
+              customLabels: nextState.customLabels,
+              tagColors: nextState.tagColors,
+            });
+          }
+
           return nextState;
         });
       } else {
@@ -387,10 +444,32 @@ export default function App() {
           );
           const nextLists = [...otherLists, ...(remotePayload.lists || [])];
 
+          const otherProjects = (prev.projects || []).filter(
+            (p) => p.boardId !== targetBoardId
+          );
+          const remoteProjects = normalizeProjectsWithDefaultClient(
+            remotePayload.projects || []
+          ).projects;
+          const nextProjects =
+            remotePayload.projects !== undefined
+              ? [...otherProjects, ...remoteProjects]
+              : prev.projects;
+
           return reconcileStateWithBrasiliaTime({
             ...prev,
             lists: nextLists,
             cards: [...otherCards, ...mergedBoardCards],
+            projects: nextProjects,
+            clients:
+              ownerId === currentUserProfile.id &&
+              remotePayload.clients !== undefined
+                ? normalizeClientsList(remotePayload.clients, nextProjects)
+                : prev.clients,
+            themeColors:
+              ownerId === currentUserProfile.id &&
+              remotePayload.themeColors !== undefined
+                ? remotePayload.themeColors
+                : prev.themeColors,
             customLabels:
               ownerId === currentUserProfile.id &&
               remotePayload.customLabels !== undefined
@@ -411,6 +490,20 @@ export default function App() {
       if (nextAppState === 'active') {
         setNowMs(Date.now());
         loadFriendsAndSyncBoards(currentUserProfile);
+      } else if (nextAppState === 'background') {
+        // Stop/pause running timers when closing/leaving the app
+        const stopNow = Date.now();
+        updateState((prev) => {
+          const { cards: pausedCards, didPauseAny } = pauseAllRunningTimers(
+            prev.cards,
+            stopNow
+          );
+          if (!didPauseAny) return prev;
+          return {
+            ...prev,
+            cards: pausedCards,
+          };
+        });
       }
     });
 
@@ -423,8 +516,25 @@ export default function App() {
   const updateState = (updater: (prev: NeonStoreState) => NeonStoreState) => {
     setState((prev) => {
       const updated = updater(prev);
+      const normalizedProjects = normalizeProjectsWithDefaultClient(
+        updated.projects !== undefined
+          ? updated.projects
+          : prev.projects ?? []
+      ).projects;
+      const normalizedClients = normalizeClientsList(
+        updated.clients !== undefined
+          ? updated.clients
+          : prev.clients ?? DEFAULT_CLIENTS,
+        normalizedProjects
+      );
       const withDefaults: NeonStoreState = {
         ...updated,
+        projects: normalizedProjects,
+        clients: normalizedClients,
+        themeColors:
+          updated.themeColors !== undefined
+            ? updated.themeColors
+            : prev.themeColors ?? DEFAULT_THEME_COLORS,
         customLabels:
           updated.customLabels !== undefined
             ? updated.customLabels
@@ -464,6 +574,11 @@ export default function App() {
             boards: myBoards.length > 0 ? myBoards : [primaryBoard],
             lists: next.lists.filter((l) => myBoardIds.has(l.boardId)),
             cards: next.cards.filter((c) => myBoardIds.has(c.boardId)),
+            projects: (next.projects || []).filter((p) =>
+              myBoardIds.has(p.boardId)
+            ),
+            clients: next.clients,
+            themeColors: next.themeColors,
             customLabels: next.customLabels,
             tagColors: next.tagColors,
           });
@@ -472,6 +587,179 @@ export default function App() {
 
       return next;
     });
+  };
+
+  // Project, Client & Theme Handlers
+  const handleAddClient = (clientName: string) => {
+    const trimmed = clientName.trim();
+    if (!trimmed) return;
+    updateState((prev) => {
+      const current = prev.clients || DEFAULT_CLIENTS;
+      if (current.some((c) => c.toLowerCase() === trimmed.toLowerCase())) {
+        return prev;
+      }
+      return {
+        ...prev,
+        clients: [...current, trimmed],
+      };
+    });
+  };
+
+  const handleDeleteClient = (clientName: string) => {
+    updateState((prev) => ({
+      ...prev,
+      clients: (prev.clients || DEFAULT_CLIENTS).filter(
+        (c) => c !== clientName
+      ),
+    }));
+  };
+
+  const handleCreateProject = (data: {
+    title: string;
+    clientName: string;
+    description?: string;
+    amountUsd: number;
+    color?: string;
+  }) => {
+    const cleanClient = data.clientName.trim() || 'Brody';
+    const newProj: WorkProject = {
+      id: `proj-${Date.now()}`,
+      boardId: activeBoard.id,
+      title: data.title,
+      clientName: cleanClient,
+      description: data.description,
+      amountUsd: data.amountUsd,
+      color: data.color || '#a855f7',
+      status: 'active',
+      manualSeconds: 0,
+      createdAt: new Date().toISOString(),
+    };
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
+      () => {}
+    );
+    updateState((prev) => {
+      const currentClients = prev.clients || DEFAULT_CLIENTS;
+      const nextClients = currentClients.some(
+        (c) => c.toLowerCase() === cleanClient.toLowerCase()
+      )
+        ? currentClients
+        : [...currentClients, cleanClient];
+      return {
+        ...prev,
+        clients: nextClients,
+        projects: [newProj, ...(prev.projects || [])],
+      };
+    });
+  };
+
+  const handleUpdateProject = (updated: WorkProject) => {
+    updateState((prev) => ({
+      ...prev,
+      projects: (prev.projects || []).map((p) =>
+        p.id === updated.id ? updated : p
+      ),
+    }));
+  };
+
+  const handleCompleteProject = (projectId: string) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
+      () => {}
+    );
+    updateState((prev) => ({
+      ...prev,
+      projects: (prev.projects || []).map((p) =>
+        p.id === projectId
+          ? {
+              ...p,
+              status: 'completed',
+              completedAt: new Date().toISOString(),
+            }
+          : p
+      ),
+    }));
+  };
+
+  const handleRestoreProject = (projectId: string) => {
+    updateState((prev) => ({
+      ...prev,
+      projects: (prev.projects || []).map((p) =>
+        p.id === projectId
+          ? {
+              ...p,
+              status: 'active',
+              completedAt: undefined,
+            }
+          : p
+      ),
+    }));
+  };
+
+  const handleDeleteProject = (projectId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+    updateState((prev) => ({
+      ...prev,
+      projects: (prev.projects || []).filter((p) => p.id !== projectId),
+      cards: prev.cards.map((c) =>
+        c.projectId === projectId ? { ...c, projectId: undefined } : c
+      ),
+    }));
+  };
+
+  const handleAssignCardProject = (
+    cardId: string,
+    projectId: string | undefined
+  ) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    updateState((prev) => {
+      const target = prev.cards.find((c) => c.id === cardId);
+      if (!target) return prev;
+      const groupId = target.recurrence?.groupId;
+      return {
+        ...prev,
+        cards: prev.cards.map((c) => {
+          if (
+            c.id === cardId ||
+            (groupId && c.recurrence?.groupId === groupId)
+          ) {
+            return {
+              ...c,
+              projectId,
+              updatedAt: Date.now(),
+            };
+          }
+          return c;
+        }),
+      };
+    });
+  };
+
+  const handleUpdateThemeColors = (nextTheme: ThemeColors) => {
+    updateState((prev) => ({
+      ...prev,
+      themeColors: nextTheme,
+    }));
+  };
+
+  const handleUpdateUsdToBrlRate = (rate: number) => {
+    updateState((prev) => ({
+      ...prev,
+      themeColors: {
+        ...(prev.themeColors || DEFAULT_THEME_COLORS),
+        usdToBrlRate: rate,
+      },
+    }));
+  };
+
+  const handleMoveCardToDate = (cardId: string, targetIsoDate: string) => {
+    updateState((prev) => ({
+      ...prev,
+      cards: shiftTaskAndGroupToDate(
+        prev.cards,
+        prev.lists,
+        cardId,
+        targetIsoDate
+      ),
+    }));
   };
 
   // Task & Color Handlers
@@ -760,6 +1048,43 @@ export default function App() {
     );
   }, [completedBoardCards]);
 
+  const themeColors = state.themeColors || DEFAULT_THEME_COLORS;
+  const primaryColor = themeColors.primaryColor || '#a855f7';
+  const secondaryColor = themeColors.secondaryColor || '#06b6d4';
+  const backgroundColor = themeColors.backgroundColor || '#07050d';
+  const isDidiUser = Boolean(
+    currentUserProfile?.username?.toLowerCase().includes('didi')
+  );
+  const appBrandName = isDidiUser ? 'SHADOWJOKER' : 'NEON';
+
+  const handleManualOtaCheck = async () => {
+    try {
+      if (__DEV__ || !Updates.isEnabled) {
+        Alert.alert('Neon v1.5.4', 'Você já está na versão mais recente (v1.5.4).');
+        return;
+      }
+      const update = await Updates.checkForUpdateAsync();
+      if (update.isAvailable) {
+        Alert.alert(
+          'Atualização Encontrada!',
+          'Baixando e aplicando nova atualização OTA...'
+        );
+        await Updates.fetchUpdateAsync();
+        await Updates.reloadAsync();
+      } else {
+        Alert.alert(
+          'Neon v1.5.4 Atualizado',
+          'Seu aplicativo já está na versão mais recente!'
+        );
+      }
+    } catch {
+      Alert.alert(
+        'Neon v1.5.4',
+        'Versão atual: v1.5.4 (Sincronizada com PC).'
+      );
+    }
+  };
+
   if (isCheckingAuth) {
     return (
       <SafeAreaProvider>
@@ -792,13 +1117,23 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor }]}
+        edges={['top', 'bottom', 'left', 'right']}
+      >
         <StatusBar barStyle="light-content" />
 
-      {/* TOP BAR: Brand, Friends & Account */}
-      <View style={styles.topHeader}>
+      {/* TOP BAR: Brand, Friends, Account, Version & Theme Settings */}
+      <View
+        style={[
+          styles.topHeader,
+          { borderColor: `${primaryColor}38` },
+        ]}
+      >
         <View style={styles.brandWrap}>
-          <Text style={styles.brandLogo}>⚡ NEON</Text>
+          <Text style={[styles.brandLogo, { color: secondaryColor }]}>
+            ⚡ {appBrandName}
+          </Text>
           <View style={styles.liveDot} />
         </View>
 
@@ -807,7 +1142,10 @@ export default function App() {
             <>
               <Pressable
                 onPress={() => setIsFriendsModalOpen(true)}
-                style={styles.friendsBtn}
+                style={[
+                  styles.friendsBtn,
+                  { borderColor: `${secondaryColor}55` },
+                ]}
               >
                 <Text style={styles.friendsBtnText}>👥 Amigos</Text>
                 {pendingFriendCount > 0 && (
@@ -826,7 +1164,7 @@ export default function App() {
                 }}
                 style={[
                   styles.userPill,
-                  { borderColor: currentUserProfile.avatarColor || '#a855f7' },
+                  { borderColor: currentUserProfile.avatarColor || primaryColor },
                 ]}
               >
                 <View
@@ -834,7 +1172,7 @@ export default function App() {
                     styles.userAvatarSmall,
                     {
                       backgroundColor:
-                        currentUserProfile.avatarColor || '#a855f7',
+                        currentUserProfile.avatarColor || primaryColor,
                     },
                   ]}
                 >
@@ -850,11 +1188,32 @@ export default function App() {
           ) : (
             <Pressable
               onPress={() => setIsAuthModalOpen(true)}
-              style={styles.loginBtn}
+              style={[styles.loginBtn, { backgroundColor: primaryColor }]}
             >
               <Text style={styles.loginBtnText}>Entrar / Criar Conta</Text>
             </Pressable>
           )}
+
+          {/* Version Pill + Theme Settings Button beside it */}
+          <Pressable
+            onPress={handleManualOtaCheck}
+            style={[
+              styles.versionPill,
+              { borderColor: `${primaryColor}55` },
+            ]}
+          >
+            <Text style={styles.versionPillText}>v1.5.4</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setIsThemeModalOpen(true)}
+            style={[
+              styles.themeBtn,
+              { borderColor: `${secondaryColor}60` },
+            ]}
+          >
+            <Text style={styles.themeBtnText}>⚙️</Text>
+          </Pressable>
         </View>
       </View>
 
@@ -891,6 +1250,30 @@ export default function App() {
       </View>
 
       {/* MAIN CONTENT AREA */}
+      {activeTab === 'projects' && (
+        <ProjectsTabMobile
+          boardId={activeBoard.id}
+          boardName={activeBoard.name}
+          projects={state.projects || []}
+          clients={state.clients || DEFAULT_CLIENTS}
+          cards={state.cards}
+          nowMs={nowMs}
+          usdToBrlRate={
+            themeColors.usdToBrlRate || DEFAULT_THEME_COLORS.usdToBrlRate || 5.8
+          }
+          themeColors={themeColors}
+          onUpdateUsdToBrlRate={handleUpdateUsdToBrlRate}
+          onAddClient={handleAddClient}
+          onDeleteClient={handleDeleteClient}
+          onCreateProject={handleCreateProject}
+          onUpdateProject={handleUpdateProject}
+          onCompleteProject={handleCompleteProject}
+          onRestoreProject={handleRestoreProject}
+          onDeleteProject={handleDeleteProject}
+          onAssignCardProject={handleAssignCardProject}
+        />
+      )}
+
       {activeTab === 'board' && (
         <View style={{ flex: 1 }}>
           {/* Column Selector Pills (Yesterday, Today, Tomorrow, This Week, Future) */}
@@ -1241,9 +1624,38 @@ export default function App() {
                       )}
                     </View>
 
-                    {/* Bottom Action Bar: Stopwatch & Complete */}
+                    {/* Bottom Action Bar: Project Linker, Stopwatch & Complete */}
                     <View style={styles.cardFooter}>
                       <View style={styles.stopwatchRow}>
+                        <Pressable
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            setLinkingCardIdForProject(card.id);
+                          }}
+                          style={[
+                            styles.cardProjectBtn,
+                            card.projectId && {
+                              borderColor: '#10b981',
+                              backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.cardProjectBtnText,
+                              card.projectId && { color: '#6ee7b7' },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            💼{' '}
+                            {card.projectId
+                              ? (state.projects || []).find(
+                                  (p) => p.id === card.projectId
+                                )?.title || 'Projeto'
+                              : ''}
+                          </Text>
+                        </Pressable>
+
                         <Pressable
                           onPress={(e) => {
                             e.stopPropagation();
@@ -1251,12 +1663,14 @@ export default function App() {
                           }}
                           style={[
                             styles.playTimerBtn,
-                            isRunning && styles.playTimerBtnActive,
+                            { borderColor: secondaryColor },
+                            isRunning && { backgroundColor: secondaryColor },
                           ]}
                         >
                           <Text
                             style={[
                               styles.playTimerText,
+                              { color: secondaryColor },
                               isRunning && { color: '#07050d' },
                             ]}
                           >
@@ -1267,7 +1681,7 @@ export default function App() {
                         <Text
                           style={[
                             styles.stopwatchDigits,
-                            isRunning && { color: '#22d3ee' },
+                            isRunning && { color: secondaryColor },
                           ]}
                         >
                           {formatStopwatch(liveSec)}
@@ -1425,80 +1839,76 @@ export default function App() {
         </ScrollView>
       )}
 
-      {/* HISTORY TAB */}
+      {/* DALE TAB (Monthly History, Projects Earnings & Graphs Bar Chart) */}
       {activeTab === 'history' && (
-        <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={{ padding: 14, paddingBottom: 100 }}
-        >
-          <View style={styles.statsRow}>
-            <View style={styles.statCard}>
-              <Text style={styles.statLabel}>TAREFAS CONCLUÍDAS</Text>
-              <Text style={styles.statValue}>{completedBoardCards.length}</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statLabel}>TEMPO TOTAL CRONOMETRADO</Text>
-              <Text style={[styles.statValue, { color: '#22d3ee' }]}>
-                {formatDurationHuman(totalCompletedSeconds)}
-              </Text>
-            </View>
-          </View>
-
-          <Text style={[styles.sectionTitle, { marginTop: 16 }]}>
-            Histórico de Conclusões ({activeBoard.name})
-          </Text>
-
-          {completedBoardCards.length === 0 ? (
-            <Text style={styles.emptyColSub}>
-              Nenhuma tarefa concluída ainda neste board.
-            </Text>
-          ) : (
-            completedBoardCards.map((c) => (
-              <Pressable
-                key={c.id}
-                onPress={() => setSelectedCardId(c.id)}
-                style={styles.calTaskRow}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.calTaskTitle}>{c.title}</Text>
-                  <Text style={styles.calTaskTime}>
-                    ⏱ Tempo: {formatDurationHuman(c.elapsedSeconds || 0)} •{' '}
-                    {formatShortDatePt(c.scheduledDate)}
-                  </Text>
-                </View>
-                <Pressable
-                  onPress={() => handleCompleteCard(c.id)}
-                  style={[
-                    styles.quickCompleteBtn,
-                    { backgroundColor: 'rgba(148, 163, 184, 0.2)' },
-                  ]}
-                >
-                  <Text style={[styles.quickCompleteText, { color: '#cbd5e1' }]}>
-                    Reabrir
-                  </Text>
-                </Pressable>
-              </Pressable>
-            ))
-          )}
-        </ScrollView>
+        <DaleTabMobile
+          boards={state.boards}
+          activeBoardId={activeBoard.id}
+          completedCards={state.cards.filter((c) => c.status === 'completed')}
+          allCards={state.cards}
+          projects={state.projects || []}
+          nowMs={nowMs}
+          usdToBrlRate={
+            themeColors.usdToBrlRate || DEFAULT_THEME_COLORS.usdToBrlRate || 5.8
+          }
+          themeColors={themeColors}
+          onSelectCard={(id) => setSelectedCardId(id)}
+          onRestoreCard={handleCompleteCard}
+          onUpdateProject={handleUpdateProject}
+          onRestoreProject={handleRestoreProject}
+        />
       )}
 
-      {/* BOTTOM NAVIGATION BAR */}
-      <View style={styles.bottomNav}>
+      {/* BOTTOM NAVIGATION BAR (Projetos | Board | Calendário | Dale) */}
+      <View
+        style={[
+          styles.bottomNav,
+          { borderColor: `${primaryColor}45` },
+        ]}
+      >
         <Pressable
-          onPress={() => setActiveTab('board')}
+          onPress={() => setActiveTab('projects')}
           style={[
             styles.bottomNavItem,
-            activeTab === 'board' && styles.bottomNavItemActive,
+            activeTab === 'projects' && [
+              styles.bottomNavItemActive,
+              {
+                borderColor: primaryColor,
+                backgroundColor: `${primaryColor}28`,
+              },
+            ],
           ]}
         >
           <Text
             style={[
               styles.bottomNavText,
-              activeTab === 'board' && styles.bottomNavTextActive,
+              activeTab === 'projects' && { color: '#ffffff' },
             ]}
           >
-            ⚡ Kanban
+            💼 Projetos
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => setActiveTab('board')}
+          style={[
+            styles.bottomNavItem,
+            activeTab === 'board' && [
+              styles.bottomNavItemActive,
+              {
+                borderColor: secondaryColor,
+                backgroundColor: `${secondaryColor}28`,
+              },
+            ],
+          ]}
+        >
+          <Text
+            style={[
+              styles.bottomNavText,
+              activeTab === 'board' && { color: secondaryColor },
+            ]}
+          >
+            ⚡ Board
           </Text>
         </Pressable>
 
@@ -1506,13 +1916,19 @@ export default function App() {
           onPress={() => setActiveTab('calendar')}
           style={[
             styles.bottomNavItem,
-            activeTab === 'calendar' && styles.bottomNavItemActive,
+            activeTab === 'calendar' && [
+              styles.bottomNavItemActive,
+              {
+                borderColor: primaryColor,
+                backgroundColor: `${primaryColor}28`,
+              },
+            ],
           ]}
         >
           <Text
             style={[
               styles.bottomNavText,
-              activeTab === 'calendar' && styles.bottomNavTextActive,
+              activeTab === 'calendar' && { color: '#ffffff' },
             ]}
           >
             📅 Calendário
@@ -1523,21 +1939,156 @@ export default function App() {
           onPress={() => setActiveTab('history')}
           style={[
             styles.bottomNavItem,
-            activeTab === 'history' && styles.bottomNavItemActive,
+            activeTab === 'history' && [
+              styles.bottomNavItemActive,
+              {
+                borderColor: '#10b981',
+                backgroundColor: 'rgba(16, 185, 129, 0.22)',
+              },
+            ],
           ]}
         >
           <Text
             style={[
               styles.bottomNavText,
-              activeTab === 'history' && styles.bottomNavTextActive,
+              activeTab === 'history' && { color: '#34d399' },
             ]}
           >
-            📊 Histórico
+            🏆 Dale
           </Text>
         </Pressable>
       </View>
 
       {/* MODALS & BOTTOM SHEETS */}
+      <ThemeSettingsModalMobile
+        visible={isThemeModalOpen}
+        themeColors={themeColors}
+        onUpdateThemeColors={handleUpdateThemeColors}
+        onClose={() => setIsThemeModalOpen(false)}
+      />
+
+      {/* Project Assignment Bottom Sheet Modal (Never clipped inside card box!) */}
+      <Modal
+        visible={!!linkingCardIdForProject}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setLinkingCardIdForProject(null)}
+      >
+        <View style={styles.projectModalOverlay}>
+          <View
+            style={[
+              styles.projectModalBox,
+              { borderColor: primaryColor },
+            ]}
+          >
+            <View style={styles.projectModalHeader}>
+              <Text style={styles.projectModalTitle}>
+                💼 VINCULAR A PROJETO
+              </Text>
+              <Pressable onPress={() => setLinkingCardIdForProject(null)}>
+                <Text style={styles.projectModalClose}>✕</Text>
+              </Pressable>
+            </View>
+
+            {(() => {
+              const targetCard = state.cards.find(
+                (c) => c.id === linkingCardIdForProject
+              );
+              const activeBoardProjs = (state.projects || []).filter(
+                (p) =>
+                  p.boardId === activeBoard.id &&
+                  (p.status === 'active' || p.id === targetCard?.projectId)
+              );
+
+              if (activeBoardProjs.length === 0) {
+                return (
+                  <View style={{ paddingVertical: 14, alignItems: 'center' }}>
+                    <Text style={styles.emptyColSub}>
+                      Nenhum projeto ativo. Crie um na aba Projetos!
+                    </Text>
+                    <Pressable
+                      onPress={() => {
+                        setLinkingCardIdForProject(null);
+                        setActiveTab('projects');
+                      }}
+                      style={[
+                        styles.confirmCreatorBtn,
+                        { marginTop: 12, backgroundColor: primaryColor },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.confirmCreatorText,
+                          { color: '#ffffff' },
+                        ]}
+                      >
+                        Ir para Projetos
+                      </Text>
+                    </Pressable>
+                  </View>
+                );
+              }
+
+              return (
+                <View style={{ gap: 8 }}>
+                  {activeBoardProjs.map((proj) => {
+                    const isSelected = targetCard?.projectId === proj.id;
+                    return (
+                      <Pressable
+                        key={proj.id}
+                        onPress={() => {
+                          if (targetCard) {
+                            handleAssignCardProject(
+                              targetCard.id,
+                              isSelected ? undefined : proj.id
+                            );
+                          }
+                          setLinkingCardIdForProject(null);
+                        }}
+                        style={[
+                          styles.projectModalItem,
+                          isSelected && {
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                          },
+                        ]}
+                      >
+                        <View>
+                          <Text style={styles.projectModalItemTitle}>
+                            {proj.title}
+                          </Text>
+                          <Text style={styles.projectModalItemClient}>
+                            👤 {proj.clientName || 'Brody'}
+                          </Text>
+                        </View>
+                        {isSelected && (
+                          <Text style={{ color: '#34d399', fontWeight: '900' }}>
+                            ✓ Vinculado
+                          </Text>
+                        )}
+                      </Pressable>
+                    );
+                  })}
+
+                  {targetCard?.projectId && (
+                    <Pressable
+                      onPress={() => {
+                        handleAssignCardProject(targetCard.id, undefined);
+                        setLinkingCardIdForProject(null);
+                      }}
+                      style={styles.projectModalUnlinkBtn}
+                    >
+                      <Text style={styles.projectModalUnlinkText}>
+                        Desvincular Projeto
+                      </Text>
+                    </Pressable>
+                  )}
+                </View>
+              );
+            })()}
+          </View>
+        </View>
+      </Modal>
       <AuthModalMobile
         visible={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
@@ -1574,8 +2125,13 @@ export default function App() {
         lists={boardLists}
         customLabels={state.customLabels || DEFAULT_CUSTOM_LABELS}
         tagColors={state.tagColors || DEFAULT_TAG_COLORS}
+        projects={(state.projects || []).filter(
+          (p) => p.boardId === activeBoard.id
+        )}
         onClose={() => setSelectedCardId(null)}
         onUpdateCard={handleUpdateCard}
+        onAssignProject={handleAssignCardProject}
+        onMoveCardToDate={handleMoveCardToDate}
         onToggleTimer={handleToggleTimer}
         onResetTimer={handleResetTimer}
         onCompleteCard={handleCompleteCard}
@@ -2210,5 +2766,107 @@ const styles = StyleSheet.create({
   },
   bottomNavTextActive: {
     color: '#22d3ee',
+  },
+  versionPill: {
+    backgroundColor: '#120b24',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+  },
+  versionPillText: {
+    color: '#cbd5e1',
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  themeBtn: {
+    backgroundColor: '#120b24',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+  },
+  themeBtnText: {
+    fontSize: 12,
+  },
+  cardProjectBtn: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    maxWidth: 115,
+  },
+  cardProjectBtnText: {
+    color: '#cbd5e1',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  projectModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  projectModalBox: {
+    backgroundColor: '#110b22',
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 16,
+    width: '100%',
+    maxWidth: 360,
+    gap: 12,
+  },
+  projectModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+    paddingBottom: 10,
+  },
+  projectModalTitle: {
+    color: '#67e8f9',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  projectModalClose: {
+    color: '#94a3b8',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  projectModalItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#07050d',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    padding: 12,
+  },
+  projectModalItemTitle: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  projectModalItemClient: {
+    color: '#67e8f9',
+    fontSize: 11,
+    marginTop: 2,
+  },
+  projectModalUnlinkBtn: {
+    backgroundColor: 'rgba(225, 29, 72, 0.16)',
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  projectModalUnlinkText: {
+    color: '#fda4af',
+    fontSize: 11,
+    fontWeight: '800',
   },
 });

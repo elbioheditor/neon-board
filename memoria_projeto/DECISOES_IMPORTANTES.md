@@ -74,4 +74,4 @@
 ### 2.6. Identidade, Segurança de Sessão e Mobile
 - **Identidade dinâmica:** `NEON` para Elbioh e `SHADOWJOKER` para Didi.
 - **Isolamento de sessão:** Armazenamento local e nuvem isolados por `userId` no Supabase (`user_boards`), com opção de lembrar login por 60 dias.
-- **Mobile (`C:\Neon\mobile`):** App React Native / Expo com ícone oficial do Neon, tela de login obrigatória e suporte a atualização OTA (`expo-updates`).
+- **Mobile (`C:\Neon\mobile`):** App React Native / Expo com ícone oficial do Neon, tela de login obrigatória, suporte a atualização OTA (`expo-updates` nos canais `preview` e `production`) e sincronizado com todas as funcionalidades do PC (`Projetos`, `Clientes` com `Brody`, `Late`, `Graphs`, edição de valor `$` com 1 toque, `+ Somar / - Subtrair Horas`, `Configurações de Cores & Tema` e ordem da barra inferior `Projetos | Board | Calendário | Dale`). Sempre que atualizar o mobile, publicar OTA via `npx.cmd eas-cli update --branch preview` e `--branch production`.

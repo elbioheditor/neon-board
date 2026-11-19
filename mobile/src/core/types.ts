@@ -60,7 +60,29 @@ export interface TaskCard {
   completedAt?: string;
   completedFromListTitle?: string;
   recurrence?: TaskRecurrence;
+  projectId?: string;
   order: number;
+}
+
+export interface WorkProject {
+  id: string;
+  boardId: string;
+  title: string;
+  clientName: string;
+  description?: string;
+  amountUsd: number;
+  status: 'active' | 'completed';
+  manualSeconds?: number;
+  color?: string;
+  createdAt: string;
+  completedAt?: string;
+}
+
+export interface ThemeColors {
+  primaryColor: string;
+  secondaryColor: string;
+  backgroundColor: string;
+  usdToBrlRate?: number;
 }
 
 export interface BoardList {
@@ -79,7 +101,7 @@ export interface Board {
   accentTo: string;
 }
 
-export type ActiveTab = 'board' | 'calendar' | 'history' | 'friends';
+export type ActiveTab = 'projects' | 'board' | 'calendar' | 'history';
 
 export interface UserProfile {
   id: string;
@@ -104,6 +126,9 @@ export interface NeonStoreState {
   activeBoardId: string;
   lists: BoardList[];
   cards: TaskCard[];
+  projects?: WorkProject[];
+  clients?: string[];
+  themeColors?: ThemeColors;
   customLabels?: CustomLabel[];
   tagColors?: TagColorItem[];
   lastUpdated: string;
@@ -114,6 +139,9 @@ export interface UserBoardPayload {
   boards?: Board[];
   lists: BoardList[];
   cards: TaskCard[];
+  projects?: WorkProject[];
+  clients?: string[];
+  themeColors?: ThemeColors;
   customLabels?: CustomLabel[];
   tagColors?: TagColorItem[];
 }

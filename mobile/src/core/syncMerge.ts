@@ -2,7 +2,9 @@ import {
   Board,
   BoardList,
   TaskCard,
+  ThemeColors,
   UserBoardPayload,
+  WorkProject,
 } from './types';
 import {
   DEFAULT_CUSTOM_LABELS,
@@ -14,6 +16,52 @@ import {
   getTomorrowIsoDate,
   getYesterdayIsoDate,
 } from './timeUtils';
+
+export const DEFAULT_CLIENTS: string[] = ['Brody'];
+
+export const DEFAULT_THEME_COLORS: ThemeColors = {
+  primaryColor: '#a855f7',
+  secondaryColor: '#06b6d4',
+  backgroundColor: '#07050d',
+  usdToBrlRate: 5.8,
+};
+
+export function normalizeProjectsWithDefaultClient(
+  projects?: WorkProject[]
+): { projects: WorkProject[]; didBackfill: boolean } {
+  if (!projects || !Array.isArray(projects)) {
+    return { projects: [], didBackfill: false };
+  }
+  let didBackfill = false;
+  const normalized = projects.map((p) => {
+    const cleanClient = (p.clientName || '').trim();
+    if (!cleanClient) {
+      didBackfill = true;
+      return {
+        ...p,
+        clientName: 'Brody',
+      };
+    }
+    return p;
+  });
+  return { projects: normalized, didBackfill };
+}
+
+export function normalizeClientsList(
+  clients?: string[],
+  projects?: WorkProject[]
+): string[] {
+  const set = new Set<string>(DEFAULT_CLIENTS);
+  (clients || []).forEach((c) => {
+    const trimmed = (c || '').trim();
+    if (trimmed) set.add(trimmed);
+  });
+  (projects || []).forEach((p) => {
+    const trimmed = (p.clientName || '').trim();
+    if (trimmed) set.add(trimmed);
+  });
+  return Array.from(set);
+}
 
 /**
  * Resolves conflicts between two sets of cards (e.g. Local Mobile vs Cloud PC)
@@ -105,7 +153,7 @@ export function createNewUserBoardState(username: string): UserBoardPayload {
   const futureListId = `list-${boardId}-future`;
 
   const lists: BoardList[] = [
-    { id: yesterdayListId, boardId, title: 'Yesterday', order: 0 },
+    { id: yesterdayListId, boardId, title: 'Late', order: 0 },
     { id: todayListId, boardId, title: 'Today', order: 1 },
     { id: tomorrowListId, boardId, title: 'Tomorrow', order: 2 },
     { id: weekListId, boardId, title: 'This Week', order: 3 },
@@ -227,6 +275,9 @@ export function createNewUserBoardState(username: string): UserBoardPayload {
     boards: [board],
     lists,
     cards,
+    projects: [],
+    clients: DEFAULT_CLIENTS,
+    themeColors: DEFAULT_THEME_COLORS,
     customLabels: DEFAULT_CUSTOM_LABELS,
     tagColors: DEFAULT_TAG_COLORS,
   };

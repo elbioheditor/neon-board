@@ -15,6 +15,7 @@ import {
   CustomLabel,
   TagColorItem,
   TaskCard,
+  WorkProject,
 } from '../core/types';
 import {
   formatStopwatch,
@@ -36,8 +37,11 @@ interface CardDetailSheetProps {
   lists: BoardList[];
   customLabels: CustomLabel[];
   tagColors: TagColorItem[];
+  projects?: WorkProject[];
   onClose: () => void;
   onUpdateCard: (updated: TaskCard) => void;
+  onAssignProject?: (cardId: string, projectId: string | undefined) => void;
+  onMoveCardToDate?: (cardId: string, newDateIso: string) => void;
   onToggleTimer: (cardId: string) => void;
   onResetTimer: (cardId: string) => void;
   onCompleteCard: (cardId: string) => void;
@@ -69,8 +73,11 @@ export const CardDetailSheet: React.FC<CardDetailSheetProps> = ({
   lists,
   customLabels,
   tagColors,
+  projects = [],
   onClose,
   onUpdateCard,
+  onAssignProject,
+  onMoveCardToDate,
   onToggleTimer,
   onResetTimer,
   onCompleteCard,
@@ -126,11 +133,15 @@ export const CardDetailSheet: React.FC<CardDetailSheetProps> = ({
   const handleDateChange = (newDate: string) => {
     setScheduledDate(newDate);
     if (/^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
-      const targetListId = resolveSyncedListIdForDate(newDate, lists);
-      saveField({
-        scheduledDate: newDate,
-        listId: targetListId || card.listId,
-      });
+      if (onMoveCardToDate) {
+        onMoveCardToDate(card.id, newDate);
+      } else {
+        const targetListId = resolveSyncedListIdForDate(newDate, lists);
+        saveField({
+          scheduledDate: newDate,
+          listId: targetListId || card.listId,
+        });
+      }
     }
   };
 
@@ -239,6 +250,86 @@ export const CardDetailSheet: React.FC<CardDetailSheetProps> = ({
                 </Pressable>
               </View>
             </View>
+
+            {/* Vincular a Projeto Section */}
+            {onAssignProject && (
+              <View style={styles.section}>
+                <Text style={styles.fieldLabel}>
+                  💼 VINCULAR HORAS A UM PROJETO
+                </Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={{ marginTop: 6 }}
+                >
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <Pressable
+                      onPress={() => onAssignProject(card.id, undefined)}
+                      style={[
+                        styles.labelPill,
+                        !card.projectId && {
+                          borderColor: '#22d3ee',
+                          backgroundColor: 'rgba(34, 211, 238, 0.2)',
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.labelPillText,
+                          !card.projectId && { color: '#ffffff' },
+                        ]}
+                      >
+                        Nenhum
+                      </Text>
+                    </Pressable>
+                    {projects
+                      .filter(
+                        (p) =>
+                          p.status === 'active' || p.id === card.projectId
+                      )
+                      .map((p) => {
+                        const isSelected = card.projectId === p.id;
+                        return (
+                          <Pressable
+                            key={p.id}
+                            onPress={() =>
+                              onAssignProject(
+                                card.id,
+                                isSelected ? undefined : p.id
+                              )
+                            }
+                            style={[
+                              styles.labelPill,
+                              isSelected && {
+                                borderColor: p.color || '#10b981',
+                                backgroundColor: 'rgba(16, 185, 129, 0.25)',
+                              },
+                            ]}
+                          >
+                            <View
+                              style={[
+                                styles.labelDot,
+                                { backgroundColor: p.color || '#a855f7' },
+                              ]}
+                            />
+                            <Text
+                              style={[
+                                styles.labelPillText,
+                                isSelected && {
+                                  color: '#ffffff',
+                                  fontWeight: '900',
+                                },
+                              ]}
+                            >
+                              {p.title} ({p.clientName || 'Brody'})
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                  </View>
+                </ScrollView>
+              </View>
+            )}
 
             {/* Time & Date */}
             <View style={styles.row2Col}>

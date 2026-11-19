@@ -205,7 +205,12 @@ export function formatShortDatePt(isoDate?: string): string {
 
 export function isYesterdayListTitle(title: string): boolean {
   const lower = title.trim().toLowerCase();
-  return lower.includes('yesterday') || lower.includes('ontem');
+  return (
+    lower.includes('late') ||
+    lower.includes('yesterday') ||
+    lower.includes('ontem') ||
+    lower.includes('atrasad')
+  );
 }
 
 export function isTodayListTitle(title: string): boolean {
@@ -321,11 +326,14 @@ export function reconcileStateWithBrasiliaTime(
       yesterdayList = {
         id: `${board.id}-yesterday`,
         boardId: board.id,
-        title: 'Yesterday',
+        title: 'Late',
         order: 0,
       };
       updatedLists.push(yesterdayList);
       bLists.push(yesterdayList);
+      listsChanged = true;
+    } else if (yesterdayList.title.trim().toLowerCase() === 'yesterday') {
+      yesterdayList.title = 'Late';
       listsChanged = true;
     }
 
@@ -630,4 +638,104 @@ export function buildRecurringTaskCards(params: {
   }
 
   return result;
+}
+
+/**
+ * Moves a target card to `newStartDateIso` and shifts all subsequent uncompleted
+ * cards of the same multi-day group (`days_count` / `specific_days`) as a contiguous block.
+ */
+export function shiftTaskAndGroupToDate(
+  allCards: TaskCard[],
+  allLists: BoardList[],
+  cardId: string,
+  newStartDateIso: string,
+  overrideTargetListId?: string
+): TaskCard[] {
+  const targetCard = allCards.find((c) => c.id === cardId);
+  if (!targetCard) return allCards;
+
+  const boardLists = allLists.filter((l) => l.boardId === targetCard.boardId);
+  const groupId = targetCard.recurrence?.groupId;
+  const nowTs = Date.now();
+
+  if (!groupId || targetCard.recurrence?.mode === 'weekdays') {
+    const resolvedListId =
+      overrideTargetListId ||
+      resolveSyncedListIdForDate(newStartDateIso, boardLists) ||
+      targetCard.listId;
+    return allCards.map((c) =>
+      c.id === cardId
+        ? {
+            ...c,
+            scheduledDate: newStartDateIso,
+            listId: resolvedListId,
+            updatedAt: nowTs,
+          }
+        : c
+    );
+  }
+
+  const groupUncompleted = allCards
+    .filter((c) => c.recurrence?.groupId === groupId && c.status !== 'completed')
+    .sort((a, b) => {
+      const idxA = a.recurrence?.dayIndex ?? 0;
+      const idxB = b.recurrence?.dayIndex ?? 0;
+      if (idxA !== idxB) return idxA - idxB;
+      return (a.scheduledDate || '').localeCompare(b.scheduledDate || '');
+    });
+
+  const targetIdxInGroup = groupUncompleted.findIndex((c) => c.id === cardId);
+  const cardsToShift =
+    targetIdxInGroup >= 0
+      ? groupUncompleted.slice(targetIdxInGroup)
+      : groupUncompleted;
+
+  const updatesMap = new Map<string, { scheduledDate: string; listId: string }>();
+  cardsToShift.forEach((c, offset) => {
+    const shiftedDate = addDaysToIsoDate(newStartDateIso, offset);
+    const shiftedListId =
+      offset === 0 && overrideTargetListId
+        ? overrideTargetListId
+        : resolveSyncedListIdForDate(shiftedDate, boardLists) || c.listId;
+    updatesMap.set(c.id, {
+      scheduledDate: shiftedDate,
+      listId: shiftedListId,
+    });
+  });
+
+  return allCards.map((c) => {
+    const upd = updatesMap.get(c.id);
+    if (!upd) return c;
+    return {
+      ...c,
+      scheduledDate: upd.scheduledDate,
+      listId: upd.listId,
+      updatedAt: nowTs,
+    };
+  });
+}
+
+export function pauseAllRunningTimers(
+  cards: TaskCard[],
+  stopTimeMs: number
+): { cards: TaskCard[]; didPauseAny: boolean } {
+  let didPauseAny = false;
+  const pausedCards = (cards || []).map((c) => {
+    if (c.status !== 'in_progress') return c;
+    didPauseAny = true;
+    const effectiveStopMs = c.timerStartedAt
+      ? Math.max(c.timerStartedAt, Math.min(Date.now(), stopTimeMs))
+      : Date.now();
+    const delta = c.timerStartedAt
+      ? Math.max(0, Math.floor((effectiveStopMs - c.timerStartedAt) / 1000))
+      : 0;
+    return {
+      ...c,
+      status: 'paused' as const,
+      elapsedSeconds: (c.elapsedSeconds || 0) + delta,
+      timerStartedAt: undefined,
+      updatedAt: effectiveStopMs,
+    };
+  });
+  return { cards: pausedCards, didPauseAny };
 }
