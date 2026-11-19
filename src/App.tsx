@@ -122,18 +122,65 @@ import {
 export const getUserBoardStorageKey = (userId?: string) =>
   userId ? `neon_board_state_v2_${userId}` : 'neon_board_state_v2_guest';
 
+const LAST_OPEN_HEARTBEAT_KEY = 'neon_last_open_heartbeat_ms';
+
+export function pauseAllRunningTimers(
+  cards: TaskCard[],
+  stopTimeMs: number
+): { cards: TaskCard[]; didPauseAny: boolean } {
+  let didPauseAny = false;
+  const pausedCards = (cards || []).map((c) => {
+    if (c.status !== 'in_progress') return c;
+    didPauseAny = true;
+    const effectiveStopMs = c.timerStartedAt
+      ? Math.max(c.timerStartedAt, Math.min(Date.now(), stopTimeMs))
+      : Date.now();
+    const delta = c.timerStartedAt
+      ? Math.max(0, Math.floor((effectiveStopMs - c.timerStartedAt) / 1000))
+      : 0;
+    return {
+      ...c,
+      status: 'paused' as const,
+      elapsedSeconds: (c.elapsedSeconds || 0) + delta,
+      timerStartedAt: undefined,
+    };
+  });
+  return { cards: pausedCards, didPauseAny };
+}
+
 export function App() {
+  // Capture the last heartbeat from the previous session BEFORE starting the new heartbeat ticker
+  const lastSessionEndMsRef = useRef<number>((() => {
+    try {
+      const saved = Number(localStorage.getItem(LAST_OPEN_HEARTBEAT_KEY));
+      return saved > 0 ? saved : Date.now();
+    } catch {
+      return Date.now();
+    }
+  })());
+
   const [state, setState] = useState<NeonStoreState>(() => {
     return reconcileStateWithBrasiliaTime(INITIAL_STATE);
   });
 
-  // Global 1-second ticker for live stopwatches & Brasília date rollover
+  // Global 1-second ticker for live stopwatches, Brasília date rollover & active session heartbeat
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
   const currentBrasiliaIso = useMemo(() => getTodayIsoDate(), [nowMs]);
 
   useEffect(() => {
+    try {
+      localStorage.setItem(LAST_OPEN_HEARTBEAT_KEY, String(Date.now()));
+    } catch {
+      // ignore
+    }
     const interval = setInterval(() => {
-      setNowMs(Date.now());
+      const now = Date.now();
+      setNowMs(now);
+      try {
+        localStorage.setItem(LAST_OPEN_HEARTBEAT_KEY, String(now));
+      } catch {
+        // ignore
+      }
     }, 1000);
     return () => clearInterval(interval);
   }, []);
@@ -159,8 +206,8 @@ export function App() {
   const handleTabChange = (nextTab: ActiveTab) => {
     const tabOrder: Record<ActiveTab, number> = {
       projects: 0,
-      calendar: 1,
-      board: 2,
+      board: 1,
+      calendar: 2,
       history: 3,
     };
     if (nextTab !== activeTab) {
@@ -335,7 +382,12 @@ export function App() {
 
           const myBoardIds = new Set(myBoards.map((b) => b.id));
           const myLists = ownerBoard.lists.filter((l) => myBoardIds.has(l.boardId) || !l.boardId);
-          const myCards = ownerBoard.cards.filter((c) => myBoardIds.has(c.boardId) || !c.boardId);
+          const rawMyCards = ownerBoard.cards.filter((c) => myBoardIds.has(c.boardId) || !c.boardId);
+          // Always pause any timer that was running when the app was previously closed
+          const { cards: myCards, didPauseAny } = pauseAllRunningTimers(
+            rawMyCards,
+            lastSessionEndMsRef.current
+          );
           const rawMyProjects = (ownerBoard.projects || prev.projects || []).filter(
             (p) => myBoardIds.has(p.boardId) || !p.boardId
           );
@@ -380,10 +432,11 @@ export function App() {
             console.error('Failed to update local storage', e);
           }
 
-          // If rawMyBoards contained other people's boards OR existing projects needed the 'Brody' client backfill, persist to cloud!
+          // If rawMyBoards contained other people's boards, existing projects needed 'Brody' backfill, or running timers were paused from previous close, persist to cloud!
           if (
             rawMyBoards.length !== myBoards.length ||
             didBackfill ||
+            didPauseAny ||
             !ownerBoard.clients
           ) {
             saveUserBoardToCloud(profile.id, {
@@ -613,6 +666,79 @@ export function App() {
       return next;
     });
   };
+
+  // Automatically pause all running stopwatches whenever the user closes the app
+  const latestStateRef = useRef(state);
+  latestStateRef.current = state;
+  const latestProfileRef = useRef(currentUserProfile);
+  latestProfileRef.current = currentUserProfile;
+
+  useEffect(() => {
+    const handleStopTimersOnAppClose = () => {
+      const currentState = latestStateRef.current;
+      const profile = latestProfileRef.current;
+      const stopNow = Date.now();
+      try {
+        localStorage.setItem(LAST_OPEN_HEARTBEAT_KEY, String(stopNow));
+      } catch {
+        // ignore
+      }
+      const { cards: pausedCards, didPauseAny } = pauseAllRunningTimers(
+        currentState.cards,
+        stopNow
+      );
+      if (!didPauseAny) return;
+
+      const nextState: NeonStoreState = {
+        ...currentState,
+        cards: pausedCards,
+        lastUpdated: new Date(stopNow).toISOString(),
+      };
+      try {
+        localStorage.setItem(
+          getUserBoardStorageKey(profile?.id),
+          JSON.stringify(nextState)
+        );
+      } catch {
+        // ignore
+      }
+      if (profile) {
+        const userLower = profile.username.toLowerCase();
+        const myBoards = nextState.boards.filter((b) => {
+          const ownerLower = (b.owner || '').toLowerCase();
+          return (
+            ownerLower === userLower ||
+            (userLower.includes('elbioh') && ownerLower.includes('elbioh')) ||
+            (userLower.includes('didi') && ownerLower.includes('didi'))
+          );
+        });
+        const primaryBoard = myBoards[0] || nextState.boards[0];
+        if (primaryBoard) {
+          const myBoardIds = new Set(myBoards.map((b) => b.id));
+          saveUserBoardToCloud(profile.id, {
+            board: primaryBoard,
+            boards: myBoards,
+            lists: nextState.lists.filter((l) => myBoardIds.has(l.boardId)),
+            cards: nextState.cards.filter((c) => myBoardIds.has(c.boardId)),
+            projects: (nextState.projects || []).filter((p) =>
+              myBoardIds.has(p.boardId)
+            ),
+            clients: nextState.clients,
+            themeColors: nextState.themeColors,
+            customLabels: nextState.customLabels,
+            tagColors: nextState.tagColors,
+          });
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleStopTimersOnAppClose);
+    window.addEventListener('pagehide', handleStopTimersOnAppClose);
+    return () => {
+      window.removeEventListener('beforeunload', handleStopTimersOnAppClose);
+      window.removeEventListener('pagehide', handleStopTimersOnAppClose);
+    };
+  }, []);
 
   const activeBoard = useMemo(
     () =>
@@ -2026,7 +2152,7 @@ export function App() {
   const isDraggingAnything = Boolean(draggedCardId || draggedListId);
   const isDidiUser = Boolean(currentUserProfile?.username?.toLowerCase().includes('didi'));
   const appBrandName = isDidiUser ? 'SHADOWJOKER' : (window.neonDesktop?.brandName || 'NEON');
-  const appVersion = window.neonDesktop?.version || '1.5.3';
+  const appVersion = window.neonDesktop?.version || '1.5.4';
 
   if (isCheckingAuth || isSyncingUserData) {
     return (
@@ -3280,7 +3406,7 @@ export function App() {
         </div>
       )}
 
-      {/* SINGLE-LINE FLOATING BOTTOM NAVIGATION DOCK (Projetos | Calendário | Board | Dale) */}
+      {/* SINGLE-LINE FLOATING BOTTOM NAVIGATION DOCK (Projetos | Board | Calendário | Dale) */}
       <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 flex flex-nowrap items-center gap-1.5 p-1.5 rounded-2xl bg-[#0d081a]/95 border border-purple-500/40 shadow-2xl shadow-purple-950/80 backdrop-blur-2xl whitespace-nowrap">
         <button
           type="button"
@@ -3314,19 +3440,6 @@ export function App() {
 
         <button
           type="button"
-          onClick={() => handleTabChange('calendar')}
-          className={`dock-btn flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === 'calendar'
-              ? 'bg-gradient-to-r from-purple-600 via-fuchsia-500 to-pink-500 text-white shadow-lg shadow-pink-500/30'
-              : 'text-slate-300 hover:text-white hover:bg-white/5'
-          }`}
-        >
-          <CalendarIcon className="w-4 h-4 flex-shrink-0" />
-          <span>Calendário</span>
-        </button>
-
-        <button
-          type="button"
           onClick={() => handleTabChange('board')}
           className={`dock-btn flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
             activeTab === 'board'
@@ -3336,6 +3449,19 @@ export function App() {
         >
           <LayoutGrid className="w-4 h-4 flex-shrink-0" />
           <span>Board</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleTabChange('calendar')}
+          className={`dock-btn flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+            activeTab === 'calendar'
+              ? 'bg-gradient-to-r from-purple-600 via-fuchsia-500 to-pink-500 text-white shadow-lg shadow-pink-500/30'
+              : 'text-slate-300 hover:text-white hover:bg-white/5'
+          }`}
+        >
+          <CalendarIcon className="w-4 h-4 flex-shrink-0" />
+          <span>Calendário</span>
         </button>
 
         <button

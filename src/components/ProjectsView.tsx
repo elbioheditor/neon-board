@@ -218,11 +218,18 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
     setHoursInputM('');
   };
 
+  const isSubtractingHours =
+    hoursInputH.trim().startsWith('-') || hoursInputM.trim().startsWith('-');
+
   const handleAddManualHours = (project: WorkProject) => {
-    const h = parseFloat(hoursInputH.replace(',', '.')) || 0;
-    const m = parseFloat(hoursInputM.replace(',', '.')) || 0;
-    const deltaSecs = Math.round(h * 3600 + m * 60);
-    if (deltaSecs === 0) return;
+    const rawH = hoursInputH.trim();
+    const rawM = hoursInputM.trim();
+    const isNegative = rawH.startsWith('-') || rawM.startsWith('-');
+    const absH = Math.abs(parseFloat(rawH.replace(',', '.')) || 0);
+    const absM = Math.abs(parseFloat(rawM.replace(',', '.')) || 0);
+    const totalSecs = Math.round(absH * 3600 + absM * 60);
+    if (totalSecs === 0) return;
+    const deltaSecs = isNegative ? -totalSecs : totalSecs;
     onUpdateProject({
       ...project,
       manualSeconds: (project.manualSeconds || 0) + deltaSecs,
@@ -1240,10 +1247,9 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                                 <div className="flex items-center gap-2">
                                   <div className="flex items-center gap-1 flex-1">
                                     <input
-                                      type="number"
-                                      min="0"
-                                      step="1"
-                                      placeholder="0"
+                                      type="text"
+                                      inputMode="decimal"
+                                      placeholder="0 (ou -1)"
                                       value={hoursInputH}
                                       onChange={(e) =>
                                         setHoursInputH(e.target.value)
@@ -1256,11 +1262,9 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                                   </div>
                                   <div className="flex items-center gap-1 flex-1">
                                     <input
-                                      type="number"
-                                      min="0"
-                                      max="59"
-                                      step="1"
-                                      placeholder="30"
+                                      type="text"
+                                      inputMode="decimal"
+                                      placeholder="30 (ou -30)"
                                       value={hoursInputM}
                                       onChange={(e) =>
                                         setHoursInputM(e.target.value)
@@ -1278,10 +1282,20 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                                     onClick={() =>
                                       handleAddManualHours(project)
                                     }
-                                    className="flex-1 px-2.5 py-1 rounded-lg bg-purple-600/35 hover:bg-purple-600/55 border border-purple-400/50 text-[10px] font-bold text-white transition-colors cursor-pointer"
-                                    title="Soma essas horas ao tempo atual do projeto"
+                                    className={`flex-1 px-2.5 py-1 rounded-lg border text-[10px] font-bold text-white transition-colors cursor-pointer ${
+                                      isSubtractingHours
+                                        ? 'bg-rose-600/35 hover:bg-rose-600/55 border-rose-400/50 text-rose-100'
+                                        : 'bg-purple-600/35 hover:bg-purple-600/55 border-purple-400/50'
+                                    }`}
+                                    title={
+                                      isSubtractingHours
+                                        ? 'Subtrai essas horas do tempo atual do projeto'
+                                        : 'Soma essas horas ao tempo atual do projeto'
+                                    }
                                   >
-                                    + Somar Horas
+                                    {isSubtractingHours
+                                      ? '- Subtrair Horas'
+                                      : '+ Somar Horas'}
                                   </button>
                                   <button
                                     type="button"
@@ -1647,10 +1661,9 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                         <div className="flex items-center gap-2">
                           <div className="flex items-center gap-1 flex-1">
                             <input
-                              type="number"
-                              min="0"
-                              step="1"
-                              placeholder="0"
+                              type="text"
+                              inputMode="decimal"
+                              placeholder="0 (ou -1)"
                               value={hoursInputH}
                               onChange={(e) => setHoursInputH(e.target.value)}
                               className="w-full px-2 py-1 rounded-lg bg-black/80 border border-purple-500/40 text-xs font-mono text-white focus:outline-none focus:border-cyan-400"
@@ -1661,11 +1674,9 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                           </div>
                           <div className="flex items-center gap-1 flex-1">
                             <input
-                              type="number"
-                              min="0"
-                              max="59"
-                              step="1"
-                              placeholder="30"
+                              type="text"
+                              inputMode="decimal"
+                              placeholder="30 (ou -30)"
                               value={hoursInputM}
                               onChange={(e) => setHoursInputM(e.target.value)}
                               className="w-full px-2 py-1 rounded-lg bg-black/80 border border-purple-500/40 text-xs font-mono text-white focus:outline-none focus:border-cyan-400"
@@ -1679,9 +1690,15 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                           <button
                             type="button"
                             onClick={() => handleAddManualHours(project)}
-                            className="flex-1 px-2.5 py-1 rounded-lg bg-purple-600/35 hover:bg-purple-600/55 border border-purple-400/50 text-[10px] font-bold text-white transition-colors cursor-pointer"
+                            className={`flex-1 px-2.5 py-1 rounded-lg border text-[10px] font-bold text-white transition-colors cursor-pointer ${
+                              isSubtractingHours
+                                ? 'bg-rose-600/35 hover:bg-rose-600/55 border-rose-400/50 text-rose-100'
+                                : 'bg-purple-600/35 hover:bg-purple-600/55 border-purple-400/50'
+                            }`}
                           >
-                            + Somar Horas
+                            {isSubtractingHours
+                              ? '- Subtrair Horas'
+                              : '+ Somar Horas'}
                           </button>
                           <button
                             type="button"

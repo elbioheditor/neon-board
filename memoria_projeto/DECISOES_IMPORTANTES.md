@@ -31,8 +31,9 @@
 ### 2.3. Arrastar Tarefas de Múltiplos Dias em Bloco Contíguo
 - Quando uma tarefa possui vários dias (ex.: um vídeo de 4 dias criado com `days_count`) e o usuário arrasta ou altera a data de uma parte para frente ou para trás, **todos os dias subsequentes do bloco acompanham juntos** a partir do novo dia escolhido (`shiftTaskAndGroupToDate` em `src/utils/timeUtils.ts`).
 
-### 2.4. Sistema de Trabalho: Aba `"Projetos"` (1ª Aba à Esquerda do Calendário na Dock Inferior)
-- Ordem das abas na dock inferior: **1º Projetos** (à esquerda imediata do Calendário), **2º Calendário**, **3º Board**, **4º Dale**.
+### 2.4. Sistema de Trabalho: Ordem das Abas na Dock Inferior (`Projetos | Board | Calendário | Dale`)
+- Ordem das abas na dock inferior: **1º Projetos**, **2º Board** (à direita de Projetos e à esquerda de Calendário), **3º Calendário**, **4º Dale**.
+- **Parar Cronômetro ao Fechar o App:** Sempre que o usuário fechar o aplicativo, todos os cronômetros em execução (`status === 'in_progress'`) devem ser pausados automaticamente no momento do fechamento (`pauseAllRunningTimers` no `beforeunload`/`pagehide` + reconciliação via `LAST_OPEN_HEARTBEAT_KEY` ao reabrir).
 - Na aba **Projetos** (`src/components/ProjectsView.tsx`), o usuário cadastra projetos com:
   - **Título**
   - **Valor em Dólares (`USD $`)**
@@ -40,8 +41,8 @@
 - **Atribuição de Horas da Tarefa ao Projeto (Portal Flutuante Livre):**
   - Nos cards do Kanban (`src/components/KanbanCard.tsx`), ao lado do botão **INICIAR**, há um ícone de projeto (`Briefcase`) que abre o menu **Vincular a Projeto**.
   - **Regra de UI obrigatória:** Esse menu é renderizado via `createPortal(..., document.body)` com coordenadas `fixed` e `z-[9999]` para **nunca ficar preso/cortado dentro da box do card ou da coluna**.
-- **Adição e Ajuste Manual de Horas em Projetos (`+ Horas / Ajustar`):**
-  - Todo projeto possui o botão **`+ Horas / Ajustar`** para que o usuário possa **+ Somar Horas** (caso tenha esquecido de ligar o cronômetro) ou **= Definir Total** (caso tenha cometido algum erro no cronômetro e queira fixar o total exato de horas do projeto).
+- **Adição, Subtração (`- Subtrair Horas`) e Ajuste Manual de Horas em Projetos (`+ Horas / Ajustar`):**
+  - Todo projeto possui o botão **`+ Horas / Ajustar`** para que o usuário possa **+ Somar Horas**, **- Subtrair Horas** (basta digitar o sinal de menos `-` na frente do número e o botão `+ Somar Horas` muda automaticamente para **`- Subtrair Horas`**) ou **= Definir Total**.
 - **Exclusão de Projetos APENAS Arrastando (Sem Clique Único):**
   - **Não existe botão de apagar projeto com 1 clique** nos cards de projetos ativos ou concluídos para evitar *missclick* e perda acidental de projeto. Para excluir um projeto, o usuário deve **arrastar o projeto até a zona "Lixeira"** na parte inferior da tela.
 - **Sistema de Clientes Obrigatório por Projeto (`clientName`):**

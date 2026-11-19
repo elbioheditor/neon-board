@@ -1,5 +1,10 @@
 # Histórico de Versões e Atualizações — NEON
 
+## v1.5.4 (2026-11-19)
+- **Parar cronômetro automaticamente ao fechar o app**: qualquer tarefa cronometrando é pausada automaticamente ao fechar o Neon (salvando o tempo exato até o fechamento e evitando contagem com o app fechado).
+- **Subtrair horas em projetos com sinal negativo (`- Subtrair Horas`)**: ao digitar um número negativo (ex.: `-1`h ou `-30`min) no ajuste de horas do projeto, o botão **`+ Somar Horas`** vira automaticamente **`- Subtrair Horas`** e diminui as horas do projeto.
+- **Nova ordem das abas na dock inferior**: **`Projetos` | `Board` | `Calendário` | `Dale`** (Board posicionado à direita de Projetos e à esquerda de Calendário).
+
 ## v1.5.3 (2026-11-18)
 - **Edição rápida e direta do valor (`$ USD`) de qualquer projeto**: agora basta clicar diretamente no badge do valor em dólar (`$XX.XX ✏️`) ou no botão **`Mudar Valor ($)`** em qualquer projeto (seja ativo, concluído na aba Projetos ou concluído na aba Dale) para alterar o valor na hora, recalculando automaticamente a conversão em Reais (`R$`), os ganhos do mês, a hora média (`$/h`) e o gráfico anual (`Graphs`).
 
