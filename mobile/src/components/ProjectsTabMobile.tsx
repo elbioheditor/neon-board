@@ -8,13 +8,73 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { TaskCard, ThemeColors, WorkProject } from '../core/types';
+import {
+  ProjectPaymentMethod,
+  TaskCard,
+  ThemeColors,
+  WorkProject,
+} from '../core/types';
 import {
   formatDurationHuman,
   formatStopwatch,
   getBrasiliaYearMonth,
   getLiveElapsedSeconds,
 } from '../core/timeUtils';
+
+export const PAYMENT_METHODS_INFO: Record<
+  ProjectPaymentMethod,
+  {
+    id: ProjectPaymentMethod;
+    label: string;
+    feePercent: number;
+    feeDecimal: number;
+  }
+> = {
+  paypal: {
+    id: 'paypal',
+    label: 'PayPal',
+    feePercent: 6.4,
+    feeDecimal: 0.064,
+  },
+  wise: {
+    id: 'wise',
+    label: 'Wise',
+    feePercent: 0.33,
+    feeDecimal: 0.0033,
+  },
+};
+
+export function getProjectPaymentBreakdown(
+  project: WorkProject,
+  usdToBrlRate: number
+) {
+  const grossUsd = Math.max(0, Number(project.amountUsd) || 0);
+  const method = project.paymentMethod;
+  const feeDecimal = method ? PAYMENT_METHODS_INFO[method].feeDecimal : 0;
+  const feePercent = method ? PAYMENT_METHODS_INFO[method].feePercent : 0;
+  const feeUsd = grossUsd * feeDecimal;
+  const netUsd = Math.max(0, grossUsd - feeUsd);
+  const grossBrl = grossUsd * usdToBrlRate;
+  const netBrl = netUsd * usdToBrlRate;
+  const feeBrl = feeUsd * usdToBrlRate;
+  return {
+    method,
+    feePercent,
+    grossUsd,
+    feeUsd,
+    netUsd,
+    grossBrl,
+    feeBrl,
+    netBrl,
+  };
+}
+
+export function getProjectNetUsd(project: WorkProject): number {
+  const grossUsd = Math.max(0, Number(project.amountUsd) || 0);
+  const method = project.paymentMethod;
+  const feeDecimal = method ? PAYMENT_METHODS_INFO[method].feeDecimal : 0;
+  return Math.max(0, grossUsd * (1 - feeDecimal));
+}
 
 export function formatUsd(amount: number): string {
   const safe = Number.isFinite(amount) ? amount : 0;
@@ -86,12 +146,14 @@ interface ProjectsTabMobileProps {
     clientName: string;
     description?: string;
     amountUsd: number;
+    paymentMethod?: ProjectPaymentMethod;
     color?: string;
   }) => void;
   onUpdateProject: (updated: WorkProject) => void;
   onCompleteProject: (projectId: string) => void;
   onRestoreProject: (projectId: string) => void;
   onDeleteProject: (projectId: string) => void;
+  onMoveProject?: (projectId: string, direction: 'left' | 'right') => void;
   onAssignCardProject: (cardId: string, projectId: string | undefined) => void;
 }
 
@@ -112,6 +174,7 @@ export const ProjectsTabMobile: React.FC<ProjectsTabMobileProps> = ({
   onCompleteProject,
   onRestoreProject,
   onDeleteProject,
+  onMoveProject,
   onAssignCardProject,
 }) => {
   const primaryColor = themeColors.primaryColor || '#a855f7';
@@ -128,6 +191,8 @@ export const ProjectsTabMobile: React.FC<ProjectsTabMobileProps> = ({
     () => clients[0] || 'Brody'
   );
   const [newAmountUsd, setNewAmountUsd] = useState('');
+  const [newPaymentMethod, setNewPaymentMethod] =
+    useState<ProjectPaymentMethod>('wise');
   const [newDescription, setNewDescription] = useState('');
   const [newColor, setNewColor] = useState(PROJECT_COLORS[0]);
 
@@ -140,6 +205,8 @@ export const ProjectsTabMobile: React.FC<ProjectsTabMobileProps> = ({
   const [editTitle, setEditTitle] = useState('');
   const [editClientName, setEditClientName] = useState('');
   const [editAmountUsd, setEditAmountUsd] = useState('');
+  const [editPaymentMethod, setEditPaymentMethod] =
+    useState<ProjectPaymentMethod>('wise');
   const [editDescription, setEditDescription] = useState('');
   const [editColor, setEditColor] = useState(PROJECT_COLORS[0]);
 
@@ -203,7 +270,15 @@ export const ProjectsTabMobile: React.FC<ProjectsTabMobileProps> = ({
   );
 
   const activeProjects = useMemo(
-    () => boardProjects.filter((p) => p.status === 'active'),
+    () =>
+      boardProjects
+        .filter((p) => p.status === 'active')
+        .sort((a, b) => {
+          if (a.order !== undefined && b.order !== undefined) {
+            return a.order - b.order;
+          }
+          return 0;
+        }),
     [boardProjects]
   );
 
@@ -215,27 +290,40 @@ export const ProjectsTabMobile: React.FC<ProjectsTabMobileProps> = ({
             p.status === 'completed' &&
             getProjectMonthKey(p) === selectedYearMonth
         )
-        .sort((a, b) =>
-          (b.completedAt || '').localeCompare(a.completedAt || '')
-        ),
+        .sort((a, b) => {
+          if (a.order !== undefined && b.order !== undefined) {
+            return a.order - b.order;
+          }
+          return (b.completedAt || '').localeCompare(a.completedAt || '');
+        }),
     [boardProjects, selectedYearMonth]
   );
 
   const monthlyMetrics = useMemo(() => {
-    const completedUsd = completedProjectsForMonth.reduce(
+    const completedGrossUsd = completedProjectsForMonth.reduce(
       (acc, p) => acc + (Number(p.amountUsd) || 0),
       0
     );
+    const completedUsd = completedProjectsForMonth.reduce(
+      (acc, p) => acc + getProjectNetUsd(p),
+      0
+    );
+    const completedFeeUsd = Math.max(0, completedGrossUsd - completedUsd);
     const completedBrl = completedUsd * usdToBrlRate;
     const completedSeconds = completedProjectsForMonth.reduce(
       (acc, p) => acc + getProjectTotalSeconds(p, boardCards, nowMs),
       0
     );
 
-    const activeUsd = activeProjects.reduce(
+    const activeGrossUsd = activeProjects.reduce(
       (acc, p) => acc + (Number(p.amountUsd) || 0),
       0
     );
+    const activeUsd = activeProjects.reduce(
+      (acc, p) => acc + getProjectNetUsd(p),
+      0
+    );
+    const activeFeeUsd = Math.max(0, activeGrossUsd - activeUsd);
     const activeBrl = activeUsd * usdToBrlRate;
     const activeSeconds = activeProjects.reduce(
       (acc, p) => acc + getProjectTotalSeconds(p, boardCards, nowMs),
@@ -255,15 +343,19 @@ export const ProjectsTabMobile: React.FC<ProjectsTabMobileProps> = ({
         ...activeProjects,
       ]
         .filter((p) => getProjectTotalSeconds(p, boardCards, nowMs) > 0)
-        .reduce((acc, p) => acc + (Number(p.amountUsd) || 0), 0);
+        .reduce((acc, p) => acc + getProjectNetUsd(p), 0);
       avgHourlyUsd = projectsWithHoursUsd / totalHoursAll;
     }
     const avgHourlyBrl = avgHourlyUsd * usdToBrlRate;
 
     return {
+      completedGrossUsd,
+      completedFeeUsd,
       completedUsd,
       completedBrl,
       completedSeconds,
+      activeGrossUsd,
+      activeFeeUsd,
       activeUsd,
       activeBrl,
       activeSeconds,
@@ -310,6 +402,7 @@ export const ProjectsTabMobile: React.FC<ProjectsTabMobileProps> = ({
       clientName: trimmedClient,
       description: newDescription.trim() || undefined,
       amountUsd: Math.max(0, parsedUsd),
+      paymentMethod: newPaymentMethod,
       color: newColor,
     });
     setNewTitle('');
@@ -399,6 +492,7 @@ export const ProjectsTabMobile: React.FC<ProjectsTabMobileProps> = ({
     setEditTitle(project.title);
     setEditClientName(project.clientName || 'Brody');
     setEditAmountUsd(String(project.amountUsd || 0));
+    setEditPaymentMethod(project.paymentMethod || 'wise');
     setEditDescription(project.description || '');
     setEditColor(project.color || PROJECT_COLORS[0]);
   };
@@ -415,6 +509,7 @@ export const ProjectsTabMobile: React.FC<ProjectsTabMobileProps> = ({
       clientName: trimmedClient,
       description: editDescription.trim() || undefined,
       amountUsd: Math.max(0, parsedUsd),
+      paymentMethod: editPaymentMethod,
       color: editColor,
     });
     setEditingId(null);
@@ -505,6 +600,7 @@ export const ProjectsTabMobile: React.FC<ProjectsTabMobileProps> = ({
   };
 
   const renderValueBadgeOrEditor = (project: WorkProject) => {
+    const paymentInfo = getProjectPaymentBreakdown(project, usdToBrlRate);
     if (editingValueProjectId === project.id) {
       return (
         <View style={styles.valueEditorBox}>
@@ -541,15 +637,82 @@ export const ProjectsTabMobile: React.FC<ProjectsTabMobileProps> = ({
           style={styles.valueBadgeBtn}
         >
           <Text style={styles.valueBadgeUsd}>
-            {formatUsd(project.amountUsd || 0)} ✏️
+            {formatUsd(paymentInfo.netUsd)} ✏️
           </Text>
         </Pressable>
         <Text style={styles.valueBadgeBrl}>
-          {formatBrl((project.amountUsd || 0) * usdToBrlRate)}
+          {formatBrl(paymentInfo.netBrl)}
         </Text>
+        {paymentInfo.method && paymentInfo.grossUsd > 0 && (
+          <Text style={{ color: '#94a3b8', fontSize: 9, marginTop: 1 }}>
+            Bruto: {formatUsd(paymentInfo.grossUsd)} (-{paymentInfo.feePercent}%)
+          </Text>
+        )}
       </View>
     );
   };
+
+  const renderPaymentMethodToggle = (project: WorkProject) => (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+      <Text style={{ color: '#94a3b8', fontSize: 10, fontWeight: '700' }}>
+        Pagamento:
+      </Text>
+      <Pressable
+        onPress={() => onUpdateProject({ ...project, paymentMethod: 'wise' })}
+        style={{
+          paddingHorizontal: 8,
+          paddingVertical: 3,
+          borderRadius: 999,
+          borderWidth: 1,
+          borderColor:
+            project.paymentMethod === 'wise'
+              ? '#10b981'
+              : 'rgba(255,255,255,0.12)',
+          backgroundColor:
+            project.paymentMethod === 'wise'
+              ? 'rgba(16,185,129,0.22)'
+              : 'rgba(255,255,255,0.05)',
+        }}
+      >
+        <Text
+          style={{
+            fontSize: 10,
+            fontWeight: '800',
+            color: project.paymentMethod === 'wise' ? '#6ee7b7' : '#94a3b8',
+          }}
+        >
+          🟢 Wise (-0.33%)
+        </Text>
+      </Pressable>
+      <Pressable
+        onPress={() => onUpdateProject({ ...project, paymentMethod: 'paypal' })}
+        style={{
+          paddingHorizontal: 8,
+          paddingVertical: 3,
+          borderRadius: 999,
+          borderWidth: 1,
+          borderColor:
+            project.paymentMethod === 'paypal'
+              ? '#3b82f6'
+              : 'rgba(255,255,255,0.12)',
+          backgroundColor:
+            project.paymentMethod === 'paypal'
+              ? 'rgba(59,130,246,0.22)'
+              : 'rgba(255,255,255,0.05)',
+        }}
+      >
+        <Text
+          style={{
+            fontSize: 10,
+            fontWeight: '800',
+            color: project.paymentMethod === 'paypal' ? '#93c5fd' : '#94a3b8',
+          }}
+        >
+          🔵 PayPal (-6.4%)
+        </Text>
+      </Pressable>
+    </View>
+  );
 
   return (
     <ScrollView
@@ -795,6 +958,68 @@ export const ProjectsTabMobile: React.FC<ProjectsTabMobileProps> = ({
             keyboardType="decimal-pad"
           />
 
+          <Text style={[styles.fieldLabel, { color: '#93c5fd', marginTop: 4 }]}>
+            FORMA DE PAGAMENTO (WISE -0.33% / PAYPAL -6.4%)
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+            <Pressable
+              onPress={() => setNewPaymentMethod('wise')}
+              style={{
+                flex: 1,
+                paddingVertical: 9,
+                borderRadius: 10,
+                borderWidth: 1,
+                borderColor:
+                  newPaymentMethod === 'wise'
+                    ? '#10b981'
+                    : 'rgba(255,255,255,0.12)',
+                backgroundColor:
+                  newPaymentMethod === 'wise'
+                    ? 'rgba(16,185,129,0.22)'
+                    : 'rgba(255,255,255,0.04)',
+                alignItems: 'center',
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: '800',
+                  color: newPaymentMethod === 'wise' ? '#6ee7b7' : '#94a3b8',
+                }}
+              >
+                🟢 Wise (-0.33%)
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setNewPaymentMethod('paypal')}
+              style={{
+                flex: 1,
+                paddingVertical: 9,
+                borderRadius: 10,
+                borderWidth: 1,
+                borderColor:
+                  newPaymentMethod === 'paypal'
+                    ? '#3b82f6'
+                    : 'rgba(255,255,255,0.12)',
+                backgroundColor:
+                  newPaymentMethod === 'paypal'
+                    ? 'rgba(59,130,246,0.22)'
+                    : 'rgba(255,255,255,0.04)',
+                alignItems: 'center',
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: '800',
+                  color: newPaymentMethod === 'paypal' ? '#93c5fd' : '#94a3b8',
+                }}
+              >
+                🔵 PayPal (-6.4%)
+              </Text>
+            </Pressable>
+          </View>
+
           <Text style={styles.fieldLabel}>DESCRIÇÃO (OPCIONAL)</Text>
           <TextInput
             style={styles.inputField}
@@ -910,14 +1135,15 @@ export const ProjectsTabMobile: React.FC<ProjectsTabMobileProps> = ({
           </Text>
         </View>
       ) : (
-        activeProjects.map((project) => {
+        activeProjects.map((project, projIdx) => {
           const linkedCards = boardCards.filter(
             (c) => c.projectId === project.id
           );
           const totalSecs = getProjectTotalSeconds(project, boardCards, nowMs);
           const hoursFloat = totalSecs / 3600;
+          const paymentInfo = getProjectPaymentBreakdown(project, usdToBrlRate);
           const effectiveUsdPerHour =
-            hoursFloat > 0 ? (project.amountUsd || 0) / hoursFloat : 0;
+            hoursFloat > 0 ? paymentInfo.netUsd / hoursFloat : 0;
           const isEditing = editingId === project.id;
           const accentColor = project.color || primaryColor;
 
@@ -973,6 +1199,71 @@ export const ProjectsTabMobile: React.FC<ProjectsTabMobileProps> = ({
                     onChangeText={setEditAmountUsd}
                     keyboardType="decimal-pad"
                   />
+                  <Text style={[styles.fieldLabel, { color: '#93c5fd' }]}>
+                    FORMA DE PAGAMENTO
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+                    <Pressable
+                      onPress={() => setEditPaymentMethod('wise')}
+                      style={{
+                        flex: 1,
+                        paddingVertical: 8,
+                        borderRadius: 10,
+                        borderWidth: 1,
+                        borderColor:
+                          editPaymentMethod === 'wise'
+                            ? '#10b981'
+                            : 'rgba(255,255,255,0.12)',
+                        backgroundColor:
+                          editPaymentMethod === 'wise'
+                            ? 'rgba(16,185,129,0.22)'
+                            : 'rgba(255,255,255,0.04)',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 11,
+                          fontWeight: '800',
+                          color:
+                            editPaymentMethod === 'wise' ? '#6ee7b7' : '#94a3b8',
+                        }}
+                      >
+                        🟢 Wise (-0.33%)
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => setEditPaymentMethod('paypal')}
+                      style={{
+                        flex: 1,
+                        paddingVertical: 8,
+                        borderRadius: 10,
+                        borderWidth: 1,
+                        borderColor:
+                          editPaymentMethod === 'paypal'
+                            ? '#3b82f6'
+                            : 'rgba(255,255,255,0.12)',
+                        backgroundColor:
+                          editPaymentMethod === 'paypal'
+                            ? 'rgba(59,130,246,0.22)'
+                            : 'rgba(255,255,255,0.04)',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 11,
+                          fontWeight: '800',
+                          color:
+                            editPaymentMethod === 'paypal'
+                              ? '#93c5fd'
+                              : '#94a3b8',
+                        }}
+                      >
+                        🔵 PayPal (-6.4%)
+                      </Text>
+                    </Pressable>
+                  </View>
                   <Text style={styles.fieldLabel}>DESCRIÇÃO</Text>
                   <TextInput
                     style={styles.inputField}
@@ -1015,6 +1306,7 @@ export const ProjectsTabMobile: React.FC<ProjectsTabMobileProps> = ({
                           </Text>
                         </View>
                       </View>
+                      {renderPaymentMethodToggle(project)}
                       {project.description ? (
                         <Text style={styles.projectDescText}>
                           {project.description}
@@ -1163,7 +1455,34 @@ export const ProjectsTabMobile: React.FC<ProjectsTabMobileProps> = ({
 
                   {/* Footer Actions */}
                   <View style={styles.projectFooter}>
-                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+                      {onMoveProject && activeProjects.length > 1 && (
+                        <>
+                          <Pressable
+                            disabled={projIdx === 0}
+                            onPress={() => onMoveProject(project.id, 'left')}
+                            style={[
+                              styles.footerSecondaryBtn,
+                              projIdx === 0 && { opacity: 0.35 },
+                            ]}
+                          >
+                            <Text style={styles.footerSecondaryText}>◀</Text>
+                          </Pressable>
+                          <Pressable
+                            disabled={projIdx === activeProjects.length - 1}
+                            onPress={() => onMoveProject(project.id, 'right')}
+                            style={[
+                              styles.footerSecondaryBtn,
+                              projIdx === activeProjects.length - 1 && {
+                                opacity: 0.35,
+                              },
+                            ]}
+                          >
+                            <Text style={styles.footerSecondaryText}>▶</Text>
+                          </Pressable>
+                        </>
+                      )}
+
                       <Pressable
                         onPress={() => startEditing(project)}
                         style={styles.footerSecondaryBtn}
@@ -1216,11 +1535,12 @@ export const ProjectsTabMobile: React.FC<ProjectsTabMobileProps> = ({
           </Text>
         </View>
       ) : (
-        completedProjectsForMonth.map((project) => {
+        completedProjectsForMonth.map((project, compIdx) => {
           const totalSecs = getProjectTotalSeconds(project, boardCards, nowMs);
           const hoursFloat = totalSecs / 3600;
+          const paymentInfo = getProjectPaymentBreakdown(project, usdToBrlRate);
           const effectiveRateUsd =
-            hoursFloat > 0 ? (project.amountUsd || 0) / hoursFloat : 0;
+            hoursFloat > 0 ? paymentInfo.netUsd / hoursFloat : 0;
 
           return (
             <View key={project.id} style={styles.completedProjectCard}>
@@ -1236,6 +1556,7 @@ export const ProjectsTabMobile: React.FC<ProjectsTabMobileProps> = ({
                       </Text>
                     </View>
                   </View>
+                  {renderPaymentMethodToggle(project)}
                   {project.description ? (
                     <Text style={styles.projectDescText}>
                       {project.description}
@@ -1275,7 +1596,33 @@ export const ProjectsTabMobile: React.FC<ProjectsTabMobileProps> = ({
               </View>
 
               <View style={styles.projectFooter}>
-                <View style={{ flexDirection: 'row', gap: 10 }}>
+                <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+                  {onMoveProject && completedProjectsForMonth.length > 1 && (
+                    <>
+                      <Pressable
+                        disabled={compIdx === 0}
+                        onPress={() => onMoveProject(project.id, 'left')}
+                        style={[
+                          styles.footerSecondaryBtn,
+                          compIdx === 0 && { opacity: 0.35 },
+                        ]}
+                      >
+                        <Text style={styles.footerSecondaryText}>◀</Text>
+                      </Pressable>
+                      <Pressable
+                        disabled={compIdx === completedProjectsForMonth.length - 1}
+                        onPress={() => onMoveProject(project.id, 'right')}
+                        style={[
+                          styles.footerSecondaryBtn,
+                          compIdx === completedProjectsForMonth.length - 1 && {
+                            opacity: 0.35,
+                          },
+                        ]}
+                      >
+                        <Text style={styles.footerSecondaryText}>▶</Text>
+                      </Pressable>
+                    </>
+                  )}
                   <Pressable
                     onPress={() => openEditValue(project)}
                     style={styles.footerSecondaryBtn}

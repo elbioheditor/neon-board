@@ -1,5 +1,12 @@
 # Histórico de Versões e Atualizações — NEON
 
+## v1.5.5 (2026-11-21)
+- **Sistema de Forma de Pagamento por Projeto (`Wise -0.33%` e `PayPal -6.4%`)**:
+  - Opção de marcar com 1 clique (tanto ao criar/editar projeto quanto diretamente nos cards de projetos ativos, concluídos e na aba **Dale**) por qual forma de pagamento o projeto foi ou vai ser pago: **`🟢 Wise (-0.33%)`** ou **`🔵 PayPal (-6.4%)`**.
+  - Cálculo automático do **Valor Líquido** em Dólares (`$`) e Reais (`R$`) já descontando a taxa de `6.4%` do PayPal ou `0.33%` da Wise (exibindo também o valor `Bruto` e a taxa descontada nos cards, nos KPIs do mês, na Hora Média `$/h` e no `Graphs`).
+- **Mudar Projetos de Local (Mais à Esquerda `◀` ou Mais à Direita `▶` + Arrastar e Soltar)**:
+  - Botões **`◀` (Mover para a esquerda)** e **`▶` (Mover para a direita)** em cada card de projeto ativo ou concluído (no PC e no Mobile), além de suporte a arrastar um projeto sobre outro no PC para reordenar a posição livremente.
+
 ## v1.5.4 (2026-11-19)
 - **Parar cronômetro automaticamente ao fechar o app**: qualquer tarefa cronometrando é pausada automaticamente ao fechar o Neon (salvando o tempo exato até o fechamento e evitando contagem com o app fechado).
 - **Subtrair horas em projetos com sinal negativo (`- Subtrair Horas`)**: ao digitar um número negativo (ex.: `-1`h ou `-30`min) no ajuste de horas do projeto, o botão **`+ Somar Horas`** vira automaticamente **`- Subtrair Horas`** e diminui as horas do projeto.

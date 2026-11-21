@@ -18,6 +18,7 @@ import {
   formatBrl,
   formatUsd,
   getProjectMonthKey,
+  getProjectPaymentBreakdown,
   getProjectTotalSeconds,
 } from './ProjectsTabMobile';
 
@@ -173,16 +174,19 @@ export const DaleTabMobile: React.FC<DaleTabMobileProps> = ({
               boardFilter === 'all' ? true : p.boardId === boardFilter;
             return matchesMonth && matchesBoard;
           });
-    return sourceList.sort((a, b) =>
-      (b.completedAt || b.createdAt).localeCompare(
+    return sourceList.sort((a, b) => {
+      if (a.order !== undefined && b.order !== undefined) {
+        return a.order - b.order;
+      }
+      return (b.completedAt || b.createdAt).localeCompare(
         a.completedAt || a.createdAt
-      )
-    );
+      );
+    });
   }, [projects, selectedMonth, boardFilter]);
 
   const monthProjectStats = useMemo(() => {
     const earnedUsd = monthCompletedProjects.reduce(
-      (acc, p) => acc + (Number(p.amountUsd) || 0),
+      (acc, p) => acc + getProjectPaymentBreakdown(p, usdToBrlRate).netUsd,
       0
     );
     const earnedBrl = earnedUsd * usdToBrlRate;
@@ -236,7 +240,7 @@ export const DaleTabMobile: React.FC<DaleTabMobileProps> = ({
       });
 
       const earnedUsd = mProjects.reduce(
-        (acc, p) => acc + (Number(p.amountUsd) || 0),
+        (acc, p) => acc + getProjectPaymentBreakdown(p, usdToBrlRate).netUsd,
         0
       );
       const earnedBrl = earnedUsd * usdToBrlRate;
@@ -267,7 +271,7 @@ export const DaleTabMobile: React.FC<DaleTabMobileProps> = ({
           totalUsd: 0,
         };
         existing.count += 1;
-        existing.totalUsd += Number(p.amountUsd) || 0;
+        existing.totalUsd += getProjectPaymentBreakdown(p, usdToBrlRate).netUsd;
         clientMap.set(key, existing);
       });
 
@@ -748,6 +752,7 @@ export const DaleTabMobile: React.FC<DaleTabMobileProps> = ({
                 ) : (
                   inspectedMonth.projects.map((p) => {
                     const pSecs = getProjectTotalSeconds(p, allCards, nowMs);
+                    const pPay = getProjectPaymentBreakdown(p, usdToBrlRate);
                     return (
                       <View key={p.id} style={styles.inspectedProjRow}>
                         <View style={{ flex: 1, paddingRight: 8 }}>
@@ -757,14 +762,21 @@ export const DaleTabMobile: React.FC<DaleTabMobileProps> = ({
                           <Text style={styles.inspectedProjMeta}>
                             👤 {p.clientName || 'Brody'} • ⏱{' '}
                             {formatDurationHuman(pSecs)}
+                            {pPay.method
+                              ? ` • ${
+                                  pPay.method === 'paypal'
+                                    ? '🔵 PayPal (-6.4%)'
+                                    : '🟢 Wise (-0.33%)'
+                                }`
+                              : ''}
                           </Text>
                         </View>
                         <View style={{ alignItems: 'flex-end' }}>
                           <Text style={styles.inspectedProjUsd}>
-                            {formatUsd(p.amountUsd || 0)}
+                            {formatUsd(pPay.netUsd)}
                           </Text>
                           <Text style={styles.inspectedProjBrl}>
-                            {formatBrl((p.amountUsd || 0) * usdToBrlRate)}
+                            {formatBrl(pPay.netBrl)}
                           </Text>
                         </View>
                       </View>
@@ -854,8 +866,9 @@ export const DaleTabMobile: React.FC<DaleTabMobileProps> = ({
           </Text>
           {monthCompletedProjects.map((proj) => {
             const pSecs = getProjectTotalSeconds(proj, allCards, nowMs);
+            const pPay = getProjectPaymentBreakdown(proj, usdToBrlRate);
             const pHours = pSecs / 3600;
-            const pRateUsd = pHours > 0 ? (proj.amountUsd || 0) / pHours : 0;
+            const pRateUsd = pHours > 0 ? pPay.netUsd / pHours : 0;
 
             return (
               <View key={proj.id} style={styles.projectRowCard}>
@@ -867,6 +880,80 @@ export const DaleTabMobile: React.FC<DaleTabMobileProps> = ({
                         👤 {proj.clientName || 'Brody'}
                       </Text>
                     </View>
+                  </View>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 6,
+                      marginTop: 5,
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <Pressable
+                      onPress={() =>
+                        onUpdateProject({ ...proj, paymentMethod: 'wise' })
+                      }
+                      style={{
+                        paddingHorizontal: 7,
+                        paddingVertical: 2.5,
+                        borderRadius: 999,
+                        borderWidth: 1,
+                        borderColor:
+                          proj.paymentMethod === 'wise'
+                            ? '#10b981'
+                            : 'rgba(255,255,255,0.12)',
+                        backgroundColor:
+                          proj.paymentMethod === 'wise'
+                            ? 'rgba(16,185,129,0.22)'
+                            : 'rgba(255,255,255,0.05)',
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 9.5,
+                          fontWeight: '800',
+                          color:
+                            proj.paymentMethod === 'wise'
+                              ? '#6ee7b7'
+                              : '#94a3b8',
+                        }}
+                      >
+                        🟢 Wise (-0.33%)
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() =>
+                        onUpdateProject({ ...proj, paymentMethod: 'paypal' })
+                      }
+                      style={{
+                        paddingHorizontal: 7,
+                        paddingVertical: 2.5,
+                        borderRadius: 999,
+                        borderWidth: 1,
+                        borderColor:
+                          proj.paymentMethod === 'paypal'
+                            ? '#3b82f6'
+                            : 'rgba(255,255,255,0.12)',
+                        backgroundColor:
+                          proj.paymentMethod === 'paypal'
+                            ? 'rgba(59,130,246,0.22)'
+                            : 'rgba(255,255,255,0.05)',
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 9.5,
+                          fontWeight: '800',
+                          color:
+                            proj.paymentMethod === 'paypal'
+                              ? '#93c5fd'
+                              : '#94a3b8',
+                        }}
+                      >
+                        🔵 PayPal (-6.4%)
+                      </Text>
+                    </Pressable>
                   </View>
                   {proj.description ? (
                     <Text style={styles.projRowDesc}>{proj.description}</Text>
@@ -908,12 +995,17 @@ export const DaleTabMobile: React.FC<DaleTabMobileProps> = ({
                         style={styles.valueBadgeBtn}
                       >
                         <Text style={styles.valueBadgeUsd}>
-                          {formatUsd(proj.amountUsd || 0)} ✏️
+                          {formatUsd(pPay.netUsd)} ✏️
                         </Text>
                       </Pressable>
                       <Text style={styles.valueBadgeBrl}>
-                        {formatBrl((proj.amountUsd || 0) * usdToBrlRate)}
+                        {formatBrl(pPay.netBrl)}
                       </Text>
+                      {pPay.method && pPay.grossUsd > 0 && (
+                        <Text style={{ color: '#94a3b8', fontSize: 9, marginTop: 1 }}>
+                          Bruto: {formatUsd(pPay.grossUsd)} (-{pPay.feePercent}%)
+                        </Text>
+                      )}
                     </>
                   )}
 

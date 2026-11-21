@@ -28,6 +28,7 @@ import {
   UserBoardPayload,
   UserProfile,
   WorkProject,
+  ProjectPaymentMethod,
 } from './src/core/types';
 import {
   DEFAULT_CUSTOM_LABELS,
@@ -84,7 +85,10 @@ import {
 import { AuthModalMobile } from './src/components/AuthModalMobile';
 import { FriendsModalMobile } from './src/components/FriendsModalMobile';
 import { CardDetailSheet } from './src/components/CardDetailSheet';
-import { ProjectsTabMobile } from './src/components/ProjectsTabMobile';
+import {
+  ProjectsTabMobile,
+  getProjectMonthKey,
+} from './src/components/ProjectsTabMobile';
 import { DaleTabMobile } from './src/components/DaleTabMobile';
 import { ThemeSettingsModalMobile } from './src/components/ThemeSettingsModalMobile';
 
@@ -619,6 +623,7 @@ export default function App() {
     clientName: string;
     description?: string;
     amountUsd: number;
+    paymentMethod?: ProjectPaymentMethod;
     color?: string;
   }) => {
     const cleanClient = data.clientName.trim() || 'Brody';
@@ -629,8 +634,10 @@ export default function App() {
       clientName: cleanClient,
       description: data.description,
       amountUsd: data.amountUsd,
+      paymentMethod: data.paymentMethod || 'wise',
       color: data.color || '#a855f7',
       status: 'active',
+      order: 0,
       manualSeconds: 0,
       createdAt: new Date().toISOString(),
     };
@@ -644,10 +651,71 @@ export default function App() {
       )
         ? currentClients
         : [...currentClients, cleanClient];
+      const existingProjs = (prev.projects || []).map((p, idx) =>
+        p.boardId === activeBoard.id && p.status === 'active'
+          ? { ...p, order: (p.order ?? idx) + 1 }
+          : p
+      );
       return {
         ...prev,
         clients: nextClients,
-        projects: [newProj, ...(prev.projects || [])],
+        projects: [newProj, ...existingProjs],
+      };
+    });
+  };
+
+  const handleMoveProject = (
+    projectId: string,
+    direction: 'left' | 'right'
+  ) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    updateState((prev) => {
+      const allProjs = [...(prev.projects || [])];
+      const target = allProjs.find((p) => p.id === projectId);
+      if (!target) return prev;
+      const targetYm = getProjectMonthKey(target);
+      const isPeer = (p: WorkProject) =>
+        p.boardId === target.boardId &&
+        p.status === target.status &&
+        (target.status === 'active' || getProjectMonthKey(p) === targetYm);
+
+      const peers = allProjs
+        .filter(isPeer)
+        .sort((a, b) => {
+          if (a.order !== undefined && b.order !== undefined) {
+            return a.order - b.order;
+          }
+          if (target.status === 'completed') {
+            return (b.completedAt || '').localeCompare(a.completedAt || '');
+          }
+          return 0;
+        });
+
+      const fromIdx = peers.findIndex((p) => p.id === projectId);
+      if (fromIdx === -1) return prev;
+      const toIdx =
+        direction === 'left'
+          ? Math.max(0, fromIdx - 1)
+          : Math.min(peers.length - 1, fromIdx + 1);
+      if (fromIdx === toIdx) return prev;
+
+      const reorderedPeers = [...peers];
+      const [moved] = reorderedPeers.splice(fromIdx, 1);
+      reorderedPeers.splice(toIdx, 0, moved);
+
+      const orderedPeersList = reorderedPeers.map((p, idx) => ({
+        ...p,
+        order: idx,
+      }));
+      const peerIdSet = new Set(orderedPeersList.map((p) => p.id));
+      let peerCursor = 0;
+      const nextProjects = allProjs.map((p) =>
+        peerIdSet.has(p.id) ? orderedPeersList[peerCursor++] : p
+      );
+
+      return {
+        ...prev,
+        projects: nextProjects,
       };
     });
   };
@@ -1060,7 +1128,7 @@ export default function App() {
   const handleManualOtaCheck = async () => {
     try {
       if (__DEV__ || !Updates.isEnabled) {
-        Alert.alert('Neon v1.5.4', 'Você já está na versão mais recente (v1.5.4).');
+        Alert.alert('Neon v1.5.5', 'Você já está na versão mais recente (v1.5.5).');
         return;
       }
       const update = await Updates.checkForUpdateAsync();
@@ -1073,14 +1141,14 @@ export default function App() {
         await Updates.reloadAsync();
       } else {
         Alert.alert(
-          'Neon v1.5.4 Atualizado',
+          'Neon v1.5.5 Atualizado',
           'Seu aplicativo já está na versão mais recente!'
         );
       }
     } catch {
       Alert.alert(
-        'Neon v1.5.4',
-        'Versão atual: v1.5.4 (Sincronizada com PC).'
+        'Neon v1.5.5',
+        'Versão atual: v1.5.5 (Sincronizada com PC).'
       );
     }
   };
@@ -1202,7 +1270,7 @@ export default function App() {
               { borderColor: `${primaryColor}55` },
             ]}
           >
-            <Text style={styles.versionPillText}>v1.5.4</Text>
+            <Text style={styles.versionPillText}>v1.5.5</Text>
           </Pressable>
 
           <Pressable
@@ -1270,6 +1338,7 @@ export default function App() {
           onCompleteProject={handleCompleteProject}
           onRestoreProject={handleRestoreProject}
           onDeleteProject={handleDeleteProject}
+          onMoveProject={handleMoveProject}
           onAssignCardProject={handleAssignCardProject}
         />
       )}

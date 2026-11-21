@@ -64,6 +64,8 @@ export interface TaskCard {
   order: number;
 }
 
+export type ProjectPaymentMethod = 'paypal' | 'wise';
+
 export interface WorkProject {
   id: string;
   boardId: string;
@@ -71,6 +73,8 @@ export interface WorkProject {
   clientName: string;
   description?: string;
   amountUsd: number;
+  paymentMethod?: ProjectPaymentMethod; // 'paypal' (6.4% fee) or 'wise' (0.33% fee)
+  order?: number;
   status: 'active' | 'completed';
   manualSeconds?: number;
   color?: string;

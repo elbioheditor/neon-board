@@ -20,13 +20,77 @@ import {
   User,
   Users,
 } from 'lucide-react';
-import { TaskCard, WorkProject } from '../types';
+import {
+  ProjectPaymentMethod,
+  TaskCard,
+  WorkProject,
+} from '../types';
 import {
   formatDurationHuman,
   formatStopwatch,
   getBrasiliaYearMonth,
   getLiveElapsedSeconds,
 } from '../utils/timeUtils';
+
+export const PAYMENT_METHODS_INFO: Record<
+  ProjectPaymentMethod,
+  {
+    id: ProjectPaymentMethod;
+    label: string;
+    feePercent: number;
+  }
+> = {
+  paypal: {
+    id: 'paypal',
+    label: 'PayPal',
+    feePercent: 6.4,
+  },
+  wise: {
+    id: 'wise',
+    label: 'Wise',
+    feePercent: 0.33,
+  },
+};
+
+export function getProjectPaymentBreakdown(
+  project: WorkProject,
+  usdToBrlRate: number = 5.8
+): {
+  method: ProjectPaymentMethod | undefined;
+  methodLabel: string;
+  feePercent: number;
+  grossUsd: number;
+  feeUsd: number;
+  netUsd: number;
+  grossBrl: number;
+  feeBrl: number;
+  netBrl: number;
+} {
+  const grossUsd = Math.max(0, Number(project.amountUsd) || 0);
+  const method = project.paymentMethod;
+  const feePercent = method ? PAYMENT_METHODS_INFO[method].feePercent : 0;
+  const methodLabel = method ? PAYMENT_METHODS_INFO[method].label : 'Sem taxa';
+  const feeUsd = grossUsd * (feePercent / 100);
+  const netUsd = Math.max(0, grossUsd - feeUsd);
+  const grossBrl = grossUsd * usdToBrlRate;
+  const feeBrl = feeUsd * usdToBrlRate;
+  const netBrl = netUsd * usdToBrlRate;
+  return {
+    method,
+    methodLabel,
+    feePercent,
+    grossUsd,
+    feeUsd,
+    netUsd,
+    grossBrl,
+    feeBrl,
+    netBrl,
+  };
+}
+
+export function getProjectNetUsd(project: WorkProject): number {
+  return getProjectPaymentBreakdown(project, 1).netUsd;
+}
 
 export function formatUsd(amount: number): string {
   const safe = Number.isFinite(amount) ? amount : 0;
@@ -107,9 +171,14 @@ interface ProjectsViewProps {
     clientName: string;
     description?: string;
     amountUsd: number;
+    paymentMethod?: ProjectPaymentMethod;
     color?: string;
   }) => void;
   onUpdateProject: (updated: WorkProject) => void;
+  onMoveProject?: (
+    projectId: string,
+    directionOrTargetId: 'left' | 'right' | string
+  ) => void;
   onCompleteProject: (projectId: string) => void;
   onRestoreProject: (projectId: string) => void;
   onDeleteProject: (projectId: string) => void;
@@ -136,6 +205,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
   onDeleteClient,
   onCreateProject,
   onUpdateProject,
+  onMoveProject,
   onCompleteProject,
   onRestoreProject,
   onDeleteProject,
@@ -155,9 +225,16 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
     () => clients[0] || 'Brody'
   );
   const [newAmountUsd, setNewAmountUsd] = useState('');
+  const [newPaymentMethod, setNewPaymentMethod] =
+    useState<ProjectPaymentMethod>('wise');
   const [newDescription, setNewDescription] = useState('');
   const [newColor, setNewColor] = useState(PROJECT_COLORS[0]);
   const [isCreating, setIsCreating] = useState(false);
+
+  // Drag-over target card state for reordering projects left/right
+  const [dragOverProjectId, setDragOverProjectId] = useState<string | null>(
+    null
+  );
 
   // Client manager state
   const [isManagingClients, setIsManagingClients] = useState(false);
@@ -168,6 +245,8 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
   const [editTitle, setEditTitle] = useState('');
   const [editClientName, setEditClientName] = useState('');
   const [editAmountUsd, setEditAmountUsd] = useState('');
+  const [editPaymentMethod, setEditPaymentMethod] =
+    useState<ProjectPaymentMethod>('wise');
   const [editDescription, setEditDescription] = useState('');
   const [editColor, setEditColor] = useState(PROJECT_COLORS[0]);
 
@@ -310,7 +389,15 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
   );
 
   const activeProjects = useMemo(
-    () => boardProjects.filter((p) => p.status === 'active'),
+    () =>
+      boardProjects
+        .filter((p) => p.status === 'active')
+        .sort((a, b) => {
+          if (a.order !== undefined && b.order !== undefined) {
+            return a.order - b.order;
+          }
+          return 0;
+        }),
     [boardProjects]
   );
 
@@ -322,19 +409,27 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
             p.status === 'completed' &&
             getProjectMonthKey(p) === selectedYearMonth
         )
-        .sort((a, b) =>
-          (b.completedAt || '').localeCompare(a.completedAt || '')
-        ),
+        .sort((a, b) => {
+          if (a.order !== undefined && b.order !== undefined) {
+            return a.order - b.order;
+          }
+          return (b.completedAt || '').localeCompare(a.completedAt || '');
+        }),
     [boardProjects, selectedYearMonth]
   );
 
-  // Monthly financial & time metrics
+  // Monthly financial & time metrics (Net after PayPal 6.4% or Wise 0.33% fees, plus Gross & Fees breakdown)
   const monthlyMetrics = useMemo(() => {
     // Completed projects in selected month
-    const completedUsd = completedProjectsForMonth.reduce(
+    const completedGrossUsd = completedProjectsForMonth.reduce(
       (acc, p) => acc + (Number(p.amountUsd) || 0),
       0
     );
+    const completedUsd = completedProjectsForMonth.reduce(
+      (acc, p) => acc + getProjectPaymentBreakdown(p, usdToBrlRate).netUsd,
+      0
+    );
+    const completedFeeUsd = Math.max(0, completedGrossUsd - completedUsd);
     const completedBrl = completedUsd * usdToBrlRate;
 
     const completedSeconds = completedProjectsForMonth.reduce(
@@ -343,10 +438,15 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
     );
 
     // Active projects currently in progress
-    const activeUsd = activeProjects.reduce(
+    const activeGrossUsd = activeProjects.reduce(
       (acc, p) => acc + (Number(p.amountUsd) || 0),
       0
     );
+    const activeUsd = activeProjects.reduce(
+      (acc, p) => acc + getProjectPaymentBreakdown(p, usdToBrlRate).netUsd,
+      0
+    );
+    const activeFeeUsd = Math.max(0, activeGrossUsd - activeUsd);
     const activeBrl = activeUsd * usdToBrlRate;
 
     const activeSeconds = activeProjects.reduce(
@@ -355,29 +455,36 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
     );
 
     // Total earned in the month:
-    // Completed projects in the month are realized earnings; we also compute combined totals
     const totalSecondsInMonth = completedSeconds + activeSeconds;
     const totalHoursCompleted = completedSeconds / 3600;
     const totalHoursAll = totalSecondsInMonth / 3600;
 
-    // Average hourly rate ($/h and R$/h):
-    // If there are completed projects with tracked hours in the month, use completedUsd / totalHoursCompleted;
-    // otherwise if the user has active projects with tracked hours, calculate live hourly rate across projects with tracked time
+    // Average hourly rate ($/h and R$/h) using Net USD after payment fees:
     let avgHourlyUsd = 0;
     if (completedUsd > 0 && totalHoursCompleted > 0) {
       avgHourlyUsd = completedUsd / totalHoursCompleted;
     } else if (totalHoursAll > 0) {
-      const projectsWithHoursUsd = [...completedProjectsForMonth, ...activeProjects]
+      const projectsWithHoursUsd = [
+        ...completedProjectsForMonth,
+        ...activeProjects,
+      ]
         .filter((p) => getProjectTotalSeconds(p, boardCards, nowMs) > 0)
-        .reduce((acc, p) => acc + (Number(p.amountUsd) || 0), 0);
+        .reduce(
+          (acc, p) => acc + getProjectPaymentBreakdown(p, usdToBrlRate).netUsd,
+          0
+        );
       avgHourlyUsd = projectsWithHoursUsd / totalHoursAll;
     }
     const avgHourlyBrl = avgHourlyUsd * usdToBrlRate;
 
     return {
+      completedGrossUsd,
+      completedFeeUsd,
       completedUsd,
       completedBrl,
       completedSeconds,
+      activeGrossUsd,
+      activeFeeUsd,
       activeUsd,
       activeBrl,
       activeSeconds,
@@ -426,6 +533,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
       clientName: trimmedClient,
       description: newDescription.trim() || undefined,
       amountUsd: Math.max(0, parsedUsd),
+      paymentMethod: newPaymentMethod,
       color: newColor,
     });
     setNewTitle('');
@@ -434,12 +542,24 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
     setIsCreating(false);
   };
 
+  const handleSelectPaymentMethod = (
+    project: WorkProject,
+    method: ProjectPaymentMethod
+  ) => {
+    if (readOnly) return;
+    onUpdateProject({
+      ...project,
+      paymentMethod: method,
+    });
+  };
+
   const startEditing = (project: WorkProject) => {
     if (readOnly) return;
     setEditingId(project.id);
     setEditTitle(project.title);
     setEditClientName(project.clientName || 'Brody');
     setEditAmountUsd(String(project.amountUsd || 0));
+    setEditPaymentMethod(project.paymentMethod || 'wise');
     setEditDescription(project.description || '');
     setEditColor(project.color || PROJECT_COLORS[0]);
   };
@@ -456,6 +576,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
       clientName: trimmedClient,
       description: editDescription.trim() || undefined,
       amountUsd: Math.max(0, parsedUsd),
+      paymentMethod: editPaymentMethod,
       color: editColor,
     });
     setEditingId(null);
@@ -661,11 +782,11 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
 
       {/* Financial & Hourly Rate Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-        {/* Card 1: Ganhos no Mês (Concluídos) */}
+        {/* Card 1: Ganhos no Mês (Concluídos - Líquido após Taxas PayPal/Wise) */}
         <div className="p-4 rounded-2xl border border-emerald-500/35 bg-gradient-to-br from-emerald-950/35 via-[#0d091a]/90 to-[#0d091a]/90 shadow-lg">
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300/90">
-              Ganhos no Mês ({formattedMonthLabel})
+              Ganhos Líquidos ({formattedMonthLabel})
             </span>
             <DollarSign className="w-4 h-4 text-emerald-400" />
           </div>
@@ -680,13 +801,19 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
               {completedProjectsForMonth.length} concluído(s)
             </span>
           </div>
+          {monthlyMetrics.completedFeeUsd > 0 && (
+            <div className="mt-1 text-[10px] font-mono text-slate-400">
+              Bruto: {formatUsd(monthlyMetrics.completedGrossUsd)} • Taxas: -
+              {formatUsd(monthlyMetrics.completedFeeUsd)}
+            </div>
+          )}
         </div>
 
         {/* Card 2: Valor da Hora Média do Usuário */}
         <div className="p-4 rounded-2xl border border-cyan-500/35 bg-gradient-to-br from-cyan-950/35 via-[#0d091a]/90 to-[#0d091a]/90 shadow-lg">
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-300/90">
-              Valor da Hora Média
+              Valor da Hora Média (Líquido)
             </span>
             <TrendingUp className="w-4 h-4 text-cyan-400" />
           </div>
@@ -721,6 +848,12 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
               {activeProjects.length} ativo(s)
             </span>
           </div>
+          {monthlyMetrics.activeFeeUsd > 0 && (
+            <div className="mt-1 text-[10px] font-mono text-slate-400">
+              Bruto: {formatUsd(monthlyMetrics.activeGrossUsd)} • Taxas: -
+              {formatUsd(monthlyMetrics.activeFeeUsd)}
+            </div>
+          )}
         </div>
 
         {/* Card 4: Horas Contabilizadas em Projetos */}
@@ -825,7 +958,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
 
             <div>
               <label className="block text-[10px] font-bold uppercase tracking-wider text-emerald-300 mb-1">
-                Valor do Projeto (USD $) *
+                Valor Bruto do Projeto (USD $) *
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-emerald-400">
@@ -841,9 +974,42 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                   className="w-full pl-7 pr-3.5 py-2 rounded-xl bg-black/50 border border-emerald-500/35 text-sm font-mono text-emerald-200 placeholder-slate-500 focus:outline-none focus:border-emerald-400"
                 />
               </div>
+              <div className="flex items-center gap-1.5 mt-2">
+                <span className="text-[10px] text-slate-400 font-semibold">
+                  Pagamento:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setNewPaymentMethod('wise')}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                    newPaymentMethod === 'wise'
+                      ? 'bg-emerald-500/25 border-emerald-400 text-emerald-200 shadow-sm'
+                      : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  🟢 Wise (-0.33%)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewPaymentMethod('paypal')}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                    newPaymentMethod === 'paypal'
+                      ? 'bg-blue-500/25 border-blue-400 text-blue-200 shadow-sm'
+                      : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  🔵 PayPal (-6.4%)
+                </button>
+              </div>
               {newAmountUsd && !isNaN(parseFloat(newAmountUsd)) && (
-                <div className="text-[10px] text-emerald-400/90 font-mono mt-1">
-                  ≈ {formatBrl(parseFloat(newAmountUsd) * usdToBrlRate)}
+                <div className="text-[10px] text-emerald-400/90 font-mono mt-1.5">
+                  {(() => {
+                    const gross = Math.max(0, parseFloat(newAmountUsd) || 0);
+                    const feePct =
+                      PAYMENT_METHODS_INFO[newPaymentMethod].feePercent;
+                    const net = gross * (1 - feePct / 100);
+                    return `Líquido (${PAYMENT_METHODS_INFO[newPaymentMethod].label} -${feePct}%): ${formatUsd(net)} (≈ ${formatBrl(net * usdToBrlRate)})`;
+                  })()}
                 </div>
               )}
             </div>
@@ -919,7 +1085,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {activeProjects.map((project) => {
+            {activeProjects.map((project, projIdx) => {
               const linkedCards = boardCards.filter(
                 (c) => c.projectId === project.id
               );
@@ -931,10 +1097,18 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
               const hasRunningTimer = linkedCards.some(
                 (c) => c.status === 'in_progress'
               );
+              const paymentInfo = getProjectPaymentBreakdown(
+                project,
+                usdToBrlRate
+              );
               const hoursFloat = totalSecs / 3600;
               const effectiveUsdPerHour =
-                hoursFloat > 0 ? (project.amountUsd || 0) / hoursFloat : 0;
+                hoursFloat > 0 ? paymentInfo.netUsd / hoursFloat : 0;
               const isDragging = draggedProjectId === project.id;
+              const isDragTarget =
+                dragOverProjectId === project.id &&
+                draggedProjectId &&
+                draggedProjectId !== project.id;
               const isEditing = editingId === project.id;
               const accentColor = project.color || '#a855f7';
 
@@ -948,13 +1122,44 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                     editingValueProjectId !== project.id
                   }
                   onDragStart={(e) => onProjectDragStart(e, project.id)}
-                  onDragEnd={onProjectDragEnd}
+                  onDragEnd={() => {
+                    setDragOverProjectId(null);
+                    onProjectDragEnd();
+                  }}
+                  onDragOver={(e) => {
+                    if (draggedProjectId && draggedProjectId !== project.id) {
+                      e.preventDefault();
+                      if (dragOverProjectId !== project.id) {
+                        setDragOverProjectId(project.id);
+                      }
+                    }
+                  }}
+                  onDragLeave={() => {
+                    if (dragOverProjectId === project.id) {
+                      setDragOverProjectId(null);
+                    }
+                  }}
+                  onDrop={(e) => {
+                    if (
+                      draggedProjectId &&
+                      draggedProjectId !== project.id &&
+                      onMoveProject
+                    ) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setDragOverProjectId(null);
+                      onMoveProject(draggedProjectId, project.id);
+                      onProjectDragEnd();
+                    }
+                  }}
                   className={`group relative rounded-2xl border bg-[#0e0a1c]/90 backdrop-blur-xl p-4 neon-card-smooth animate-spring-pop flex flex-col justify-between ${
                     isDragging
                       ? 'opacity-40 scale-95 border-cyan-400'
-                      : hasRunningTimer
-                        ? 'border-cyan-400/80 shadow-[0_0_25px_rgba(6,182,212,0.25)]'
-                        : 'border-purple-500/30 hover:border-purple-400/60 hover:-translate-y-0.5 shadow-lg'
+                      : isDragTarget
+                        ? 'border-cyan-300 ring-2 ring-cyan-400/50 scale-[1.01]'
+                        : hasRunningTimer
+                          ? 'border-cyan-400/80 shadow-[0_0_25px_rgba(6,182,212,0.25)]'
+                          : 'border-purple-500/30 hover:border-purple-400/60 hover:-translate-y-0.5 shadow-lg'
                   } ${!readOnly && !isEditing && adjustingHoursProjectId !== project.id && editingValueProjectId !== project.id ? 'cursor-grab active:cursor-grabbing' : ''}`}
                   style={{
                     borderTopWidth: '3px',
@@ -1003,7 +1208,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                           </div>
                         )}
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs font-bold text-emerald-400">
                           USD $
                         </span>
@@ -1012,8 +1217,30 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                           step="0.01"
                           value={editAmountUsd}
                           onChange={(e) => setEditAmountUsd(e.target.value)}
-                          className="w-28 px-2.5 py-1 rounded-lg bg-black/60 border border-emerald-500/40 text-xs font-mono text-emerald-300"
+                          className="w-24 px-2.5 py-1 rounded-lg bg-black/60 border border-emerald-500/40 text-xs font-mono text-emerald-300"
                         />
+                        <button
+                          type="button"
+                          onClick={() => setEditPaymentMethod('wise')}
+                          className={`px-2 py-1 rounded-lg text-[10px] font-bold border cursor-pointer ${
+                            editPaymentMethod === 'wise'
+                              ? 'bg-emerald-500/25 border-emerald-400 text-emerald-200'
+                              : 'bg-white/5 border-white/10 text-slate-400'
+                          }`}
+                        >
+                          🟢 Wise (-0.33%)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditPaymentMethod('paypal')}
+                          className={`px-2 py-1 rounded-lg text-[10px] font-bold border cursor-pointer ${
+                            editPaymentMethod === 'paypal'
+                              ? 'bg-blue-500/25 border-blue-400 text-blue-200'
+                              : 'bg-white/5 border-white/10 text-slate-400'
+                          }`}
+                        >
+                          🔵 PayPal (-6.4%)
+                        </button>
                       </div>
                       <input
                         type="text"
@@ -1062,7 +1289,44 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                       <div>
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {/* Move Left / Right Buttons */}
+                              {!readOnly && onMoveProject && activeProjects.length > 1 && (
+                                <div className="inline-flex items-center gap-0.5 bg-black/50 border border-white/10 rounded-lg p-0.5 mr-0.5">
+                                  <button
+                                    type="button"
+                                    disabled={projIdx === 0}
+                                    onClick={() =>
+                                      onMoveProject(project.id, 'left')
+                                    }
+                                    className={`p-0.5 rounded transition-colors ${
+                                      projIdx === 0
+                                        ? 'text-slate-600 cursor-not-allowed'
+                                        : 'text-slate-300 hover:text-cyan-300 hover:bg-white/10 cursor-pointer'
+                                    }`}
+                                    title="Mover projeto mais para a esquerda"
+                                  >
+                                    <ChevronLeft className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={
+                                      projIdx === activeProjects.length - 1
+                                    }
+                                    onClick={() =>
+                                      onMoveProject(project.id, 'right')
+                                    }
+                                    className={`p-0.5 rounded transition-colors ${
+                                      projIdx === activeProjects.length - 1
+                                        ? 'text-slate-600 cursor-not-allowed'
+                                        : 'text-slate-300 hover:text-cyan-300 hover:bg-white/10 cursor-pointer'
+                                    }`}
+                                    title="Mover projeto mais para a direita"
+                                  >
+                                    <ChevronRight className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              )}
                               <span
                                 className="w-2.5 h-2.5 rounded-full shrink-0"
                                 style={{ backgroundColor: accentColor }}
@@ -1075,6 +1339,44 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                                 {project.clientName || 'Brody'}
                               </span>
                             </div>
+
+                            {/* 1-Click Payment Method Selector (Wise 0.33% vs PayPal 6.4%) */}
+                            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                              <span className="text-[10px] text-slate-400">
+                                Pagamento:
+                              </span>
+                              <button
+                                type="button"
+                                disabled={readOnly}
+                                onClick={() =>
+                                  handleSelectPaymentMethod(project, 'wise')
+                                }
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all ${
+                                  project.paymentMethod === 'wise'
+                                    ? 'bg-emerald-500/25 border-emerald-400 text-emerald-200 shadow-sm'
+                                    : 'bg-white/5 border-white/10 text-slate-400 hover:text-emerald-200 hover:border-emerald-400/40'
+                                } ${readOnly ? '' : 'cursor-pointer'}`}
+                                title="Marcar pagamento via Wise (taxa de 0.33%)"
+                              >
+                                🟢 Wise (-0.33%)
+                              </button>
+                              <button
+                                type="button"
+                                disabled={readOnly}
+                                onClick={() =>
+                                  handleSelectPaymentMethod(project, 'paypal')
+                                }
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all ${
+                                  project.paymentMethod === 'paypal'
+                                    ? 'bg-blue-500/25 border-blue-400 text-blue-200 shadow-sm'
+                                    : 'bg-white/5 border-white/10 text-slate-400 hover:text-blue-200 hover:border-blue-400/40'
+                                } ${readOnly ? '' : 'cursor-pointer'}`}
+                                title="Marcar pagamento via PayPal (taxa de 6.4%)"
+                              >
+                                🔵 PayPal (-6.4%)
+                              </button>
+                            </div>
+
                             {project.description && (
                               <p className="text-xs text-slate-400 mt-1 line-clamp-2">
                                 {project.description}
@@ -1156,17 +1458,21 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                                   title="Clique para mudar o valor ($) deste projeto"
                                 >
                                   <span>
-                                    {formatUsd(project.amountUsd || 0)}
+                                    {formatUsd(paymentInfo.netUsd)}
                                   </span>
                                   {!readOnly && (
                                     <Edit3 className="w-3 h-3 text-emerald-400/80" />
                                   )}
                                 </button>
                                 <div className="text-[10px] font-mono text-emerald-400/80 mt-0.5">
-                                  {formatBrl(
-                                    (project.amountUsd || 0) * usdToBrlRate
-                                  )}
+                                  {formatBrl(paymentInfo.netBrl)}
                                 </div>
+                                {paymentInfo.feePercent > 0 && (
+                                  <div className="text-[9px] font-mono text-slate-400 mt-0.5">
+                                    Bruto: {formatUsd(paymentInfo.grossUsd)} (-
+                                    {paymentInfo.feePercent}%)
+                                  </div>
+                                )}
                               </>
                             )}
                           </div>
@@ -1496,16 +1802,24 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
-            {completedProjectsForMonth.map((project) => {
+            {completedProjectsForMonth.map((project, compIdx) => {
               const totalSecs = getProjectTotalSeconds(
                 project,
                 boardCards,
                 nowMs
               );
+              const paymentInfo = getProjectPaymentBreakdown(
+                project,
+                usdToBrlRate
+              );
               const hoursFloat = totalSecs / 3600;
               const effectiveRateUsd =
-                hoursFloat > 0 ? (project.amountUsd || 0) / hoursFloat : 0;
+                hoursFloat > 0 ? paymentInfo.netUsd / hoursFloat : 0;
               const isDragging = draggedProjectId === project.id;
+              const isDragTarget =
+                dragOverProjectId === project.id &&
+                draggedProjectId &&
+                draggedProjectId !== project.id;
 
               return (
                 <div
@@ -1516,14 +1830,88 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                     editingValueProjectId !== project.id
                   }
                   onDragStart={(e) => onProjectDragStart(e, project.id)}
-                  onDragEnd={onProjectDragEnd}
+                  onDragEnd={() => {
+                    setDragOverProjectId(null);
+                    onProjectDragEnd();
+                  }}
+                  onDragOver={(e) => {
+                    if (draggedProjectId && draggedProjectId !== project.id) {
+                      e.preventDefault();
+                      if (dragOverProjectId !== project.id) {
+                        setDragOverProjectId(project.id);
+                      }
+                    }
+                  }}
+                  onDragLeave={() => {
+                    if (dragOverProjectId === project.id) {
+                      setDragOverProjectId(null);
+                    }
+                  }}
+                  onDrop={(e) => {
+                    if (
+                      draggedProjectId &&
+                      draggedProjectId !== project.id &&
+                      onMoveProject
+                    ) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setDragOverProjectId(null);
+                      onMoveProject(draggedProjectId, project.id);
+                      onProjectDragEnd();
+                    }
+                  }}
                   className={`p-4 rounded-2xl border border-emerald-500/30 bg-emerald-950/15 flex flex-col justify-between gap-3 transition-all ${
-                    isDragging ? 'opacity-40 scale-95 border-rose-400' : ''
+                    isDragging
+                      ? 'opacity-40 scale-95 border-rose-400'
+                      : isDragTarget
+                        ? 'border-cyan-300 ring-2 ring-cyan-400/50 scale-[1.01]'
+                        : ''
                   } ${!readOnly && adjustingHoursProjectId !== project.id && editingValueProjectId !== project.id ? 'cursor-grab active:cursor-grabbing' : ''}`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="flex items-center gap-1.5 flex-wrap">
+                        {/* Move Left / Right Buttons */}
+                        {!readOnly &&
+                          onMoveProject &&
+                          completedProjectsForMonth.length > 1 && (
+                            <div className="inline-flex items-center gap-0.5 bg-black/50 border border-white/10 rounded-lg p-0.5 mr-0.5">
+                              <button
+                                type="button"
+                                disabled={compIdx === 0}
+                                onClick={() =>
+                                  onMoveProject(project.id, 'left')
+                                }
+                                className={`p-0.5 rounded transition-colors ${
+                                  compIdx === 0
+                                    ? 'text-slate-600 cursor-not-allowed'
+                                    : 'text-slate-300 hover:text-cyan-300 hover:bg-white/10 cursor-pointer'
+                                }`}
+                                title="Mover projeto mais para a esquerda"
+                              >
+                                <ChevronLeft className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={
+                                  compIdx ===
+                                  completedProjectsForMonth.length - 1
+                                }
+                                onClick={() =>
+                                  onMoveProject(project.id, 'right')
+                                }
+                                className={`p-0.5 rounded transition-colors ${
+                                  compIdx ===
+                                  completedProjectsForMonth.length - 1
+                                    ? 'text-slate-600 cursor-not-allowed'
+                                    : 'text-slate-300 hover:text-cyan-300 hover:bg-white/10 cursor-pointer'
+                                }`}
+                                title="Mover projeto mais para a direita"
+                              >
+                                <ChevronRight className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
                         <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                         <h4 className="text-sm font-bold text-white">
                           {project.title}
@@ -1533,6 +1921,44 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                           {project.clientName || 'Brody'}
                         </span>
                       </div>
+
+                      {/* 1-Click Payment Method Selector (Wise 0.33% vs PayPal 6.4%) */}
+                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                        <span className="text-[10px] text-slate-400">
+                          Pagamento:
+                        </span>
+                        <button
+                          type="button"
+                          disabled={readOnly}
+                          onClick={() =>
+                            handleSelectPaymentMethod(project, 'wise')
+                          }
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all ${
+                            project.paymentMethod === 'wise'
+                              ? 'bg-emerald-500/25 border-emerald-400 text-emerald-200 shadow-sm'
+                              : 'bg-white/5 border-white/10 text-slate-400 hover:text-emerald-200 hover:border-emerald-400/40'
+                          } ${readOnly ? '' : 'cursor-pointer'}`}
+                          title="Marcar pagamento via Wise (taxa de 0.33%)"
+                        >
+                          🟢 Wise (-0.33%)
+                        </button>
+                        <button
+                          type="button"
+                          disabled={readOnly}
+                          onClick={() =>
+                            handleSelectPaymentMethod(project, 'paypal')
+                          }
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all ${
+                            project.paymentMethod === 'paypal'
+                              ? 'bg-blue-500/25 border-blue-400 text-blue-200 shadow-sm'
+                              : 'bg-white/5 border-white/10 text-slate-400 hover:text-blue-200 hover:border-blue-400/40'
+                          } ${readOnly ? '' : 'cursor-pointer'}`}
+                          title="Marcar pagamento via PayPal (taxa de 6.4%)"
+                        >
+                          🔵 PayPal (-6.4%)
+                        </button>
+                      </div>
+
                       {project.description && (
                         <p className="text-xs text-slate-400 mt-1">
                           {project.description}
@@ -1606,14 +2032,20 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                             }`}
                             title="Clique para mudar o valor ($) deste projeto"
                           >
-                            <span>{formatUsd(project.amountUsd || 0)}</span>
+                            <span>{formatUsd(paymentInfo.netUsd)}</span>
                             {!readOnly && (
                               <Edit3 className="w-3 h-3 text-emerald-400/80" />
                             )}
                           </button>
                           <div className="text-[10px] font-mono text-emerald-400/80 mt-0.5">
-                            {formatBrl((project.amountUsd || 0) * usdToBrlRate)}
+                            {formatBrl(paymentInfo.netBrl)}
                           </div>
+                          {paymentInfo.feePercent > 0 && (
+                            <div className="text-[9px] font-mono text-slate-400 mt-0.5">
+                              Bruto: {formatUsd(paymentInfo.grossUsd)} (-
+                              {paymentInfo.feePercent}%)
+                            </div>
+                          )}
                         </>
                       )}
                     </div>

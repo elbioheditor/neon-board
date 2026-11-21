@@ -61,10 +61,14 @@
   - O usuário pode alterar o valor (`amountUsd`) de qualquer projeto (tanto nos **Projetos Ativos** quanto nos **Projetos Concluídos no Mês** e na aba **Dale**) clicando diretamente no badge de valor **`$XX.XX ✏️`** ou em **`Mudar Valor ($)`**.
 - **Conclusão Arrastando para Baixo:**
   - Quando o usuário termina um projeto na aba **Projetos**, ele pode **arrastar o card do projeto para a barra inferior da tela** (zona verde de conclusão, igual ao Board) para finalizar o projeto no mês.
-- **Sistema Financeiro (`USD $` + Conversão `BRL R$`) e Hora Média:**
-  - Exibe quanto o usuário **ganhou no mês** em **Dólares (`$`)** e o **valor convertido em Reais (`R$`)** (busca cotação USD/BRL automática + permite edição manual).
-  - Calcula e exibe o **Valor da Hora Média do usuário (`$/h` e `R$/h`)** com base no valor dos projetos e nas horas trabalhadas.
-  - No fim do mês (e na aba **Dale**), exibe todos os projetos concluídos, horas contabilizadas em cada projeto e ganhos totais.
+- **Sistema Financeiro (`USD $` + Conversão `BRL R$`), Forma de Pagamento (`Wise 0.33%` vs `PayPal 6.4%`) e Hora Média:**
+  - Todo projeto permite selecionar ou alternar com 1 clique por qual **Forma de Pagamento** foi ou será pago: **`🟢 Wise (-0.33%)`** ou **`🔵 PayPal (-6.4%)`** (`paymentMethod?: 'paypal' | 'wise'`).
+  - O sistema desconta automaticamente a taxa escolhida (`6.4%` no PayPal ou `0.33%` na Wise) para mostrar o **Valor Líquido** em Dólares (`$`) e Reais (`R$`), além de exibir o valor `Bruto` e o percentual de taxa descontado (`-6.4%` / `-0.33%`).
+  - Exibe quanto o usuário **ganhou líquido no mês** em **Dólares (`$`)** e o **valor convertido em Reais (`R$`)** (busca cotação USD/BRL automática + permite edição manual), mostrando também o total bruto e taxas descontadas.
+  - Calcula e exibe o **Valor da Hora Média líquida do usuário (`$/h` e `R$/h`)** com base no valor líquido dos projetos e nas horas trabalhadas.
+  - No fim do mês (e na aba **Dale** + **`Graphs`**), exibe todos os projetos concluídos, forma de pagamento, horas contabilizadas em cada projeto e ganhos líquidos totais.
+- **Reordenação de Projetos Mais à Esquerda (`◀`) ou Mais à Direita (`▶`) e via Drag-and-Drop:**
+  - O usuário pode mudar qualquer projeto (ativo ou concluído) de local, colocando-o **mais à esquerda (`◀`)** ou **mais à direita (`▶`)** através dos botões `◀` e `▶` no próprio card do projeto, ou arrastando e soltando um projeto sobre outro no PC (`handleMoveProject` atualizando `order`).
 
 ### 2.5. Personalização de Cores Aplicada em TODAS as Páginas (Ao Lado da Versão)
 - Ao lado do indicador de versão (`vX.Y.Z`) no cabeçalho superior direito, há um botão de configurações (`Settings`) que abre o painel **Personalização de Cores** (`src/components/ThemeSettingsModal.tsx`).

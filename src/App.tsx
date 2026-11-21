@@ -35,6 +35,7 @@ import {
   TagColorItem,
   UserProfile,
   WorkProject,
+  ProjectPaymentMethod,
   ThemeColors,
 } from './types';
 import {
@@ -55,7 +56,7 @@ import { KanbanCard } from './components/KanbanCard';
 import { CardModal } from './components/CardModal';
 import { MonthlyHistoryView } from './components/MonthlyHistoryView';
 import { CalendarView } from './components/CalendarView';
-import { ProjectsView } from './components/ProjectsView';
+import { ProjectsView, getProjectMonthKey } from './components/ProjectsView';
 import {
   ThemeSettingsModal,
   applyThemeColorsToDocument,
@@ -1079,6 +1080,7 @@ export function App() {
     clientName: string;
     description?: string;
     amountUsd: number;
+    paymentMethod?: ProjectPaymentMethod;
     color?: string;
   }) => {
     const cleanClient = data.clientName.trim() || 'Brody';
@@ -1089,8 +1091,10 @@ export function App() {
       clientName: cleanClient,
       description: data.description,
       amountUsd: data.amountUsd,
+      paymentMethod: data.paymentMethod || 'wise',
       color: data.color || '#a855f7',
       status: 'active',
+      order: 0,
       manualSeconds: 0,
       createdAt: new Date().toISOString(),
     };
@@ -1101,10 +1105,75 @@ export function App() {
       )
         ? currentClients
         : [...currentClients, cleanClient];
+      const existingProjs = (prev.projects || []).map((p, idx) =>
+        p.boardId === activeBoard.id && p.status === 'active'
+          ? { ...p, order: (p.order ?? idx) + 1 }
+          : p
+      );
       return {
         ...prev,
         clients: nextClients,
-        projects: [newProj, ...(prev.projects || [])],
+        projects: [newProj, ...existingProjs],
+      };
+    });
+  };
+
+  const handleMoveProject = (
+    projectId: string,
+    directionOrTargetId: 'left' | 'right' | string
+  ) => {
+    updateState((prev) => {
+      const allProjs = [...(prev.projects || [])];
+      const target = allProjs.find((p) => p.id === projectId);
+      if (!target) return prev;
+      const targetYm = getProjectMonthKey(target);
+      const isPeer = (p: WorkProject) =>
+        p.boardId === target.boardId &&
+        p.status === target.status &&
+        (target.status === 'active' || getProjectMonthKey(p) === targetYm);
+
+      const peers = allProjs
+        .filter(isPeer)
+        .sort((a, b) => {
+          if (a.order !== undefined && b.order !== undefined) {
+            return a.order - b.order;
+          }
+          if (target.status === 'completed') {
+            return (b.completedAt || '').localeCompare(a.completedAt || '');
+          }
+          return 0;
+        });
+
+      const fromIdx = peers.findIndex((p) => p.id === projectId);
+      if (fromIdx === -1) return prev;
+      let toIdx = fromIdx;
+      if (directionOrTargetId === 'left') {
+        toIdx = Math.max(0, fromIdx - 1);
+      } else if (directionOrTargetId === 'right') {
+        toIdx = Math.min(peers.length - 1, fromIdx + 1);
+      } else {
+        const foundIdx = peers.findIndex((p) => p.id === directionOrTargetId);
+        if (foundIdx !== -1) toIdx = foundIdx;
+      }
+      if (fromIdx === toIdx) return prev;
+
+      const reorderedPeers = [...peers];
+      const [moved] = reorderedPeers.splice(fromIdx, 1);
+      reorderedPeers.splice(toIdx, 0, moved);
+
+      const orderedPeersList = reorderedPeers.map((p, idx) => ({
+        ...p,
+        order: idx,
+      }));
+      const peerIdSet = new Set(orderedPeersList.map((p) => p.id));
+      let peerCursor = 0;
+      const nextProjects = allProjs.map((p) =>
+        peerIdSet.has(p.id) ? orderedPeersList[peerCursor++] : p
+      );
+
+      return {
+        ...prev,
+        projects: nextProjects,
       };
     });
   };
@@ -2152,7 +2221,7 @@ export function App() {
   const isDraggingAnything = Boolean(draggedCardId || draggedListId);
   const isDidiUser = Boolean(currentUserProfile?.username?.toLowerCase().includes('didi'));
   const appBrandName = isDidiUser ? 'SHADOWJOKER' : (window.neonDesktop?.brandName || 'NEON');
-  const appVersion = window.neonDesktop?.version || '1.5.4';
+  const appVersion = window.neonDesktop?.version || '1.5.5';
 
   if (isCheckingAuth || isSyncingUserData) {
     return (
@@ -2695,6 +2764,7 @@ export function App() {
                 onCompleteProject={handleCompleteProject}
                 onRestoreProject={handleRestoreProject}
                 onDeleteProject={handleDeleteProject}
+                onMoveProject={handleMoveProject}
                 onAssignCardProject={handleAssignCardProject}
                 onProjectDragStart={handleProjectDragStart}
                 onProjectDragEnd={handleClearDragState}

@@ -30,6 +30,7 @@ import {
   formatBrl,
   getProjectTotalSeconds,
   getProjectMonthKey,
+  getProjectPaymentBreakdown,
 } from './ProjectsView';
 
 interface MonthlyHistoryViewProps {
@@ -211,11 +212,14 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
               boardFilter === 'all' ? true : p.boardId === boardFilter;
             return matchesMonth && matchesBoard;
           });
-    return sourceList.sort((a, b) =>
-      (b.completedAt || b.createdAt).localeCompare(
+    return sourceList.sort((a, b) => {
+      if (a.order !== undefined && b.order !== undefined) {
+        return a.order - b.order;
+      }
+      return (b.completedAt || b.createdAt).localeCompare(
         a.completedAt || a.createdAt
-      )
-    );
+      );
+    });
   }, [projects, selectedMonth, boardFilter]);
 
   // 12-Month Yearly Bar Chart Data for the "Graphs" tab
@@ -245,7 +249,7 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
       });
 
       const earnedUsd = mProjects.reduce(
-        (acc, p) => acc + (Number(p.amountUsd) || 0),
+        (acc, p) => acc + getProjectPaymentBreakdown(p, usdToBrlRate).netUsd,
         0
       );
       const earnedBrl = earnedUsd * usdToBrlRate;
@@ -277,7 +281,7 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
           totalUsd: 0,
         };
         existing.count += 1;
-        existing.totalUsd += Number(p.amountUsd) || 0;
+        existing.totalUsd += getProjectPaymentBreakdown(p, usdToBrlRate).netUsd;
         clientMap.set(key, existing);
       });
 
@@ -341,7 +345,7 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
 
   const monthProjectStats = useMemo(() => {
     const earnedUsd = monthCompletedProjects.reduce(
-      (acc, p) => acc + (Number(p.amountUsd) || 0),
+      (acc, p) => acc + getProjectPaymentBreakdown(p, usdToBrlRate).netUsd,
       0
     );
     const earnedBrl = earnedUsd * usdToBrlRate;
@@ -940,6 +944,10 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
                             allCards,
                             nowMs
                           );
+                          const pPayment = getProjectPaymentBreakdown(
+                            p,
+                            usdToBrlRate
+                          );
                           return (
                             <div
                               key={p.id}
@@ -949,19 +957,22 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
                                 <div className="font-bold text-white truncate">
                                   {p.title}
                                 </div>
-                                <div className="text-[10px] text-cyan-300 flex items-center gap-1.5">
+                                <div className="text-[10px] text-cyan-300 flex items-center gap-1.5 flex-wrap">
                                   <span>👤 {p.clientName || 'Brody'}</span>
                                   <span>• ⏱ {formatDurationHuman(pSecs)}</span>
+                                  {pPayment.method && (
+                                    <span className="text-[9px] text-slate-300">
+                                      • {pPayment.method === 'paypal' ? '🔵 PayPal (-6.4%)' : '🟢 Wise (-0.33%)'}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                               <div className="text-right shrink-0">
                                 <div className="font-mono font-bold text-emerald-300">
-                                  {formatUsd(p.amountUsd || 0)}
+                                  {formatUsd(pPayment.netUsd)}
                                 </div>
                                 <div className="text-[9px] font-mono text-emerald-400/80">
-                                  {formatBrl(
-                                    (p.amountUsd || 0) * usdToBrlRate
-                                  )}
+                                  {formatBrl(pPayment.netBrl)}
                                 </div>
                               </div>
                             </div>
@@ -996,8 +1007,13 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {monthCompletedProjects.map((proj) => {
               const pSecs = getProjectTotalSeconds(proj, allCards, nowMs);
+              const paymentInfo = getProjectPaymentBreakdown(
+                proj,
+                usdToBrlRate
+              );
               const pHours = pSecs / 3600;
-              const pRateUsd = pHours > 0 ? (proj.amountUsd || 0) / pHours : 0;
+              const pRateUsd =
+                pHours > 0 ? paymentInfo.netUsd / pHours : 0;
               return (
                 <div
                   key={proj.id}
@@ -1014,6 +1030,44 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
                         {proj.clientName || 'Brody'}
                       </span>
                     </div>
+
+                    {onUpdateProject && (
+                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                        <span className="text-[10px] text-slate-400">
+                          Pagamento:
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onUpdateProject({ ...proj, paymentMethod: 'wise' })
+                          }
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold border cursor-pointer transition-all ${
+                            proj.paymentMethod === 'wise'
+                              ? 'bg-emerald-500/25 border-emerald-400 text-emerald-200'
+                              : 'bg-white/5 border-white/10 text-slate-400 hover:text-emerald-200'
+                          }`}
+                        >
+                          🟢 Wise (-0.33%)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onUpdateProject({
+                              ...proj,
+                              paymentMethod: 'paypal',
+                            })
+                          }
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold border cursor-pointer transition-all ${
+                            proj.paymentMethod === 'paypal'
+                              ? 'bg-blue-500/25 border-blue-400 text-blue-200'
+                              : 'bg-white/5 border-white/10 text-slate-400 hover:text-blue-200'
+                          }`}
+                        >
+                          🔵 PayPal (-6.4%)
+                        </button>
+                      </div>
+                    )}
+
                     {proj.description && (
                       <p className="text-xs text-slate-400 mt-0.5 truncate">
                         {proj.description}
@@ -1079,14 +1133,20 @@ export const MonthlyHistoryView: React.FC<MonthlyHistoryViewProps> = ({
                           className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-400/35 text-sm font-mono font-extrabold text-emerald-300 cursor-pointer transition-all"
                           title="Clique para mudar o valor ($) deste projeto"
                         >
-                          <span>{formatUsd(proj.amountUsd || 0)}</span>
+                          <span>{formatUsd(paymentInfo.netUsd)}</span>
                           {onUpdateProject && (
                             <Edit3 className="w-3 h-3 text-emerald-400/80" />
                           )}
                         </button>
                         <div className="text-[11px] font-mono text-emerald-400/85 mt-0.5">
-                          {formatBrl((proj.amountUsd || 0) * usdToBrlRate)}
+                          {formatBrl(paymentInfo.netBrl)}
                         </div>
+                        {paymentInfo.feePercent > 0 && (
+                          <div className="text-[9px] font-mono text-slate-400 mt-0.5">
+                            Bruto: {formatUsd(paymentInfo.grossUsd)} (-
+                            {paymentInfo.feePercent}%)
+                          </div>
+                        )}
                       </>
                     )}
                     <div className="flex items-center justify-end gap-2 mt-1">

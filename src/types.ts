@@ -63,6 +63,8 @@ export interface TaskCard {
   order: number;
 }
 
+export type ProjectPaymentMethod = 'paypal' | 'wise';
+
 export interface WorkProject {
   id: string;
   boardId: string;
@@ -70,6 +72,8 @@ export interface WorkProject {
   clientName: string; // Required client name (e.g. "Brody")
   description?: string;
   amountUsd: number;
+  paymentMethod?: ProjectPaymentMethod; // 'paypal' (6.4% fee) or 'wise' (0.33% fee)
+  order?: number;
   status: 'active' | 'completed';
   manualSeconds?: number; // Accumulated seconds from deleted tasks or manual adjustments
   color?: string;
