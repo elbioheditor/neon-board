@@ -38,6 +38,7 @@ import {
   toggleLabelSelection,
 } from './src/core/labelsAndColors';
 import {
+  addMinutesToTime24h,
   buildRecurringTaskCards,
   clampEndTime,
   compareCardsByTimeOfDay,
@@ -45,6 +46,7 @@ import {
   formatShortDatePt,
   formatStopwatch,
   getBrasiliaNow,
+  getCurrentTime24h,
   getDayPeriodKey,
   getLiveElapsedSeconds,
   getTodayIsoDate,
@@ -91,6 +93,7 @@ import {
 } from './src/components/ProjectsTabMobile';
 import { DaleTabMobile } from './src/components/DaleTabMobile';
 import { ThemeSettingsModalMobile } from './src/components/ThemeSettingsModalMobile';
+import { TimeInput24hMobile } from './src/components/TimeInput24hMobile';
 
 const DEFAULT_RECURRENCE: RecurrenceConfig = {
   enabled: false,
@@ -1128,7 +1131,7 @@ export default function App() {
   const handleManualOtaCheck = async () => {
     try {
       if (__DEV__ || !Updates.isEnabled) {
-        Alert.alert('Neon v1.5.5', 'Você já está na versão mais recente (v1.5.5).');
+        Alert.alert('Neon v1.5.6', 'Você já está na versão mais recente (v1.5.6).');
         return;
       }
       const update = await Updates.checkForUpdateAsync();
@@ -1141,14 +1144,14 @@ export default function App() {
         await Updates.reloadAsync();
       } else {
         Alert.alert(
-          'Neon v1.5.5 Atualizado',
+          'Neon v1.5.6 Atualizado',
           'Seu aplicativo já está na versão mais recente!'
         );
       }
     } catch {
       Alert.alert(
-        'Neon v1.5.5',
-        'Versão atual: v1.5.5 (Sincronizada com PC).'
+        'Neon v1.5.6',
+        'Versão atual: v1.5.6 (Sincronizada com PC).'
       );
     }
   };
@@ -1270,7 +1273,7 @@ export default function App() {
               { borderColor: `${primaryColor}55` },
             ]}
           >
-            <Text style={styles.versionPillText}>v1.5.5</Text>
+            <Text style={styles.versionPillText}>v1.5.6</Text>
           </Pressable>
 
           <Pressable
@@ -1426,40 +1429,66 @@ export default function App() {
                 <View style={styles.inlineTimeRow}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.miniLabel}>Início</Text>
-                    <TextInput
-                      style={styles.miniInput}
+                    <TimeInput24hMobile
+                      label="Início da Tarefa"
                       value={newStart}
-                      onChangeText={(v) => {
+                      onChange={(v) => {
                         setNewStart(v);
                         setNewEnd((prevEnd) => syncEndTimeWithStart(v, prevEnd));
                       }}
-                      placeholder="09:00"
-                      placeholderTextColor="#64748b"
                     />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.miniLabel}>Fim</Text>
-                    <TextInput
-                      style={styles.miniInput}
+                    <TimeInput24hMobile
+                      label="Fim da Tarefa"
                       value={newEnd}
-                      onChangeText={(v) => setNewEnd(clampEndTime(newStart, v))}
-                      placeholder="10:00"
-                      placeholderTextColor="#64748b"
+                      onChange={(v) => setNewEnd(clampEndTime(newStart, v))}
                     />
                   </View>
-                  <View style={{ flex: 1.4 }}>
-                    <Text style={styles.miniLabel}>Tag</Text>
-                    <TextInput
-                      style={[
-                        styles.miniInput,
-                        { color: newTagColor, borderColor: newTagColor },
-                      ]}
-                      value={newTag}
-                      onChangeText={(t) => setNewTag(t.toUpperCase())}
-                      placeholder="EX: VÍDEO"
-                      placeholderTextColor="#64748b"
-                    />
+                  <View style={{ justifyContent: 'flex-end' }}>
+                    <Pressable
+                      onPress={() => {
+                        const exactNow = getCurrentTime24h();
+                        setNewStart(exactNow);
+                        setNewEnd(addMinutesToTime24h(exactNow, 60));
+                      }}
+                      style={{
+                        backgroundColor: 'rgba(34, 211, 238, 0.18)',
+                        borderWidth: 1,
+                        borderColor: '#22d3ee',
+                        borderRadius: 10,
+                        paddingHorizontal: 10,
+                        paddingVertical: 9,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: '#a5f3fc',
+                          fontSize: 11,
+                          fontWeight: '900',
+                        }}
+                      >
+                        ⚡ Agora
+                      </Text>
+                    </Pressable>
                   </View>
+                </View>
+
+                <View style={{ marginBottom: 8 }}>
+                  <Text style={styles.miniLabel}>Tag</Text>
+                  <TextInput
+                    style={[
+                      styles.miniInput,
+                      { color: newTagColor, borderColor: newTagColor },
+                    ]}
+                    value={newTag}
+                    onChangeText={(t) => setNewTag(t.toUpperCase())}
+                    placeholder="EX: VÍDEO"
+                    placeholderTextColor="#64748b"
+                  />
                 </View>
 
                 {/* Inline Tag Colors with Delete (×) on ALL colors */}

@@ -18,9 +18,13 @@
 
 ## 2. Decisões de Interface, Fluxo e Funcionalidades do NEON
 
-### 2.1. Sem Coluna Vertical de Horários na Aba Board (Removida em v1.5.1)
+### 2.1. Sem Coluna Vertical de Horários na Aba Board (Removida em v1.5.1) e Seletor de Horário 24h via Portal (`TimeInput24h`)
 - O usuário pediu para **remover completamente a coluna lateral de Horários** da aba **Board** (*"pode tirar esse novo negocio de horario pq ficou um lixo"*). O Board começa diretamente na pílula/coluna **Late** seguida de **Today**, **Tomorrow**, **This Week** e **Future**.
 - Manter os títulos originais das listas em inglês (`Today`, `Tomorrow`, `This Week`, `Future`, `+ Add a card`) e `Late` no lugar de `Yesterday`.
+- **Seletor de Horário (`TimeInput24h` no PC e `TimeInput24hMobile` no Mobile):**
+  - Deve sempre permitir selecionar o **Horário Exato Atual (`⚡ Agora (HH:MM)`)** com 1 clique (tanto dentro do seletor de horário quanto pelo botão **`⚡ Agora`** ao lado dos campos de horário).
+  - Deve exibir **todos os 60 minutos exatos (`:00` a `:59`)** além dos atalhos rápidos (`:00, :15, :30, :45`) tanto para o início quanto para o **fim da tarefa**.
+  - **Regra de UI obrigatória:** O popover do `TimeInput24h` é renderizado via `createPortal(..., document.body)` com coordenadas `fixed`, `z-[9999]` e ajuste automático de borda (`left` e `top` limitados ao viewport) para que a coluna de **Minutos** do horário de **fim da tarefa** jamais fique cortada ou invisível na borda direita da coluna!
 
 ### 2.2. Coluna `"Late"` (Antiga `"Yesterday"`) e Animação de Slide Lateral
 - A coluna de tarefas atrasadas chama-se **"Late"** (nunca `"Yesterday"`).

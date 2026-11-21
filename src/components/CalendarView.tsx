@@ -30,6 +30,8 @@ import {
 import {
   getBrasiliaNow,
   getTodayIsoDate,
+  getCurrentTime24h,
+  addMinutesToTime24h,
   compareCardsByTimeOfDay,
   getLiveElapsedSeconds,
   formatStopwatch,
@@ -502,12 +504,24 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               className="w-full bg-[#090612] border border-purple-500/30 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-pink-400"
             />
 
-            {/* Row 2: 24h Time Schedule on Left, Tag input on Right */}
-            <div className="flex items-center justify-between gap-2">
+            {/* Row 2: 24h Time Schedule on Left (+ Agora button), Tag input on Right */}
+            <div className="flex items-center justify-between gap-2 flex-wrap">
               <div className="flex items-center gap-1.5 flex-shrink-0">
                 <TimeInput24h value={newStart} onChange={handleStartChange} />
                 <span className="text-[10px] text-slate-400">até</span>
                 <TimeInput24h value={newEnd} onChange={handleEndChange} />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const exactNow = getCurrentTime24h();
+                    setNewStart(exactNow);
+                    setNewEnd(addMinutesToTime24h(exactNow, 60));
+                  }}
+                  title="Selecionar horário exato atual"
+                  className="inline-flex items-center gap-1 px-2 py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/30 border border-cyan-400/45 text-[10px] font-extrabold text-cyan-200 hover:text-white transition-all cursor-pointer"
+                >
+                  <span>⚡ Agora</span>
+                </button>
               </div>
 
               <input

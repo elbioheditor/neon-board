@@ -29,6 +29,8 @@ import {
   formatStopwatch,
   resolveSyncedListIdForDate,
   getTodayIsoDate,
+  getCurrentTime24h,
+  addMinutesToTime24h,
   syncEndTimeWithStart,
   clampEndTime,
 } from '../utils/timeUtils';
@@ -388,6 +390,17 @@ export const CardModal: React.FC<CardModalProps> = ({
 
             {/* Quick Presets */}
             <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  const exactNow = getCurrentTime24h();
+                  applyTimePreset(exactNow, addMinutesToTime24h(exactNow, 60));
+                }}
+                className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded bg-cyan-500/25 hover:bg-cyan-500/40 text-cyan-200 border border-cyan-400/50 transition-colors cursor-pointer"
+                title="Definir com o horário exato de agora"
+              >
+                ⚡ Agora ({getCurrentTime24h()})
+              </button>
               {[
                 { label: '09:00 - 11:00', s: '09:00', e: '11:00' },
                 { label: '14:00 - 16:00', s: '14:00', e: '16:00' },

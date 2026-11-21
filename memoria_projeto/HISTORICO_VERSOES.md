@@ -1,5 +1,12 @@
 # Histórico de Versões e Atualizações — NEON
 
+## v1.5.6 (2026-11-21)
+- **Selecionar Horário Exato Atual (`⚡ Agora`) em Qualquer Tarefa**: adicionado botão **`⚡ Agora (HH:MM)`** dentro do seletor de horários e ao lado dos campos de horário (no Board, Calendário, Modal de Tarefa e Mobile) para preencher instantaneamente com a hora e minuto exatos atuais.
+- **Correção da Visibilidade e Seleção dos Minutos no Fim da Tarefa (`TimeInput24h` via Portal + Todos os 60 Minutos `:00` a `:59`)**:
+  - O seletor `TimeInput24h` agora é renderizado via `createPortal(..., document.body)` com posicionamento inteligente na tela (`fixed z-[9999]`), impedindo que a coluna de **Minutos** do campo de **fim da tarefa** seja cortada pela borda direita da coluna no Board/Calendário.
+  - Adicionados **todos os 60 minutos (`:00` a `:59`)** + atalhos rápidos (`:00, :15, :30, :45`) para que qualquer minuto exato possa ser selecionado tanto no início quanto no fim da tarefa (PC e Mobile).
+  - Ajuste inteligente em `syncEndTimeWithStart` e `clampEndTime` para preservar o minuto escolhido pelo usuário no horário final.
+
 ## v1.5.5 (2026-11-21)
 - **Sistema de Forma de Pagamento por Projeto (`Wise -0.33%` e `PayPal -6.4%`)**:
   - Opção de marcar com 1 clique (tanto ao criar/editar projeto quanto diretamente nos cards de projetos ativos, concluídos e na aba **Dale**) por qual forma de pagamento o projeto foi ou vai ser pago: **`🟢 Wise (-0.33%)`** ou **`🔵 PayPal (-6.4%)`**.

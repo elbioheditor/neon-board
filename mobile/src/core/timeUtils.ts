@@ -150,22 +150,51 @@ export function getDayPeriodKey(startTime?: string): DayPeriodKey {
   return 'night';
 }
 
+export function getCurrentTime24h(): string {
+  const br = getBrasiliaNow();
+  const h = String(br.getHours()).padStart(2, '0');
+  const m = String(br.getMinutes()).padStart(2, '0');
+  return `${h}:${m}`;
+}
+
+export function addMinutesToTime24h(timeStr: string, deltaMinutes: number): string {
+  const baseMin = timeToMinutes(timeStr);
+  if (baseMin === 9999) return timeStr;
+  const total = Math.max(0, Math.min(23 * 60 + 59, baseMin + deltaMinutes));
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
 export function syncEndTimeWithStart(newStart: string, currentEnd: string): string {
   if (!newStart) return currentEnd;
-  if (!currentEnd) return newStart;
+  if (!currentEnd) return addMinutesToTime24h(newStart, 60);
   const startMin = timeToMinutes(newStart);
   const endMin = timeToMinutes(currentEnd);
-  if (startMin !== 9999 && endMin !== 9999 && startMin > endMin) {
-    return newStart;
+  if (startMin !== 9999 && endMin !== 9999 && startMin >= endMin) {
+    return addMinutesToTime24h(newStart, 60);
   }
   return currentEnd;
 }
 
 export function clampEndTime(currentStart: string, newEnd: string): string {
   if (!currentStart || !newEnd) return newEnd;
+  if (!/^([01]\d|2[0-3]):([0-5]\d)$/.test(newEnd)) return newEnd;
   const startMin = timeToMinutes(currentStart);
   const endMin = timeToMinutes(newEnd);
   if (startMin !== 9999 && endMin !== 9999 && endMin < startMin) {
+    const startH = Math.floor(startMin / 60);
+    const endH = Math.floor(endMin / 60);
+    const endM = endMin % 60;
+    if (endH <= startH) {
+      const candidateSameHourMin = startH * 60 + endM;
+      if (candidateSameHourMin >= startMin) {
+        return `${String(startH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+      }
+      if (startH < 23) {
+        return `${String(startH + 1).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+      }
+    }
     return currentStart;
   }
   return newEnd;

@@ -187,28 +187,66 @@ export const PERIOD_ZONE_STYLES: Record<
 };
 
 /**
- * When startTime changes (e.g. from 09:00 to 11:00 while endTime was 10:00),
- * automatically sets endTime = newStartTime if newStartTime > currentEndTime.
+ * Returns the exact current time in Brasília in "HH:MM" 24h format (e.g. "20:14").
+ */
+export function getCurrentTime24h(): string {
+  const br = getBrasiliaNow();
+  const h = String(br.getHours()).padStart(2, '0');
+  const m = String(br.getMinutes()).padStart(2, '0');
+  return `${h}:${m}`;
+}
+
+/**
+ * Adds deltaMinutes to a "HH:MM" time string, clamped between 00:00 and 23:59.
+ */
+export function addMinutesToTime24h(timeStr: string, deltaMinutes: number): string {
+  const baseMin = timeToMinutes(timeStr);
+  if (baseMin === 9999) return timeStr;
+  const total = Math.max(0, Math.min(23 * 60 + 59, baseMin + deltaMinutes));
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+/**
+ * When startTime changes (e.g. from 09:00 to 20:15 while endTime was 10:00),
+ * automatically advances endTime to +1h after newStartTime (clamped to 23:59) if newStartTime >= currentEndTime.
  */
 export function syncEndTimeWithStart(newStart: string, currentEnd: string): string {
   if (!newStart) return currentEnd;
-  if (!currentEnd) return newStart;
+  if (!currentEnd) return addMinutesToTime24h(newStart, 60);
   const startMin = timeToMinutes(newStart);
   const endMin = timeToMinutes(currentEnd);
-  if (startMin !== 9999 && endMin !== 9999 && startMin > endMin) {
-    return newStart;
+  if (startMin !== 9999 && endMin !== 9999 && startMin >= endMin) {
+    return addMinutesToTime24h(newStart, 60);
   }
   return currentEnd;
 }
 
 /**
- * When endTime changes, ensures it is not earlier than startTime.
+ * When endTime changes, ensures it is not earlier than startTime while preserving
+ * the user's selected minute on endTime whenever possible.
  */
 export function clampEndTime(currentStart: string, newEnd: string): string {
   if (!currentStart || !newEnd) return newEnd;
+  if (!/^([01]\d|2[0-3]):([0-5]\d)$/.test(newEnd)) return newEnd;
   const startMin = timeToMinutes(currentStart);
   const endMin = timeToMinutes(newEnd);
   if (startMin !== 9999 && endMin !== 9999 && endMin < startMin) {
+    const startH = Math.floor(startMin / 60);
+    const endH = Math.floor(endMin / 60);
+    const endM = endMin % 60;
+    // If the user picked a minute on the same hour as startTime (or an earlier hour),
+    // keep their selected minute (:endM) and bump the hour to startH + 1 (if possible)
+    if (endH <= startH) {
+      const candidateSameHourMin = startH * 60 + endM;
+      if (candidateSameHourMin >= startMin) {
+        return `${String(startH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+      }
+      if (startH < 23) {
+        return `${String(startH + 1).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+      }
+    }
     return currentStart;
   }
   return newEnd;

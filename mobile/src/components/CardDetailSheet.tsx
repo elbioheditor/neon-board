@@ -18,7 +18,9 @@ import {
   WorkProject,
 } from '../core/types';
 import {
+  addMinutesToTime24h,
   formatStopwatch,
+  getCurrentTime24h,
   getLiveElapsedSeconds,
   resolveSyncedListIdForDate,
   syncEndTimeWithStart,
@@ -28,6 +30,7 @@ import {
   sanitizeCardLabels,
   toggleLabelSelection,
 } from '../core/labelsAndColors';
+import { TimeInput24hMobile } from './TimeInput24hMobile';
 
 interface CardDetailSheetProps {
   card: TaskCard | null;
@@ -335,44 +338,71 @@ export const CardDetailSheet: React.FC<CardDetailSheetProps> = ({
             <View style={styles.row2Col}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.fieldLabel}>Início (24h)</Text>
-                <TextInput
-                  style={styles.smallInput}
+                <TimeInput24hMobile
+                  label="Início da Tarefa"
                   value={startTime}
-                  onChangeText={setStartTime}
-                  onBlur={() => {
-                    const nextEnd = syncEndTimeWithStart(startTime, endTime);
+                  onChange={(val) => {
+                    const nextEnd = syncEndTimeWithStart(val, endTime);
+                    setStartTime(val);
                     setEndTime(nextEnd);
-                    saveField({ startTime, endTime: nextEnd });
+                    saveField({ startTime: val, endTime: nextEnd });
                   }}
-                  placeholder="09:00"
-                  placeholderTextColor="#64748b"
                 />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.fieldLabel}>Término (24h)</Text>
-                <TextInput
-                  style={styles.smallInput}
+                <TimeInput24hMobile
+                  label="Fim da Tarefa"
                   value={endTime}
-                  onChangeText={setEndTime}
-                  onBlur={() => {
-                    const clamped = clampEndTime(startTime, endTime);
+                  onChange={(val) => {
+                    const clamped = clampEndTime(startTime, val);
                     setEndTime(clamped);
                     saveField({ endTime: clamped });
                   }}
-                  placeholder="10:00"
-                  placeholderTextColor="#64748b"
                 />
               </View>
-              <View style={{ flex: 1.3 }}>
-                <Text style={styles.fieldLabel}>Data (AAAA-MM-DD)</Text>
-                <TextInput
-                  style={styles.smallInput}
-                  value={scheduledDate}
-                  onChangeText={handleDateChange}
-                  placeholder="2026-10-23"
-                  placeholderTextColor="#64748b"
-                />
+              <View style={{ justifyContent: 'flex-end' }}>
+                <Pressable
+                  onPress={() => {
+                    const exactNow = getCurrentTime24h();
+                    const nextEnd = addMinutesToTime24h(exactNow, 60);
+                    setStartTime(exactNow);
+                    setEndTime(nextEnd);
+                    saveField({ startTime: exactNow, endTime: nextEnd });
+                  }}
+                  style={{
+                    backgroundColor: 'rgba(34, 211, 238, 0.2)',
+                    borderWidth: 1,
+                    borderColor: '#22d3ee',
+                    borderRadius: 10,
+                    paddingHorizontal: 10,
+                    paddingVertical: 10,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: '#a5f3fc',
+                      fontSize: 11,
+                      fontWeight: '900',
+                    }}
+                  >
+                    ⚡ Agora
+                  </Text>
+                </Pressable>
               </View>
+            </View>
+
+            <View style={{ marginBottom: 12 }}>
+              <Text style={styles.fieldLabel}>Data (AAAA-MM-DD)</Text>
+              <TextInput
+                style={styles.smallInput}
+                value={scheduledDate}
+                onChangeText={handleDateChange}
+                placeholder="2026-11-21"
+                placeholderTextColor="#64748b"
+              />
             </View>
 
             {/* Category Tag & Tag Colors */}

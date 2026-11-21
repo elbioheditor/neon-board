@@ -109,6 +109,8 @@ import {
   isFutureListTitle,
   isStandardDateSyncedList,
   getEndOfWeekIsoDate,
+  getCurrentTime24h,
+  addMinutesToTime24h,
   syncEndTimeWithStart,
   clampEndTime,
   getDayPeriodKey,
@@ -2221,7 +2223,7 @@ export function App() {
   const isDraggingAnything = Boolean(draggedCardId || draggedListId);
   const isDidiUser = Boolean(currentUserProfile?.username?.toLowerCase().includes('didi'));
   const appBrandName = isDidiUser ? 'SHADOWJOKER' : (window.neonDesktop?.brandName || 'NEON');
-  const appVersion = window.neonDesktop?.version || '1.5.5';
+  const appVersion = window.neonDesktop?.version || '1.5.6';
 
   if (isCheckingAuth || isSyncingUserData) {
     return (
@@ -3043,19 +3045,34 @@ export function App() {
                             className="w-full bg-[#070412] border-2 border-cyan-400 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-cyan-300 shadow-sm"
                           />
 
-                          {/* 24h Schedule Hours Row with Auto-Synced End Time */}
-                          <div className="flex items-center justify-between gap-1.5">
-                            <TimeInput24h
-                              value={newCardStart}
-                              onChange={handleInlineStartChange}
-                            />
-                            <span className="text-xs font-semibold text-slate-400 px-1">
-                              até
-                            </span>
-                            <TimeInput24h
-                              value={newCardEnd}
-                              onChange={handleInlineEndChange}
-                            />
+                          {/* 24h Schedule Hours Row with Auto-Synced End Time + 1-Click Exact Current Time */}
+                          <div className="flex items-center justify-between gap-1.5 flex-wrap">
+                            <div className="flex items-center gap-1.5">
+                              <TimeInput24h
+                                value={newCardStart}
+                                onChange={handleInlineStartChange}
+                              />
+                              <span className="text-xs font-semibold text-slate-400 px-0.5">
+                                até
+                              </span>
+                              <TimeInput24h
+                                value={newCardEnd}
+                                onChange={handleInlineEndChange}
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const exactNow = getCurrentTime24h();
+                                setNewCardStart(exactNow);
+                                setNewCardEnd(addMinutesToTime24h(exactNow, 60));
+                              }}
+                              title="Definir início com o horário exato atual"
+                              className="inline-flex items-center gap-1 px-2 py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/30 border border-cyan-400/45 text-[10px] font-extrabold text-cyan-200 hover:text-white transition-all cursor-pointer"
+                            >
+                              <Zap className="w-3 h-3 text-cyan-300" />
+                              <span>Agora</span>
+                            </button>
                           </div>
 
                           {/* Date + Category Tag Row */}
