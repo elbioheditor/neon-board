@@ -14,6 +14,7 @@ import {
   Briefcase,
   Check,
   X,
+  Plus,
 } from 'lucide-react';
 import { TaskCard, CustomLabel, WorkProject } from '../types';
 import { resolveLabelInfo, sanitizeCardLabels } from '../data/initialData';
@@ -36,6 +37,11 @@ interface KanbanCardProps {
   onOpenModal: (card: TaskCard) => void;
   onToggleTimer: (e: React.MouseEvent, cardId: string) => void;
   onResetTimer?: (cardId: string) => void;
+  onAdjustTimer?: (
+    cardId: string,
+    mode: 'add' | 'set',
+    secondsValue: number
+  ) => void;
   onAssignProject?: (cardId: string, projectId: string | undefined) => void;
   onCompleteCard: (e: React.MouseEvent, cardId: string) => void;
   onDragStart: (e: React.DragEvent, cardId: string) => void;
@@ -52,6 +58,7 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
   onOpenModal,
   onToggleTimer,
   onResetTimer,
+  onAdjustTimer,
   onAssignProject,
   onCompleteCard,
   onDragStart,
@@ -65,6 +72,96 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
   }>({ left: 0, bottom: 0 });
   const projBtnRef = useRef<HTMLButtonElement | null>(null);
   const projMenuRef = useRef<HTMLDivElement | null>(null);
+
+  const [showTimeMenu, setShowTimeMenu] = useState(false);
+  const [timeMenuPos, setTimeMenuPos] = useState<{
+    left: number;
+    top?: number;
+    bottom?: number;
+  }>({ left: 0, bottom: 0 });
+  const [hoursInputH, setHoursInputH] = useState('');
+  const [hoursInputM, setHoursInputM] = useState('');
+  const timeBtnRef = useRef<HTMLButtonElement | null>(null);
+  const timeMenuRef = useRef<HTMLDivElement | null>(null);
+
+  const isSubtractingTime =
+    hoursInputH.trim().startsWith('-') || hoursInputM.trim().startsWith('-');
+
+  useEffect(() => {
+    if (!showTimeMenu) return;
+    const handleOutside = (ev: MouseEvent) => {
+      const target = ev.target as Node;
+      if (
+        timeMenuRef.current?.contains(target) ||
+        timeBtnRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setShowTimeMenu(false);
+    };
+    const handleScrollOrResize = () => setShowTimeMenu(false);
+    window.addEventListener('mousedown', handleOutside);
+    window.addEventListener('resize', handleScrollOrResize);
+    window.addEventListener('scroll', handleScrollOrResize, true);
+    return () => {
+      window.removeEventListener('mousedown', handleOutside);
+      window.removeEventListener('resize', handleScrollOrResize);
+      window.removeEventListener('scroll', handleScrollOrResize, true);
+    };
+  }, [showTimeMenu]);
+
+  const openTimePopoverFromEl = (el: HTMLElement | null) => {
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const menuWidth = 268;
+    const left = Math.max(
+      12,
+      Math.min(
+        window.innerWidth - menuWidth - 12,
+        rect.left + rect.width / 2 - menuWidth / 2
+      )
+    );
+    if (rect.top > 250) {
+      setTimeMenuPos({
+        left,
+        bottom: window.innerHeight - rect.top + 8,
+      });
+    } else {
+      setTimeMenuPos({
+        left,
+        top: rect.bottom + 8,
+      });
+    }
+    setHoursInputH('');
+    setHoursInputM('');
+    setShowTimeMenu(true);
+  };
+
+  const handleApplyAddOrSubtractTime = () => {
+    if (!onAdjustTimer) return;
+    const rawH = hoursInputH.trim();
+    const rawM = hoursInputM.trim();
+    const isNeg = rawH.startsWith('-') || rawM.startsWith('-');
+    const absH = Math.abs(parseFloat(rawH.replace(',', '.')) || 0);
+    const absM = Math.abs(parseFloat(rawM.replace(',', '.')) || 0);
+    const totalSecs = Math.round(absH * 3600 + absM * 60);
+    if (totalSecs === 0) return;
+    onAdjustTimer(card.id, 'add', isNeg ? -totalSecs : totalSecs);
+    setHoursInputH('');
+    setHoursInputM('');
+    setShowTimeMenu(false);
+  };
+
+  const handleApplySetTotalTime = () => {
+    if (!onAdjustTimer) return;
+    const h = Math.max(0, parseFloat(hoursInputH.replace(',', '.')) || 0);
+    const m = Math.max(0, parseFloat(hoursInputM.replace(',', '.')) || 0);
+    const targetSecs = Math.round(h * 3600 + m * 60);
+    onAdjustTimer(card.id, 'set', targetSecs);
+    setHoursInputH('');
+    setHoursInputM('');
+    setShowTimeMenu(false);
+  };
 
   useEffect(() => {
     if (!showProjectMenu) return;
@@ -200,6 +297,19 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
             <span>{formatStopwatch(liveSeconds)}</span>
           </div>
           <div className="flex items-center gap-1.5">
+            {onAdjustTimer && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openTimePopoverFromEl(e.currentTarget);
+                }}
+                title="Adicionar ou ajustar horas e minutos caso tenha esquecido de despausar"
+                className="px-1.5 py-0.5 rounded bg-cyan-500/20 hover:bg-cyan-500/35 border border-cyan-400/45 text-[9px] font-sans font-extrabold text-cyan-200 hover:text-white transition-colors cursor-pointer"
+              >
+                + Tempo
+              </button>
+            )}
             <span className="text-[9px] font-sans uppercase tracking-wider px-1.5 py-0.5 rounded bg-black/35">
               {isInProgress ? 'Cronometrando...' : 'Pausado'}
             </span>
@@ -292,7 +402,7 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
           )}
         </div>
 
-        {/* Right Side: Project Attribution Icon + Start / Pause / Resume Button + Reset Button + Owner Avatar */}
+        {/* Right Side: Project Attribution Icon + Add Hours/Minutes Icon + Start / Pause / Resume Button + Reset Button + Owner Avatar */}
         <div className="relative flex items-center gap-1.5 ml-auto">
           {onResetTimer && (liveSeconds > 0 || isPaused || isInProgress) && (
             <button
@@ -306,6 +416,164 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
             >
               <RotateCcw className="w-3 h-3" />
             </button>
+          )}
+
+          {/* Add / Adjust Hours & Minutes on Task Button */}
+          {onAdjustTimer && (
+            <div className="relative">
+              <button
+                ref={timeBtnRef}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (showTimeMenu) {
+                    setShowTimeMenu(false);
+                  } else {
+                    openTimePopoverFromEl(timeBtnRef.current);
+                  }
+                }}
+                title="Adicionar ou ajustar horas e minutos na tarefa (caso tenha esquecido de despausar)"
+                className={`px-1.5 py-1 rounded-full border text-[9px] font-extrabold transition-all cursor-pointer flex items-center gap-0.5 ${
+                  showTimeMenu
+                    ? 'bg-cyan-500/30 text-cyan-200 border-cyan-400'
+                    : 'bg-black/35 text-slate-300 hover:text-cyan-200 hover:bg-cyan-500/20 border-white/20'
+                }`}
+              >
+                <Plus className="w-2.5 h-2.5" />
+                <Timer className="w-2.5 h-2.5" />
+              </button>
+
+              {showTimeMenu &&
+                typeof document !== 'undefined' &&
+                createPortal(
+                  <div
+                    ref={timeMenuRef}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      position: 'fixed',
+                      left: `${timeMenuPos.left}px`,
+                      top:
+                        timeMenuPos.top !== undefined
+                          ? `${timeMenuPos.top}px`
+                          : undefined,
+                      bottom:
+                        timeMenuPos.bottom !== undefined
+                          ? `${timeMenuPos.bottom}px`
+                          : undefined,
+                      width: '268px',
+                    }}
+                    className="z-[9999] rounded-2xl border border-cyan-400/55 bg-[#0d091a]/98 shadow-[0_18px_50px_rgba(0,0,0,0.95)] p-3 space-y-2.5 animate-popover-up select-none backdrop-blur-2xl"
+                  >
+                    <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-cyan-300 flex items-center gap-1.5">
+                        <Timer className="w-3.5 h-3.5 text-cyan-400" />
+                        Adicionar / Ajustar Tempo
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowTimeMenu(false)}
+                        className="text-slate-400 hover:text-white p-0.5 rounded hover:bg-white/10 cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between px-2 py-1 rounded-lg bg-white/[0.04] border border-white/5 text-[11px]">
+                      <span className="text-slate-400">Tempo atual:</span>
+                      <span className="font-mono font-bold text-cyan-300">
+                        {formatStopwatch(liveSeconds)}
+                      </span>
+                    </div>
+
+                    {/* Quick 1-Click Add Presets */}
+                    <div>
+                      <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                        Adicionar rápido com 1 clique:
+                      </div>
+                      <div className="grid grid-cols-5 gap-1">
+                        {[
+                          { label: '+15m', secs: 15 * 60 },
+                          { label: '+30m', secs: 30 * 60 },
+                          { label: '+45m', secs: 45 * 60 },
+                          { label: '+1h', secs: 3600 },
+                          { label: '+2h', secs: 7200 },
+                        ].map((preset) => (
+                          <button
+                            key={preset.label}
+                            type="button"
+                            onClick={() => {
+                              onAdjustTimer(card.id, 'add', preset.secs);
+                              setShowTimeMenu(false);
+                            }}
+                            className="py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/30 border border-cyan-400/35 text-[10px] font-mono font-extrabold text-cyan-200 hover:text-white transition-colors cursor-pointer"
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Custom Hours & Minutes Inputs */}
+                    <div className="space-y-1.5 pt-1 border-t border-white/10">
+                      <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                        Horas e minutos personalizados:
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <div className="flex items-center gap-1 bg-[#140d26] border border-purple-500/40 rounded-lg px-2 py-1">
+                          <input
+                            type="number"
+                            step="1"
+                            value={hoursInputH}
+                            onChange={(e) => setHoursInputH(e.target.value)}
+                            placeholder="0 (ou -1)"
+                            className="w-full bg-transparent text-xs font-mono text-white focus:outline-none"
+                          />
+                          <span className="text-[10px] font-bold text-slate-400">
+                            h
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 bg-[#140d26] border border-purple-500/40 rounded-lg px-2 py-1">
+                          <input
+                            type="number"
+                            step="1"
+                            value={hoursInputM}
+                            onChange={(e) => setHoursInputM(e.target.value)}
+                            placeholder="30 (ou -15)"
+                            className="w-full bg-transparent text-xs font-mono text-white focus:outline-none"
+                          />
+                          <span className="text-[10px] font-bold text-slate-400">
+                            min
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 pt-0.5">
+                        <button
+                          type="button"
+                          onClick={handleApplyAddOrSubtractTime}
+                          className={`flex-1 py-1.5 rounded-lg text-[10px] font-extrabold border transition-all cursor-pointer ${
+                            isSubtractingTime
+                              ? 'bg-rose-500/25 hover:bg-rose-500/40 text-rose-200 border-rose-400/50'
+                              : 'bg-purple-500/30 hover:bg-purple-500/45 text-purple-100 border-purple-400/50'
+                          }`}
+                        >
+                          {isSubtractingTime
+                            ? '- Subtrair Tempo'
+                            : '+ Somar Tempo'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleApplySetTotalTime}
+                          className="flex-1 py-1.5 rounded-lg bg-cyan-500/25 hover:bg-cyan-500/40 text-cyan-200 border border-cyan-400/50 text-[10px] font-extrabold transition-all cursor-pointer"
+                        >
+                          = Definir Total
+                        </button>
+                      </div>
+                    </div>
+                  </div>,
+                  document.body
+                )}
+            </div>
           )}
 
           {/* Project Attribution Icon Button right next to INICIAR */}

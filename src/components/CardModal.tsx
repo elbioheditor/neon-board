@@ -116,12 +116,67 @@ export const CardModal: React.FC<CardModalProps> = ({
   const [showAddColor, setShowAddColor] = useState(false);
   const [newCustomColor, setNewCustomColor] = useState('#06b6d4');
 
+  // UI state for adding / subtracting / setting hours & minutes on the task stopwatch
+  const [isAdjustingTime, setIsAdjustingTime] = useState(false);
+  const [adjustHoursInput, setAdjustHoursInput] = useState('');
+  const [adjustMinutesInput, setAdjustMinutesInput] = useState('');
+  const isSubtractingTime =
+    adjustHoursInput.trim().startsWith('-') ||
+    adjustMinutesInput.trim().startsWith('-');
+
   const isInProgress = card.status === 'in_progress';
   const isPaused = card.status === 'paused';
   const liveSeconds = getLiveElapsedSeconds(card, nowMs);
 
   const saveField = (patch: Partial<TaskCard>) => {
     onUpdateCard({ ...card, ...patch });
+  };
+
+  const applyTimeAdjustment = (mode: 'add' | 'set', secondsValue: number) => {
+    const currentNow = Date.now();
+    const currentElapsed = getLiveElapsedSeconds(card, currentNow);
+    const nextElapsed =
+      mode === 'add'
+        ? Math.max(0, currentElapsed + secondsValue)
+        : Math.max(0, secondsValue);
+
+    let nextStatus = card.status;
+    if (card.status === 'todo' && nextElapsed > 0) {
+      nextStatus = 'paused';
+    } else if (card.status === 'paused' && nextElapsed === 0) {
+      nextStatus = 'todo';
+    }
+
+    onUpdateCard({
+      ...card,
+      status: nextStatus,
+      elapsedSeconds: nextElapsed,
+      timerStartedAt: card.status === 'in_progress' ? currentNow : undefined,
+    });
+  };
+
+  const handleApplyCustomAddOrSubtract = () => {
+    const rawH = adjustHoursInput.trim();
+    const rawM = adjustMinutesInput.trim();
+    const isNeg = rawH.startsWith('-') || rawM.startsWith('-');
+    const absH = Math.abs(parseFloat(rawH.replace(',', '.')) || 0);
+    const absM = Math.abs(parseFloat(rawM.replace(',', '.')) || 0);
+    const totalSecs = Math.round(absH * 3600 + absM * 60);
+    if (totalSecs === 0) return;
+    applyTimeAdjustment('add', isNeg ? -totalSecs : totalSecs);
+    setAdjustHoursInput('');
+    setAdjustMinutesInput('');
+    setIsAdjustingTime(false);
+  };
+
+  const handleApplyCustomSetTotal = () => {
+    const h = Math.max(0, parseFloat(adjustHoursInput.replace(',', '.')) || 0);
+    const m = Math.max(0, parseFloat(adjustMinutesInput.replace(',', '.')) || 0);
+    const targetSecs = Math.round(h * 3600 + m * 60);
+    applyTimeAdjustment('set', targetSecs);
+    setAdjustHoursInput('');
+    setAdjustMinutesInput('');
+    setIsAdjustingTime(false);
   };
 
   const handleStartTimeChange = (newStart: string) => {
@@ -274,91 +329,184 @@ export const CardModal: React.FC<CardModalProps> = ({
 
         {/* CRONÔMETRO DE EDIÇÃO / TAREFA & FINALIZAÇÃO */}
         <div
-          className={`flex flex-wrap items-center justify-between gap-4 p-4 rounded-xl border mb-5 transition-all ${
+          className={`p-4 rounded-xl border mb-5 transition-all ${
             isInProgress
               ? 'bg-[#171130] border-cyan-400/60 shadow-lg shadow-cyan-500/15'
               : 'bg-[#150e2a] border-purple-500/25'
           }`}
         >
-          <div className="flex items-center gap-3.5">
-            <div
-              className={`p-2.5 rounded-xl border ${
-                isInProgress
-                  ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-300'
-                  : isPaused
-                  ? 'bg-amber-500/20 border-amber-400/50 text-amber-300'
-                  : 'bg-purple-500/15 border-purple-400/30 text-purple-300'
-              }`}
-            >
-              <Timer className={`w-6 h-6 ${isInProgress ? 'animate-pulse' : ''}`} />
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div
+                className={`p-2.5 rounded-xl border ${
+                  isInProgress
+                    ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-300'
+                    : isPaused
+                    ? 'bg-amber-500/20 border-amber-400/50 text-amber-300'
+                    : 'bg-purple-500/15 border-purple-400/30 text-purple-300'
+                }`}
+              >
+                <Timer className={`w-6 h-6 ${isInProgress ? 'animate-pulse' : ''}`} />
+              </div>
+
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                  Cronômetro da Tarefa{' '}
+                  {isInProgress
+                    ? '• RODANDO AO VIVO'
+                    : isPaused
+                    ? '• PAUSADO'
+                    : '• PRONTO'}
+                </div>
+                <div className="text-2xl font-mono font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-fuchsia-300 to-purple-300">
+                  {formatStopwatch(liveSeconds)}
+                </div>
+              </div>
             </div>
 
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                Cronômetro da Tarefa{' '}
-                {isInProgress
-                  ? '• RODANDO AO VIVO'
-                  : isPaused
-                  ? '• PAUSADO'
-                  : '• PRONTO'}
-              </div>
-              <div className="text-2xl font-mono font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-fuchsia-300 to-purple-300">
-                {formatStopwatch(liveSeconds)}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => onToggleTimer(null, card.id)}
-              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                isInProgress
-                  ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 shadow-lg shadow-amber-500/25'
-                  : 'bg-gradient-to-r from-fuchsia-600 to-cyan-500 text-white shadow-lg shadow-cyan-500/25'
-              }`}
-            >
-              {isInProgress ? (
-                <>
-                  <Pause className="w-4 h-4 fill-current" />
-                  <span>Pausar Cronômetro</span>
-                </>
-              ) : isPaused || liveSeconds > 0 ? (
-                <>
-                  <Play className="w-4 h-4 fill-current" />
-                  <span>Despausar / Retomar</span>
-                </>
-              ) : (
-                <>
-                  <Play className="w-4 h-4 fill-current" />
-                  <span>Iniciar Cronômetro</span>
-                </>
-              )}
-            </button>
-
-            {liveSeconds > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() => onResetTimer(card.id)}
-                title="Zerar cronômetro"
-                className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10 transition-colors cursor-pointer"
+                onClick={() => setIsAdjustingTime((v) => !v)}
+                title="Adicionar ou ajustar horas e minutos caso tenha esquecido de despausar"
+                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                  isAdjustingTime
+                    ? 'bg-cyan-500/25 border-cyan-400 text-cyan-200'
+                    : 'bg-white/5 hover:bg-cyan-500/15 border-cyan-400/35 text-cyan-200 hover:text-white'
+                }`}
               >
-                <RotateCcw className="w-4 h-4" />
+                <Plus className="w-3.5 h-3.5" />
+                <span>Horas / Minutos</span>
               </button>
-            )}
 
-            <button
-              type="button"
-              onClick={() => {
-                onCompleteCard(card.id);
-                onClose();
-              }}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 shadow-lg shadow-cyan-500/25 transition-all cursor-pointer"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>Finalizar Tarefa</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => onToggleTimer(null, card.id)}
+                className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  isInProgress
+                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 shadow-lg shadow-amber-500/25'
+                    : 'bg-gradient-to-r from-fuchsia-600 to-cyan-500 text-white shadow-lg shadow-cyan-500/25'
+                }`}
+              >
+                {isInProgress ? (
+                  <>
+                    <Pause className="w-4 h-4 fill-current" />
+                    <span>Pausar Cronômetro</span>
+                  </>
+                ) : isPaused || liveSeconds > 0 ? (
+                  <>
+                    <Play className="w-4 h-4 fill-current" />
+                    <span>Despausar / Retomar</span>
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4 fill-current" />
+                    <span>Iniciar Cronômetro</span>
+                  </>
+                )}
+              </button>
+
+              {liveSeconds > 0 && (
+                <button
+                  type="button"
+                  onClick={() => onResetTimer(card.id)}
+                  title="Zerar cronômetro"
+                  className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10 transition-colors cursor-pointer"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  onCompleteCard(card.id);
+                  onClose();
+                }}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 shadow-lg shadow-cyan-500/25 transition-all cursor-pointer"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Finalizar Tarefa</span>
+              </button>
+            </div>
           </div>
+
+          {/* Expandable Add / Subtract / Set Hours & Minutes Panel */}
+          {isAdjustingTime && (
+            <div className="mt-3.5 pt-3.5 border-t border-white/10 space-y-3 animate-drawer-open">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-cyan-300">
+                  ⏱ Esqueceu de despausar? Adicione ou ajuste horas e minutos na tarefa:
+                </span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {[
+                    { label: '+15m', secs: 15 * 60 },
+                    { label: '+30m', secs: 30 * 60 },
+                    { label: '+45m', secs: 45 * 60 },
+                    { label: '+1h', secs: 3600 },
+                    { label: '+2h', secs: 7200 },
+                  ].map((p) => (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => applyTimeAdjustment('add', p.secs)}
+                      className="px-2.5 py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/30 border border-cyan-400/40 text-xs font-mono font-bold text-cyan-200 hover:text-white transition-colors cursor-pointer"
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1.5 bg-[#090612] border border-purple-500/40 rounded-xl px-3 py-1.5">
+                  <input
+                    type="number"
+                    step="1"
+                    value={adjustHoursInput}
+                    onChange={(e) => setAdjustHoursInput(e.target.value)}
+                    placeholder="0 (ou -1)"
+                    className="w-20 bg-transparent text-xs font-mono text-white focus:outline-none"
+                  />
+                  <span className="text-xs font-bold text-slate-400">horas</span>
+                </div>
+
+                <div className="flex items-center gap-1.5 bg-[#090612] border border-purple-500/40 rounded-xl px-3 py-1.5">
+                  <input
+                    type="number"
+                    step="1"
+                    value={adjustMinutesInput}
+                    onChange={(e) => setAdjustMinutesInput(e.target.value)}
+                    placeholder="30 (ou -15)"
+                    className="w-24 bg-transparent text-xs font-mono text-white focus:outline-none"
+                  />
+                  <span className="text-xs font-bold text-slate-400">minutos</span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleApplyCustomAddOrSubtract}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                    isSubtractingTime
+                      ? 'bg-rose-500/25 hover:bg-rose-500/40 text-rose-200 border-rose-400/50'
+                      : 'bg-purple-500/30 hover:bg-purple-500/45 text-purple-100 border-purple-400/50'
+                  }`}
+                >
+                  {isSubtractingTime
+                    ? '- Subtrair Tempo'
+                    : '+ Somar Horas / Min'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleApplyCustomSetTotal}
+                  className="px-3.5 py-1.5 rounded-xl bg-cyan-500/25 hover:bg-cyan-500/40 text-cyan-200 border border-cyan-400/50 text-xs font-bold transition-all cursor-pointer"
+                >
+                  = Definir Total
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Grid: Horários (24h) & Responsável / Tag */}

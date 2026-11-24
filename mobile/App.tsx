@@ -125,6 +125,11 @@ export default function App() {
   const [linkingCardIdForProject, setLinkingCardIdForProject] = useState<
     string | null
   >(null);
+  const [adjustingTimeCardId, setAdjustingTimeCardId] = useState<string | null>(
+    null
+  );
+  const [quickAdjustHours, setQuickAdjustHours] = useState('');
+  const [quickAdjustMinutes, setQuickAdjustMinutes] = useState('');
   const [isThemeModalOpen, setIsThemeModalOpen] = useState<boolean>(false);
 
   // Auth & Friends
@@ -864,6 +869,40 @@ export default function App() {
     }));
   };
 
+  const handleAdjustCardTimer = (
+    cardId: string,
+    mode: 'add' | 'set',
+    secondsValue: number
+  ) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    const now = Date.now();
+    setNowMs(now);
+    updateState((prev) => ({
+      ...prev,
+      cards: prev.cards.map((c) => {
+        if (c.id !== cardId) return c;
+        const currentElapsed = getLiveElapsedSeconds(c, now);
+        const nextElapsed =
+          mode === 'add'
+            ? Math.max(0, currentElapsed + secondsValue)
+            : Math.max(0, secondsValue);
+        let nextStatus = c.status;
+        if (c.status === 'todo' && nextElapsed > 0) {
+          nextStatus = 'paused';
+        } else if (c.status === 'paused' && nextElapsed === 0) {
+          nextStatus = 'todo';
+        }
+        return {
+          ...c,
+          status: nextStatus,
+          elapsedSeconds: nextElapsed,
+          timerStartedAt: c.status === 'in_progress' ? now : undefined,
+          updatedAt: now,
+        };
+      }),
+    }));
+  };
+
   const handleCompleteCard = (cardId: string) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
       () => {}
@@ -1131,7 +1170,7 @@ export default function App() {
   const handleManualOtaCheck = async () => {
     try {
       if (__DEV__ || !Updates.isEnabled) {
-        Alert.alert('Neon v1.5.6', 'Você já está na versão mais recente (v1.5.6).');
+        Alert.alert('Neon v1.5.7', 'Você já está na versão mais recente (v1.5.7).');
         return;
       }
       const update = await Updates.checkForUpdateAsync();
@@ -1144,14 +1183,14 @@ export default function App() {
         await Updates.reloadAsync();
       } else {
         Alert.alert(
-          'Neon v1.5.6 Atualizado',
+          'Neon v1.5.7 Atualizado',
           'Seu aplicativo já está na versão mais recente!'
         );
       }
     } catch {
       Alert.alert(
-        'Neon v1.5.6',
-        'Versão atual: v1.5.6 (Sincronizada com PC).'
+        'Neon v1.5.7',
+        'Versão atual: v1.5.7 (Sincronizada com PC).'
       );
     }
   };
@@ -1273,7 +1312,7 @@ export default function App() {
               { borderColor: `${primaryColor}55` },
             ]}
           >
-            <Text style={styles.versionPillText}>v1.5.6</Text>
+            <Text style={styles.versionPillText}>v1.5.7</Text>
           </Pressable>
 
           <Pressable
@@ -1757,6 +1796,33 @@ export default function App() {
                         <Pressable
                           onPress={(e) => {
                             e.stopPropagation();
+                            setQuickAdjustHours('');
+                            setQuickAdjustMinutes('');
+                            setAdjustingTimeCardId(card.id);
+                          }}
+                          style={{
+                            paddingHorizontal: 8,
+                            paddingVertical: 5,
+                            borderRadius: 999,
+                            borderWidth: 1,
+                            borderColor: 'rgba(34, 211, 238, 0.45)',
+                            backgroundColor: 'rgba(34, 211, 238, 0.14)',
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: '#a5f3fc',
+                              fontSize: 10.5,
+                              fontWeight: '900',
+                            }}
+                          >
+                            +⏱
+                          </Text>
+                        </Pressable>
+
+                        <Pressable
+                          onPress={(e) => {
+                            e.stopPropagation();
                             handleToggleTimer(card.id);
                           }}
                           style={[
@@ -2064,6 +2130,290 @@ export default function App() {
         onUpdateThemeColors={handleUpdateThemeColors}
         onClose={() => setIsThemeModalOpen(false)}
       />
+
+      {/* Quick Task Time Adjustment Modal (+⏱ on Card) */}
+      <Modal
+        visible={!!adjustingTimeCardId}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAdjustingTimeCardId(null)}
+      >
+        <View style={styles.projectModalOverlay}>
+          <View
+            style={[
+              styles.projectModalBox,
+              { borderColor: secondaryColor },
+            ]}
+          >
+            {(() => {
+              const targetCard = state.cards.find(
+                (c) => c.id === adjustingTimeCardId
+              );
+              const currentSecs = targetCard
+                ? getLiveElapsedSeconds(targetCard, nowMs)
+                : 0;
+              const isNeg =
+                quickAdjustHours.trim().startsWith('-') ||
+                quickAdjustMinutes.trim().startsWith('-');
+
+              return (
+                <>
+                  <View style={styles.projectModalHeader}>
+                    <Text style={styles.projectModalTitle}>
+                      ⏱ ADICIONAR / AJUSTAR TEMPO
+                    </Text>
+                    <Pressable onPress={() => setAdjustingTimeCardId(null)}>
+                      <Text style={styles.projectModalClose}>✕</Text>
+                    </Pressable>
+                  </View>
+
+                  {targetCard && (
+                    <Text
+                      style={{
+                        color: '#cbd5e1',
+                        fontSize: 12,
+                        fontWeight: '700',
+                        marginBottom: 8,
+                      }}
+                      numberOfLines={1}
+                    >
+                      Tarefa: {targetCard.title} • Atual:{' '}
+                      {formatStopwatch(currentSecs)}
+                    </Text>
+                  )}
+
+                  <Text
+                    style={{
+                      color: '#67e8f9',
+                      fontSize: 10.5,
+                      fontWeight: '800',
+                      marginBottom: 6,
+                    }}
+                  >
+                    Adicionar rápido com 1 toque:
+                  </Text>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      gap: 6,
+                      flexWrap: 'wrap',
+                      marginBottom: 12,
+                    }}
+                  >
+                    {[
+                      { label: '+15m', secs: 15 * 60 },
+                      { label: '+30m', secs: 30 * 60 },
+                      { label: '+45m', secs: 45 * 60 },
+                      { label: '+1h', secs: 3600 },
+                      { label: '+2h', secs: 7200 },
+                    ].map((p) => (
+                      <Pressable
+                        key={p.label}
+                        onPress={() => {
+                          if (targetCard) {
+                            handleAdjustCardTimer(targetCard.id, 'add', p.secs);
+                          }
+                          setAdjustingTimeCardId(null);
+                        }}
+                        style={{
+                          backgroundColor: 'rgba(34, 211, 238, 0.16)',
+                          borderWidth: 1,
+                          borderColor: 'rgba(34, 211, 238, 0.45)',
+                          borderRadius: 8,
+                          paddingHorizontal: 10,
+                          paddingVertical: 6,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: '#a5f3fc',
+                            fontSize: 11,
+                            fontWeight: '800',
+                          }}
+                        >
+                          {p.label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+
+                  <Text
+                    style={{
+                      color: '#94a3b8',
+                      fontSize: 10.5,
+                      fontWeight: '800',
+                      marginBottom: 6,
+                    }}
+                  >
+                    Horas e minutos personalizados:
+                  </Text>
+                  <View
+                    style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}
+                  >
+                    <View
+                      style={{
+                        flex: 1,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        backgroundColor: '#07050d',
+                        borderWidth: 1,
+                        borderColor: 'rgba(168, 85, 247, 0.45)',
+                        borderRadius: 10,
+                        paddingHorizontal: 10,
+                      }}
+                    >
+                      <TextInput
+                        style={{
+                          flex: 1,
+                          color: '#ffffff',
+                          fontSize: 13,
+                          fontWeight: '700',
+                          paddingVertical: 8,
+                        }}
+                        placeholder="0 (ou -1)"
+                        placeholderTextColor="#64748b"
+                        value={quickAdjustHours}
+                        onChangeText={setQuickAdjustHours}
+                        keyboardType="numbers-and-punctuation"
+                      />
+                      <Text
+                        style={{
+                          color: '#94a3b8',
+                          fontSize: 11,
+                          fontWeight: '800',
+                        }}
+                      >
+                        h
+                      </Text>
+                    </View>
+
+                    <View
+                      style={{
+                        flex: 1,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        backgroundColor: '#07050d',
+                        borderWidth: 1,
+                        borderColor: 'rgba(168, 85, 247, 0.45)',
+                        borderRadius: 10,
+                        paddingHorizontal: 10,
+                      }}
+                    >
+                      <TextInput
+                        style={{
+                          flex: 1,
+                          color: '#ffffff',
+                          fontSize: 13,
+                          fontWeight: '700',
+                          paddingVertical: 8,
+                        }}
+                        placeholder="30 (ou -15)"
+                        placeholderTextColor="#64748b"
+                        value={quickAdjustMinutes}
+                        onChangeText={setQuickAdjustMinutes}
+                        keyboardType="numbers-and-punctuation"
+                      />
+                      <Text
+                        style={{
+                          color: '#94a3b8',
+                          fontSize: 11,
+                          fontWeight: '800',
+                        }}
+                      >
+                        min
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <Pressable
+                      onPress={() => {
+                        if (!targetCard) return;
+                        const rawH = quickAdjustHours.trim();
+                        const rawM = quickAdjustMinutes.trim();
+                        const neg =
+                          rawH.startsWith('-') || rawM.startsWith('-');
+                        const absH = Math.abs(
+                          parseFloat(rawH.replace(',', '.')) || 0
+                        );
+                        const absM = Math.abs(
+                          parseFloat(rawM.replace(',', '.')) || 0
+                        );
+                        const totalSecs = Math.round(absH * 3600 + absM * 60);
+                        if (totalSecs > 0) {
+                          handleAdjustCardTimer(
+                            targetCard.id,
+                            'add',
+                            neg ? -totalSecs : totalSecs
+                          );
+                        }
+                        setAdjustingTimeCardId(null);
+                      }}
+                      style={{
+                        flex: 1,
+                        backgroundColor: isNeg
+                          ? 'rgba(244, 63, 94, 0.25)'
+                          : 'rgba(168, 85, 247, 0.3)',
+                        borderWidth: 1,
+                        borderColor: isNeg ? '#f43f5e' : '#a855f7',
+                        borderRadius: 10,
+                        paddingVertical: 10,
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: '#ffffff',
+                          fontSize: 11.5,
+                          fontWeight: '900',
+                        }}
+                      >
+                        {isNeg ? '- Subtrair Tempo' : '+ Somar Horas / Min'}
+                      </Text>
+                    </Pressable>
+
+                    <Pressable
+                      onPress={() => {
+                        if (!targetCard) return;
+                        const h = Math.max(
+                          0,
+                          parseFloat(quickAdjustHours.replace(',', '.')) || 0
+                        );
+                        const m = Math.max(
+                          0,
+                          parseFloat(quickAdjustMinutes.replace(',', '.')) || 0
+                        );
+                        const targetSecs = Math.round(h * 3600 + m * 60);
+                        handleAdjustCardTimer(targetCard.id, 'set', targetSecs);
+                        setAdjustingTimeCardId(null);
+                      }}
+                      style={{
+                        flex: 1,
+                        backgroundColor: 'rgba(34, 211, 238, 0.22)',
+                        borderWidth: 1,
+                        borderColor: '#22d3ee',
+                        borderRadius: 10,
+                        paddingVertical: 10,
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: '#e0f2fe',
+                          fontSize: 11.5,
+                          fontWeight: '900',
+                        }}
+                      >
+                        = Definir Total
+                      </Text>
+                    </Pressable>
+                  </View>
+                </>
+              );
+            })()}
+          </View>
+        </View>
+      </Modal>
 
       {/* Project Assignment Bottom Sheet Modal (Never clipped inside card box!) */}
       <Modal

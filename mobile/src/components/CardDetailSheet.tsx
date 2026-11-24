@@ -107,6 +107,14 @@ export const CardDetailSheet: React.FC<CardDetailSheetProps> = ({
   const [newLabelName, setNewLabelName] = useState('');
   const [newLabelColor, setNewLabelColor] = useState('#3b82f6');
 
+  // Add / subtract / set hours & minutes on task stopwatch
+  const [isAdjustingTime, setIsAdjustingTime] = useState(false);
+  const [adjustHoursInput, setAdjustHoursInput] = useState('');
+  const [adjustMinutesInput, setAdjustMinutesInput] = useState('');
+  const isSubtractingTime =
+    adjustHoursInput.trim().startsWith('-') ||
+    adjustMinutesInput.trim().startsWith('-');
+
   useEffect(() => {
     if (card) {
       setTitle(card.title);
@@ -131,6 +139,54 @@ export const CardDetailSheet: React.FC<CardDetailSheetProps> = ({
       ...partial,
       updatedAt: Date.now(),
     });
+  };
+
+  const applyTimeAdjustment = (mode: 'add' | 'set', secondsValue: number) => {
+    const currentNow = Date.now();
+    const currentElapsed = getLiveElapsedSeconds(card, currentNow);
+    const nextElapsed =
+      mode === 'add'
+        ? Math.max(0, currentElapsed + secondsValue)
+        : Math.max(0, secondsValue);
+
+    let nextStatus = card.status;
+    if (card.status === 'todo' && nextElapsed > 0) {
+      nextStatus = 'paused';
+    } else if (card.status === 'paused' && nextElapsed === 0) {
+      nextStatus = 'todo';
+    }
+
+    onUpdateCard({
+      ...card,
+      status: nextStatus,
+      elapsedSeconds: nextElapsed,
+      timerStartedAt: card.status === 'in_progress' ? currentNow : undefined,
+      updatedAt: currentNow,
+    });
+  };
+
+  const handleApplyCustomAddOrSubtract = () => {
+    const rawH = adjustHoursInput.trim();
+    const rawM = adjustMinutesInput.trim();
+    const isNeg = rawH.startsWith('-') || rawM.startsWith('-');
+    const absH = Math.abs(parseFloat(rawH.replace(',', '.')) || 0);
+    const absM = Math.abs(parseFloat(rawM.replace(',', '.')) || 0);
+    const totalSecs = Math.round(absH * 3600 + absM * 60);
+    if (totalSecs === 0) return;
+    applyTimeAdjustment('add', isNeg ? -totalSecs : totalSecs);
+    setAdjustHoursInput('');
+    setAdjustMinutesInput('');
+    setIsAdjustingTime(false);
+  };
+
+  const handleApplyCustomSetTotal = () => {
+    const h = Math.max(0, parseFloat(adjustHoursInput.replace(',', '.')) || 0);
+    const m = Math.max(0, parseFloat(adjustMinutesInput.replace(',', '.')) || 0);
+    const targetSecs = Math.round(h * 3600 + m * 60);
+    applyTimeAdjustment('set', targetSecs);
+    setAdjustHoursInput('');
+    setAdjustMinutesInput('');
+    setIsAdjustingTime(false);
   };
 
   const handleDateChange = (newDate: string) => {
@@ -201,57 +257,266 @@ export const CardDetailSheet: React.FC<CardDetailSheetProps> = ({
             />
 
             {/* Stopwatch Box */}
-            <View style={styles.timerBox}>
-              <View>
-                <Text style={styles.timerLabel}>CRONÔMETRO DA TAREFA</Text>
-                <Text
-                  style={[
-                    styles.timerDigits,
-                    isRunning && { color: '#22d3ee' },
-                  ]}
-                >
-                  {formatStopwatch(liveSeconds)}
-                </Text>
-              </View>
-              <View style={styles.timerBtnsRow}>
-                {!isCompleted && (
-                  <Pressable
-                    onPress={() => onToggleTimer(card.id)}
+            <View style={[styles.timerBox, { flexDirection: 'column', alignItems: 'stretch' }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                <View>
+                  <Text style={styles.timerLabel}>CRONÔMETRO DA TAREFA</Text>
+                  <Text
                     style={[
-                      styles.timerActionBtn,
-                      {
-                        backgroundColor: isRunning ? '#f59e0b' : '#22d3ee',
-                      },
+                      styles.timerDigits,
+                      isRunning && { color: '#22d3ee' },
                     ]}
                   >
-                    <Text style={styles.timerActionText}>
-                      {isRunning ? '⏸ PAUSAR' : '▶ INICIAR'}
+                    {formatStopwatch(liveSeconds)}
+                  </Text>
+                </View>
+                <View style={[styles.timerBtnsRow, { flexWrap: 'wrap' }]}>
+                  <Pressable
+                    onPress={() => setIsAdjustingTime((v) => !v)}
+                    style={{
+                      backgroundColor: isAdjustingTime
+                        ? 'rgba(34, 211, 238, 0.25)'
+                        : 'rgba(255, 255, 255, 0.08)',
+                      borderWidth: 1,
+                      borderColor: '#22d3ee',
+                      borderRadius: 10,
+                      paddingHorizontal: 10,
+                      paddingVertical: 8,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: '#a5f3fc',
+                        fontSize: 11,
+                        fontWeight: '900',
+                      }}
+                    >
+                      + Horas / Min
                     </Text>
                   </Pressable>
-                )}
-                {liveSeconds > 0 && (
+
+                  {!isCompleted && (
+                    <Pressable
+                      onPress={() => onToggleTimer(card.id)}
+                      style={[
+                        styles.timerActionBtn,
+                        {
+                          backgroundColor: isRunning ? '#f59e0b' : '#22d3ee',
+                        },
+                      ]}
+                    >
+                      <Text style={styles.timerActionText}>
+                        {isRunning ? '⏸ PAUSAR' : '▶ INICIAR'}
+                      </Text>
+                    </Pressable>
+                  )}
+                  {liveSeconds > 0 && (
+                    <Pressable
+                      onPress={() => onResetTimer(card.id)}
+                      style={styles.resetBtn}
+                    >
+                      <Text style={styles.resetText}>↺</Text>
+                    </Pressable>
+                  )}
                   <Pressable
-                    onPress={() => onResetTimer(card.id)}
-                    style={styles.resetBtn}
+                    onPress={() => {
+                      onCompleteCard(card.id);
+                      onClose();
+                    }}
+                    style={[
+                      styles.completeBtn,
+                      isCompleted && { backgroundColor: '#475569' },
+                    ]}
                   >
-                    <Text style={styles.resetText}>↺</Text>
+                    <Text style={styles.completeBtnText}>
+                      {isCompleted ? '↩ Reabrir' : '✓ Concluir'}
+                    </Text>
                   </Pressable>
-                )}
-                <Pressable
-                  onPress={() => {
-                    onCompleteCard(card.id);
-                    onClose();
-                  }}
-                  style={[
-                    styles.completeBtn,
-                    isCompleted && { backgroundColor: '#475569' },
-                  ]}
-                >
-                  <Text style={styles.completeBtnText}>
-                    {isCompleted ? '↩ Reabrir' : '✓ Concluir'}
-                  </Text>
-                </Pressable>
+                </View>
               </View>
+
+              {isAdjustingTime && (
+                <View
+                  style={{
+                    marginTop: 12,
+                    paddingTop: 12,
+                    borderTopWidth: 1,
+                    borderTopColor: 'rgba(255,255,255,0.1)',
+                    gap: 10,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: '#67e8f9',
+                      fontSize: 10.5,
+                      fontWeight: '900',
+                    }}
+                  >
+                    ⏱ ESQUECEU DE DESPAUSAR? ADICIONE OU AJUSTE HORAS E MINUTOS:
+                  </Text>
+
+                  <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+                    {[
+                      { label: '+15m', secs: 15 * 60 },
+                      { label: '+30m', secs: 30 * 60 },
+                      { label: '+45m', secs: 45 * 60 },
+                      { label: '+1h', secs: 3600 },
+                      { label: '+2h', secs: 7200 },
+                    ].map((p) => (
+                      <Pressable
+                        key={p.label}
+                        onPress={() => applyTimeAdjustment('add', p.secs)}
+                        style={{
+                          backgroundColor: 'rgba(34, 211, 238, 0.16)',
+                          borderWidth: 1,
+                          borderColor: 'rgba(34, 211, 238, 0.45)',
+                          borderRadius: 8,
+                          paddingHorizontal: 10,
+                          paddingVertical: 6,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: '#a5f3fc',
+                            fontSize: 11,
+                            fontWeight: '800',
+                          }}
+                        >
+                          {p.label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <View
+                      style={{
+                        flex: 1,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        backgroundColor: '#07050d',
+                        borderWidth: 1,
+                        borderColor: 'rgba(168, 85, 247, 0.45)',
+                        borderRadius: 10,
+                        paddingHorizontal: 10,
+                      }}
+                    >
+                      <TextInput
+                        style={{
+                          flex: 1,
+                          color: '#ffffff',
+                          fontSize: 13,
+                          fontWeight: '700',
+                          paddingVertical: 8,
+                        }}
+                        placeholder="0 (ou -1)"
+                        placeholderTextColor="#64748b"
+                        value={adjustHoursInput}
+                        onChangeText={setAdjustHoursInput}
+                        keyboardType="numbers-and-punctuation"
+                      />
+                      <Text
+                        style={{
+                          color: '#94a3b8',
+                          fontSize: 11,
+                          fontWeight: '800',
+                        }}
+                      >
+                        h
+                      </Text>
+                    </View>
+
+                    <View
+                      style={{
+                        flex: 1,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        backgroundColor: '#07050d',
+                        borderWidth: 1,
+                        borderColor: 'rgba(168, 85, 247, 0.45)',
+                        borderRadius: 10,
+                        paddingHorizontal: 10,
+                      }}
+                    >
+                      <TextInput
+                        style={{
+                          flex: 1,
+                          color: '#ffffff',
+                          fontSize: 13,
+                          fontWeight: '700',
+                          paddingVertical: 8,
+                        }}
+                        placeholder="30 (ou -15)"
+                        placeholderTextColor="#64748b"
+                        value={adjustMinutesInput}
+                        onChangeText={setAdjustMinutesInput}
+                        keyboardType="numbers-and-punctuation"
+                      />
+                      <Text
+                        style={{
+                          color: '#94a3b8',
+                          fontSize: 11,
+                          fontWeight: '800',
+                        }}
+                      >
+                        min
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <Pressable
+                      onPress={handleApplyCustomAddOrSubtract}
+                      style={{
+                        flex: 1,
+                        backgroundColor: isSubtractingTime
+                          ? 'rgba(244, 63, 94, 0.25)'
+                          : 'rgba(168, 85, 247, 0.3)',
+                        borderWidth: 1,
+                        borderColor: isSubtractingTime ? '#f43f5e' : '#a855f7',
+                        borderRadius: 10,
+                        paddingVertical: 9,
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: '#ffffff',
+                          fontSize: 11.5,
+                          fontWeight: '900',
+                        }}
+                      >
+                        {isSubtractingTime
+                          ? '- Subtrair Tempo'
+                          : '+ Somar Horas / Min'}
+                      </Text>
+                    </Pressable>
+
+                    <Pressable
+                      onPress={handleApplyCustomSetTotal}
+                      style={{
+                        flex: 1,
+                        backgroundColor: 'rgba(34, 211, 238, 0.22)',
+                        borderWidth: 1,
+                        borderColor: '#22d3ee',
+                        borderRadius: 10,
+                        paddingVertical: 9,
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: '#e0f2fe',
+                          fontSize: 11.5,
+                          fontWeight: '900',
+                        }}
+                      >
+                        = Definir Total
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
             </View>
 
             {/* Vincular a Projeto Section */}

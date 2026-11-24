@@ -45,8 +45,9 @@
 - **Atribuição de Horas da Tarefa ao Projeto (Portal Flutuante Livre):**
   - Nos cards do Kanban (`src/components/KanbanCard.tsx`), ao lado do botão **INICIAR**, há um ícone de projeto (`Briefcase`) que abre o menu **Vincular a Projeto**.
   - **Regra de UI obrigatória:** Esse menu é renderizado via `createPortal(..., document.body)` com coordenadas `fixed` e `z-[9999]` para **nunca ficar preso/cortado dentro da box do card ou da coluna**.
-- **Adição, Subtração (`- Subtrair Horas`) e Ajuste Manual de Horas em Projetos (`+ Horas / Ajustar`):**
+- **Adição, Subtração (`- Subtrair Horas`) e Ajuste Manual de Horas em Projetos (`+ Horas / Ajustar`) e Diretamente nas Tarefas (`+ Tempo` / `+ Horas / Minutos`):**
   - Todo projeto possui o botão **`+ Horas / Ajustar`** para que o usuário possa **+ Somar Horas**, **- Subtrair Horas** (basta digitar o sinal de menos `-` na frente do número e o botão `+ Somar Horas` muda automaticamente para **`- Subtrair Horas`**) ou **= Definir Total**.
+  - **Adicionar / Ajustar Horas e Minutos nas Tarefas (`TaskCard`)**: caso o usuário tenha pausado uma tarefa e esquecido de despausar o cronômetro, ele pode adicionar (ou subtrair/definir) horas e minutos diretamente na tarefa — tanto pelo botão **`+ Tempo` / `+⏱`** no card do Board (via Portal flutuante `createPortal(..., document.body)`) quanto pelo botão **`+ Horas / Minutos`** dentro do Modal/Detalhes da Tarefa (com atalhos rápidos `+15m`, `+30m`, `+45m`, `+1h`, `+2h` e campos personalizados de horas e minutos). Se a tarefa estiver vinculada a um projeto, esse tempo também já soma automaticamente nas horas do projeto.
 - **Exclusão de Projetos APENAS Arrastando (Sem Clique Único):**
   - **Não existe botão de apagar projeto com 1 clique** nos cards de projetos ativos ou concluídos para evitar *missclick* e perda acidental de projeto. Para excluir um projeto, o usuário deve **arrastar o projeto até a zona "Lixeira"** na parte inferior da tela.
 - **Sistema de Clientes Obrigatório por Projeto (`clientName`):**

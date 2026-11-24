@@ -1,5 +1,10 @@
 # Histórico de Versões e Atualizações — NEON
 
+## v1.5.7 (2026-11-23)
+- **Função de Adicionar / Ajustar Horas e Minutos Diretamente nas Tarefas (`+ Tempo` / `+ Horas / Minutos`)**:
+  - Caso o usuário tenha pausado e esquecido de despausar o cronômetro de uma tarefa, agora é possível adicionar (ou subtrair/definir) horas e minutos diretamente na tarefa — tanto pelo botão **`+ Tempo` / `+⏱`** no próprio card do Board (via popover flutuante em Portal) quanto pelo botão **`+ Horas / Minutos`** dentro do modal de detalhes da tarefa (PC e Mobile).
+  - Inclui atalhos de 1 clique (**`+15m`**, **`+30m`**, **`+45m`**, **`+1h`**, **`+2h`**) e campos personalizados de **Horas (`h`)** e **Minutos (`min`)** para **`+ Somar Tempo`**, **`- Subtrair Tempo`** (ao digitar número negativo) ou **`= Definir Total`**, refletindo automaticamente também no projeto vinculado.
+
 ## v1.5.6 (2026-11-21)
 - **Selecionar Horário Exato Atual (`⚡ Agora`) em Qualquer Tarefa**: adicionado botão **`⚡ Agora (HH:MM)`** dentro do seletor de horários e ao lado dos campos de horário (no Board, Calendário, Modal de Tarefa e Mobile) para preencher instantaneamente com a hora e minuto exatos atuais.
 - **Correção da Visibilidade e Seleção dos Minutos no Fim da Tarefa (`TimeInput24h` via Portal + Todos os 60 Minutos `:00` a `:59`)**:

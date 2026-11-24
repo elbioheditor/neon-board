@@ -937,6 +937,40 @@ export function App() {
     }));
   };
 
+  const handleAdjustCardTimer = (
+    cardId: string,
+    mode: 'add' | 'set',
+    secondsValue: number
+  ) => {
+    const currentNow = Date.now();
+    setNowMs(currentNow);
+    updateState((prev) => ({
+      ...prev,
+      cards: prev.cards.map((c) => {
+        if (c.id !== cardId) return c;
+        const currentElapsed = getLiveElapsedSeconds(c, currentNow);
+        const nextElapsed =
+          mode === 'add'
+            ? Math.max(0, currentElapsed + secondsValue)
+            : Math.max(0, secondsValue);
+
+        let nextStatus = c.status;
+        if (c.status === 'todo' && nextElapsed > 0) {
+          nextStatus = 'paused';
+        } else if (c.status === 'paused' && nextElapsed === 0) {
+          nextStatus = 'todo';
+        }
+
+        return {
+          ...c,
+          status: nextStatus,
+          elapsedSeconds: nextElapsed,
+          timerStartedAt: c.status === 'in_progress' ? currentNow : undefined,
+        };
+      }),
+    }));
+  };
+
   const handleCompleteCard = (e: React.MouseEvent | null, cardId: string) => {
     if (e) e.stopPropagation();
     const target = state.cards.find((c) => c.id === cardId);
@@ -2223,7 +2257,7 @@ export function App() {
   const isDraggingAnything = Boolean(draggedCardId || draggedListId);
   const isDidiUser = Boolean(currentUserProfile?.username?.toLowerCase().includes('didi'));
   const appBrandName = isDidiUser ? 'SHADOWJOKER' : (window.neonDesktop?.brandName || 'NEON');
-  const appVersion = window.neonDesktop?.version || '1.5.6';
+  const appVersion = window.neonDesktop?.version || '1.5.7';
 
   if (isCheckingAuth || isSyncingUserData) {
     return (
@@ -3011,6 +3045,7 @@ export function App() {
                               onOpenModal={(c) => setSelectedCardId(c.id)}
                               onToggleTimer={handleToggleTimer}
                               onResetTimer={handleResetTimer}
+                              onAdjustTimer={handleAdjustCardTimer}
                               onAssignProject={handleAssignCardProject}
                               onCompleteCard={handleCompleteCard}
                               onDragStart={handleCardDragStart}
